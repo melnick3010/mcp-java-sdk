@@ -374,7 +374,8 @@ public class WebClientStreamableHttpTransportErrorHandlingTest {
 		serverResponseStatus.set(200);
 		currentServerSessionId.set("sse-session-1");
 
-		WebClientStreamableHttpTransport transport = WebClientStreamableHttpTransport.builder(WebClient.builder().baseUrl(HOST))
+		WebClientStreamableHttpTransport transport = WebClientStreamableHttpTransport
+			.builder(WebClient.builder().baseUrl(HOST))
 			.endpoint("/mcp-sse")
 			.openConnectionOnStartup(true) // This will trigger GET request on connect
 			.build();

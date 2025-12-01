@@ -101,7 +101,8 @@ class WebFluxStreamableHttpVersionNegotiationIntegrationTests {
 
 		client.initialize();
 
-		McpSchema.CallToolResult response = client.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()));
+		McpSchema.CallToolResult response = client
+			.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()));
 
 		List<Call> calls = recordingFilterFunction.getCalls();
 		assertThat(calls).filteredOn(c -> !c.getBody().contains("\"method\":\"initialize\""))
@@ -130,13 +131,15 @@ class WebFluxStreamableHttpVersionNegotiationIntegrationTests {
 
 		client.initialize();
 
-		McpSchema.CallToolResult response = client.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()));
+		McpSchema.CallToolResult response = client
+			.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()));
 
 		List<Call> calls = recordingFilterFunction.getCalls();
 		// Initialize tells the server the Client's latest supported version
 		// FIXME: Set the correct protocol version on GET /mcp
 		assertThat(calls)
-			.filteredOn(c -> !c.getBody().contains("\"method\":\"initialize\"") && c.getMethod().equals(HttpMethod.POST))
+			.filteredOn(
+					c -> !c.getBody().contains("\"method\":\"initialize\"") && c.getMethod().equals(HttpMethod.POST))
 			// POST notification/initialized ; POST tools/call
 			.hasSize(2)
 			.map(McpTestRequestRecordingExchangeFilterFunction.Call::getHeaders)

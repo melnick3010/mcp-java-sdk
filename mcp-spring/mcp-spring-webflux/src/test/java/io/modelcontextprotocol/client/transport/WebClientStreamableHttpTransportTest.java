@@ -51,8 +51,8 @@ class WebClientStreamableHttpTransportTest {
 		InitializeRequest initializeRequest = new McpSchema.InitializeRequest(McpSchema.LATEST_PROTOCOL_VERSION,
 				McpSchema.ClientCapabilities.builder().roots(true).build(),
 				new McpSchema.Implementation("MCP Client", "0.3.1"));
-		JSONRPCRequest testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, McpSchema.METHOD_INITIALIZE,
-				"test-id", initializeRequest);
+		JSONRPCRequest testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION,
+				McpSchema.METHOD_INITIALIZE, "test-id", initializeRequest);
 
 		StepVerifier.create(transport.sendMessage(testMessage))
 			.expectErrorMessage("MCP session has been closed")
@@ -66,8 +66,8 @@ class WebClientStreamableHttpTransportTest {
 		InitializeRequest initializeRequest = new McpSchema.InitializeRequest(McpSchema.LATEST_PROTOCOL_VERSION,
 				McpSchema.ClientCapabilities.builder().roots(true).build(),
 				new McpSchema.Implementation("MCP Client", "0.3.1"));
-		JSONRPCRequest testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, McpSchema.METHOD_INITIALIZE,
-				"test-id", initializeRequest);
+		JSONRPCRequest testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION,
+				McpSchema.METHOD_INITIALIZE, "test-id", initializeRequest);
 
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
 		StepVerifier.create(transport.closeGracefully()).verifyComplete();
