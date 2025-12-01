@@ -30,6 +30,8 @@ import io.modelcontextprotocol.server.TestUtil;
 import io.modelcontextprotocol.spec.HttpHeaders;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.McpSchema.InitializeRequest;
+import io.modelcontextprotocol.spec.McpSchema.JSONRPCRequest;
 import io.modelcontextprotocol.spec.McpTransportException;
 import io.modelcontextprotocol.spec.McpTransportSessionNotFoundException;
 import io.modelcontextprotocol.spec.ProtocolVersions;
@@ -146,7 +148,7 @@ public class WebClientStreamableHttpTransportErrorHandlingTest {
 		serverResponseStatus.set(404);
 		currentServerSessionId.set(null); // No session ID in response
 
-		var testMessage = createTestMessage();
+		JSONRPCRequest testMessage = createTestMessage();
 
 		StepVerifier.create(transport.sendMessage(testMessage))
 			.expectErrorMatches(throwable -> throwable instanceof McpTransportException
@@ -174,7 +176,7 @@ public class WebClientStreamableHttpTransportErrorHandlingTest {
 		StepVerifier.create(transport.connect(msg -> msg)).verifyComplete();
 
 		// Send initial message to establish session
-		var testMessage = createTestMessage();
+		JSONRPCRequest testMessage = createTestMessage();
 
 		// Send first message to establish session
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
@@ -214,7 +216,7 @@ public class WebClientStreamableHttpTransportErrorHandlingTest {
 		serverResponseStatus.set(400);
 		currentServerSessionId.set(null); // No session ID
 
-		var testMessage = createTestMessage();
+		JSONRPCRequest testMessage = createTestMessage();
 
 		StepVerifier.create(transport.sendMessage(testMessage))
 			.expectErrorMatches(throwable -> throwable instanceof McpTransportException
@@ -243,7 +245,7 @@ public class WebClientStreamableHttpTransportErrorHandlingTest {
 		StepVerifier.create(transport.connect(msg -> msg)).verifyComplete();
 
 		// Send initial message to establish session
-		var testMessage = createTestMessage();
+		JSONRPCRequest testMessage = createTestMessage();
 
 		// Send first message to establish session
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
@@ -287,7 +289,7 @@ public class WebClientStreamableHttpTransportErrorHandlingTest {
 		currentServerSessionId.set("session-1");
 
 		// Send initial message to establish session
-		var testMessage = createTestMessage();
+		JSONRPCRequest testMessage = createTestMessage();
 
 		// Use Mono.defer to ensure proper sequencing
 		Mono<Void> establishSession = transport.sendMessage(testMessage).then(Mono.defer(() -> {
@@ -372,7 +374,7 @@ public class WebClientStreamableHttpTransportErrorHandlingTest {
 		serverResponseStatus.set(200);
 		currentServerSessionId.set("sse-session-1");
 
-		var transport = WebClientStreamableHttpTransport.builder(WebClient.builder().baseUrl(HOST))
+		WebClientStreamableHttpTransport transport = WebClientStreamableHttpTransport.builder(WebClient.builder().baseUrl(HOST))
 			.endpoint("/mcp-sse")
 			.openConnectionOnStartup(true) // This will trigger GET request on connect
 			.build();
@@ -385,7 +387,7 @@ public class WebClientStreamableHttpTransportErrorHandlingTest {
 		assertThat(connected).isTrue();
 
 		// Send message to establish session
-		var testMessage = createTestMessage();
+		JSONRPCRequest testMessage = createTestMessage();
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
 
 		// Clean up
@@ -393,7 +395,7 @@ public class WebClientStreamableHttpTransportErrorHandlingTest {
 	}
 
 	private McpSchema.JSONRPCRequest createTestMessage() {
-		var initializeRequest = new McpSchema.InitializeRequest(ProtocolVersions.MCP_2025_03_26,
+		InitializeRequest initializeRequest = new McpSchema.InitializeRequest(ProtocolVersions.MCP_2025_03_26,
 				McpSchema.ClientCapabilities.builder().roots(true).build(),
 				new McpSchema.Implementation("Test Client", "1.0.0"));
 		return new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, McpSchema.METHOD_INITIALIZE, "test-id",

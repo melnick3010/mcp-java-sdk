@@ -5,6 +5,7 @@
 package io.modelcontextprotocol.client.transport;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -191,7 +192,7 @@ class WebFluxSseClientTransportTests {
 	void testMessageProcessing() {
 		// Create a test message
 		JSONRPCRequest testMessage = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "test-method", "test-id",
-				Map.of("key", "value"));
+				Collections.singletonMap("key", "value"));
 
 		// Simulate receiving the message
 		transport.simulateMessageEvent(
@@ -211,7 +212,7 @@ class WebFluxSseClientTransportTests {
 
 		// Create and send a request message
 		JSONRPCRequest testMessage = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "test-method", "test-id",
-				Map.of("key", "value"));
+				Collections.singletonMap("key", "value"));
 
 		// Verify message handling
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
@@ -227,7 +228,7 @@ class WebFluxSseClientTransportTests {
 
 		// Create and send a request message
 		JSONRPCRequest testMessage = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "test-method", "test-id",
-				Map.of("key", "value"));
+				Collections.singletonMap("key", "value"));
 
 		// Verify message handling
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
@@ -252,7 +253,7 @@ class WebFluxSseClientTransportTests {
 
 		// Create a test message
 		JSONRPCRequest testMessage = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "test-method", "test-id",
-				Map.of("key", "value"));
+				Collections.singletonMap("key", "value"));
 
 		// Verify message is not processed after shutdown
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
@@ -286,10 +287,10 @@ class WebFluxSseClientTransportTests {
 
 		// Create and send corresponding messages
 		JSONRPCRequest message1 = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "method1", "id1",
-				Map.of("key", "value1"));
+				Collections.singletonMap("key", "value1"));
 
 		JSONRPCRequest message2 = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "method2", "id2",
-				Map.of("key", "value2"));
+				Collections.singletonMap("key", "value2"));
 
 		// Verify both messages are processed
 		StepVerifier.create(transport.sendMessage(message1).then(transport.sendMessage(message2))).verifyComplete();

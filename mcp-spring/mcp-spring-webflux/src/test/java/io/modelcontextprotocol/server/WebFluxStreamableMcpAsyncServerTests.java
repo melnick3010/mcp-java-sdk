@@ -30,7 +30,7 @@ class WebFluxStreamableMcpAsyncServerTests extends AbstractMcpAsyncServerTests {
 	private DisposableServer httpServer;
 
 	private McpStreamableServerTransportProvider createMcpTransportProvider() {
-		var transportProvider = WebFluxStreamableServerTransportProvider.builder()
+		WebFluxStreamableServerTransportProvider transportProvider = WebFluxStreamableServerTransportProvider.builder()
 			.messageEndpoint(MESSAGE_ENDPOINT)
 			.build();
 
