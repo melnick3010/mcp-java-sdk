@@ -29,7 +29,7 @@ class WebFluxSseMcpAsyncServerTests extends AbstractMcpAsyncServerTests {
 	private DisposableServer httpServer;
 
 	private McpServerTransportProvider createMcpTransportProvider() {
-		var transportProvider = new WebFluxSseServerTransportProvider.Builder().messageEndpoint(MESSAGE_ENDPOINT)
+		WebFluxSseServerTransportProvider transportProvider = new WebFluxSseServerTransportProvider.Builder().messageEndpoint(MESSAGE_ENDPOINT)
 			.build();
 
 		HttpHandler httpHandler = RouterFunctions.toHttpHandler(transportProvider.getRouterFunction());

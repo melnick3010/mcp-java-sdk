@@ -5,6 +5,7 @@
 package io.modelcontextprotocol;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -44,7 +45,7 @@ class WebFluxStreamableIntegrationTests extends AbstractMcpClientServerIntegrati
 	private WebFluxStreamableServerTransportProvider mcpStreamableServerTransportProvider;
 
 	static McpTransportContextExtractor<ServerRequest> TEST_CONTEXT_EXTRACTOR = (r) -> McpTransportContext
-		.create(Map.of("important", "value"));
+		.create(Collections.singletonMap("important", "value"));
 
 	static Stream<Arguments> clientsForTesting() {
 		return Stream.of(Arguments.of("httpclient"), Arguments.of("webflux"));
