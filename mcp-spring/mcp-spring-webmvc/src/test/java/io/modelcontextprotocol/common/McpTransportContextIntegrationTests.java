@@ -79,7 +79,8 @@ public class McpTransportContextIntegrationTests {
 
 	private final Supplier<McpTransportContext> clientContextProvider = () -> {
 		Object headerValue = CLIENT_SIDE_HEADER_VALUE_HOLDER.get();
-		return headerValue != null ? McpTransportContext.create(Collections.singletonMap("client-side-header-value", headerValue))
+		return headerValue != null
+				? McpTransportContext.create(Collections.singletonMap("client-side-header-value", headerValue))
 				: McpTransportContext.EMPTY;
 	};
 
@@ -100,7 +101,8 @@ public class McpTransportContextIntegrationTests {
 
 	private static McpTransportContextExtractor<ServerRequest> serverContextExtractor = (ServerRequest r) -> {
 		String headerValue = r.servletRequest().getHeader(HEADER_NAME);
-		return headerValue != null ? McpTransportContext.create(Collections.singletonMap("server-side-header-value", headerValue))
+		return headerValue != null
+				? McpTransportContext.create(Collections.singletonMap("server-side-header-value", headerValue))
 				: McpTransportContext.EMPTY;
 	};
 
@@ -182,7 +184,8 @@ public class McpTransportContextIntegrationTests {
 		assertThat(initResult).isNotNull();
 
 		CLIENT_SIDE_HEADER_VALUE_HOLDER.set("some important value");
-		McpSchema.CallToolResult response = sseClient.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()));
+		McpSchema.CallToolResult response = sseClient
+			.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()));
 
 		assertThat(response).isNotNull();
 		assertThat(response.getContent()).hasSize(1)

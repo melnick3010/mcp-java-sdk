@@ -1422,8 +1422,6 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		outputSchema.put("type", "object");
 		outputSchema.put("properties", propsmap);
 
-
-
 		Tool calculatorTool = Tool.builder()
 			.name("calculator")
 			.description("Performs mathematical calculations")
@@ -1765,8 +1763,6 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			// Initially no tools
 			assertThat(mcpClient.listTools().getTools()).isEmpty();
-
-
 
 			Map<String, Object> outputSchema = new HashMap<>();
 			outputSchema.put("type", "object");
