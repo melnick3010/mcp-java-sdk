@@ -194,14 +194,8 @@ class WebFluxSseClientTransportTests {
 				Map.of("key", "value"));
 
 		// Simulate receiving the message
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "method": "test-method",
-				    "id": "test-id",
-				    "params": {"key": "value"}
-				}
-				""");
+		transport.simulateMessageEvent(
+				"{\"jsonrpc\": \"2.0\",\"method\": \"test-method\",\"id\": \"test-id\",\"params\": {\"key\": \"value\"}}");
 
 		// Subscribe to messages and verify
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
@@ -212,13 +206,8 @@ class WebFluxSseClientTransportTests {
 	@Test
 	void testResponseMessageProcessing() {
 		// Simulate receiving a response message
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "id": "test-id",
-				    "result": {"status": "success"}
-				}
-				""");
+		transport.simulateMessageEvent(
+				"				{				    \"jsonrpc\": \"2.0\",				    \"id\": \"test-id\",				    \"result\": {\"status\": \"success\"}				}			");
 
 		// Create and send a request message
 		JSONRPCRequest testMessage = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "test-method", "test-id",
@@ -233,16 +222,8 @@ class WebFluxSseClientTransportTests {
 	@Test
 	void testErrorMessageProcessing() {
 		// Simulate receiving an error message
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "id": "test-id",
-				    "error": {
-				        "code": -32600,
-				        "message": "Invalid Request"
-				    }
-				}
-				""");
+		transport.simulateMessageEvent(
+				"				{				    \"jsonrpc\": \"2.0\",				    \"id\": \"test-id\",				    \"error\": {				        \"code\": -32600,				        \"message\": \"Invalid Request\"				    }				}				");
 
 		// Create and send a request message
 		JSONRPCRequest testMessage = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "test-method", "test-id",
@@ -257,13 +238,8 @@ class WebFluxSseClientTransportTests {
 	@Test
 	void testNotificationMessageProcessing() {
 		// Simulate receiving a notification message (no id)
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "method": "update",
-				    "params": {"status": "processing"}
-				}
-				""");
+		transport.simulateMessageEvent(
+				"				{				    \"jsonrpc\": \"2.0\",				    \"method\": \"update\",				    \"params\": {\"status\": \"processing\"}				}				");
 
 		// Verify the notification was processed
 		assertThat(transport.getInboundMessageCount()).isEqualTo(1);
@@ -302,23 +278,11 @@ class WebFluxSseClientTransportTests {
 	@Test
 	void testMultipleMessageProcessing() {
 		// Simulate receiving multiple messages in sequence
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "method": "method1",
-				    "id": "id1",
-				    "params": {"key": "value1"}
-				}
-				""");
+		transport.simulateMessageEvent(
+				"				{				    \"jsonrpc\": \"2.0\",				    \"method\": \"method1\",				    \"id\": \"id1\",				    \"params\": {\"key\": \"value1\"}}");
 
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "method": "method2",
-				    "id": "id2",
-				    "params": {"key": "value2"}
-				}
-				""");
+		transport.simulateMessageEvent(
+				"				{				    \"jsonrpc\": \"2.0\",				    \"method\": \"method2\",				    \"id\": \"id2\",				    \"params\": {\"key\": \"value2\"}				}				");
 
 		// Create and send corresponding messages
 		JSONRPCRequest message1 = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "method1", "id1",
@@ -337,32 +301,14 @@ class WebFluxSseClientTransportTests {
 	@Test
 	void testMessageOrderPreservation() {
 		// Simulate receiving messages in a specific order
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "method": "first",
-				    "id": "1",
-				    "params": {"sequence": 1}
-				}
-				""");
+		transport.simulateMessageEvent(
+				"				{				    \"jsonrpc\": \"2.0\",				    \"method\": \"first\",				    \"id\": \"1\",				    \"params\": {\"sequence\": 1}				}				");
 
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "method": "second",
-				    "id": "2",
-				    "params": {"sequence": 2}
-				}
-				""");
+		transport.simulateMessageEvent(
+				"				{				    \"jsonrpc\": \"2.0\",				    \"method\": \"second\",				    \"id\": \"2\",				    \"params\": {\"sequence\": 2}				}				");
 
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "method": "third",
-				    "id": "3",
-				    "params": {"sequence": 3}
-				}
-				""");
+		transport.simulateMessageEvent(
+				"				{				    \"jsonrpc\": \"2.0\",				    \"method\": \"third\",				    \"id\": \"3\",				    \"params\": {\"sequence\": 3}				}				");
 
 		// Verify message count and order
 		assertThat(transport.getInboundMessageCount()).isEqualTo(3);

@@ -77,6 +77,10 @@
 		<maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
 		<maven.compiler.release>8</maven.compiler.release>
 		<surefireArgLine/>
+
+ <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
 	</properties>
 	<modules>
 		<module>mcp-bom</module>
