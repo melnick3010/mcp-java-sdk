@@ -69,7 +69,7 @@ class HttpSseMcpSyncClientTests extends AbstractMcpSyncClientTests {
 
 	@Test
 	void customizesRequests() {
-		// Sostituzione di Map.of(...) con HashMap
+		
 		Map<String, Object> map = new HashMap<String, Object>();
 		map.put("some-key", "some-value");
 		McpTransportContext mcpTransportContext = McpTransportContext.create(map);

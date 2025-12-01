@@ -1422,14 +1422,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		outputSchema.put("type", "object");
 		outputSchema.put("properties", propsmap);
 
-		// Create a tool with output schema
-		/*
-		 * Map<String, Object> outputSchemaold = Map.of( "type", "object", "properties",
-		 * Map.of("result", Collections.singletonMap("type", "number"), "operation",
-		 * Collections.singletonMap("type", "string"), "timestamp",
-		 * Collections.singletonMap("type", "string")), "required",
-		 * Arrays.asList("result", "operation"));
-		 */
+
 
 		Tool calculatorTool = Tool.builder()
 			.name("calculator")
@@ -1773,13 +1766,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			// Initially no tools
 			assertThat(mcpClient.listTools().getTools()).isEmpty();
 
-			// Add tool with output schema at runtime
-			/*
-			 * Map<String, Object> outputSchema = Map.of("type", "object", "properties",
-			 * Map.of("message", Collections.singletonMap("type", "string"), "count",
-			 * Collections.singletonMap("type", "integer")), "required",
-			 * Arrays.asList("message", "count"));
-			 */
+
 
 			Map<String, Object> outputSchema = new HashMap<>();
 			outputSchema.put("type", "object");

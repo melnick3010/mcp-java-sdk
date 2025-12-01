@@ -4,6 +4,7 @@
 
 package io.modelcontextprotocol.common;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
@@ -72,21 +73,21 @@ public class McpTransportContextIntegrationTests {
 
 	private TomcatServer tomcatServer;
 
-	private static final ThreadLocal<String> CLIENT_SIDE_HEADER_VALUE_HOLDER = new ThreadLocal<>();
+	private static final ThreadLocal<String> CLIENT_SIDE_HEADER_VALUE_HOLDER = new ThreadLocal<String>();
 
 	private static final String HEADER_NAME = "x-test";
 
 	private final Supplier<McpTransportContext> clientContextProvider = () -> {
-		var headerValue = CLIENT_SIDE_HEADER_VALUE_HOLDER.get();
-		return headerValue != null ? McpTransportContext.create(Map.of("client-side-header-value", headerValue))
+		Object headerValue = CLIENT_SIDE_HEADER_VALUE_HOLDER.get();
+		return headerValue != null ? McpTransportContext.create(Collections.singletonMap("client-side-header-value", headerValue))
 				: McpTransportContext.EMPTY;
 	};
 
 	private final McpSyncHttpClientRequestCustomizer clientRequestCustomizer = (builder, method, endpoint, body,
 			context) -> {
-		var headerValue = context.get("client-side-header-value");
+		Object headerValue = context.get("client-side-header-value");
 		if (headerValue != null) {
-			builder.header(HEADER_NAME, headerValue.toString());
+			builder.setHeader(HEADER_NAME, headerValue.toString());
 		}
 	};
 
@@ -99,7 +100,7 @@ public class McpTransportContextIntegrationTests {
 
 	private static McpTransportContextExtractor<ServerRequest> serverContextExtractor = (ServerRequest r) -> {
 		String headerValue = r.servletRequest().getHeader(HEADER_NAME);
-		return headerValue != null ? McpTransportContext.create(Map.of("server-side-header-value", headerValue))
+		return headerValue != null ? McpTransportContext.create(Collections.singletonMap("server-side-header-value", headerValue))
 				: McpTransportContext.EMPTY;
 	};
 
@@ -143,13 +144,13 @@ public class McpTransportContextIntegrationTests {
 
 		CLIENT_SIDE_HEADER_VALUE_HOLDER.set("some important value");
 		McpSchema.CallToolResult response = streamableClient
-			.callTool(new McpSchema.CallToolRequest("test-tool", Map.of()));
+			.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()));
 
 		assertThat(response).isNotNull();
-		assertThat(response.content()).hasSize(1)
+		assertThat(response.getContent()).hasSize(1)
 			.first()
 			.extracting(McpSchema.TextContent.class::cast)
-			.extracting(McpSchema.TextContent::text)
+			.extracting(McpSchema.TextContent::getText)
 			.isEqualTo("some important value");
 	}
 
@@ -163,13 +164,13 @@ public class McpTransportContextIntegrationTests {
 
 		CLIENT_SIDE_HEADER_VALUE_HOLDER.set("some important value");
 		McpSchema.CallToolResult response = streamableClient
-			.callTool(new McpSchema.CallToolRequest("test-tool", Map.of()));
+			.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()));
 
 		assertThat(response).isNotNull();
-		assertThat(response.content()).hasSize(1)
+		assertThat(response.getContent()).hasSize(1)
 			.first()
 			.extracting(McpSchema.TextContent.class::cast)
-			.extracting(McpSchema.TextContent::text)
+			.extracting(McpSchema.TextContent::getText)
 			.isEqualTo("some important value");
 	}
 
@@ -181,21 +182,21 @@ public class McpTransportContextIntegrationTests {
 		assertThat(initResult).isNotNull();
 
 		CLIENT_SIDE_HEADER_VALUE_HOLDER.set("some important value");
-		McpSchema.CallToolResult response = sseClient.callTool(new McpSchema.CallToolRequest("test-tool", Map.of()));
+		McpSchema.CallToolResult response = sseClient.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()));
 
 		assertThat(response).isNotNull();
-		assertThat(response.content()).hasSize(1)
+		assertThat(response.getContent()).hasSize(1)
 			.first()
 			.extracting(McpSchema.TextContent.class::cast)
-			.extracting(McpSchema.TextContent::text)
+			.extracting(McpSchema.TextContent::getText)
 			.isEqualTo("some important value");
 	}
 
 	private void startTomcat(Class<?> componentClass) {
 		tomcatServer = TomcatTestUtil.createTomcatServer("", PORT, componentClass);
 		try {
-			tomcatServer.tomcat().start();
-			assertThat(tomcatServer.tomcat().getServer().getState()).isEqualTo(LifecycleState.STARTED);
+			tomcatServer.getTomcat().start();
+			assertThat(tomcatServer.getTomcat().getServer().getState()).isEqualTo(LifecycleState.STARTED);
 		}
 		catch (Exception e) {
 			throw new RuntimeException("Failed to start Tomcat", e);
@@ -203,10 +204,10 @@ public class McpTransportContextIntegrationTests {
 	}
 
 	private void stopTomcat() {
-		if (tomcatServer != null && tomcatServer.tomcat() != null) {
+		if (tomcatServer != null && tomcatServer.getTomcat() != null) {
 			try {
-				tomcatServer.tomcat().stop();
-				tomcatServer.tomcat().destroy();
+				tomcatServer.getTomcat().stop();
+				tomcatServer.getTomcat().destroy();
 			}
 			catch (LifecycleException e) {
 				throw new RuntimeException("Failed to stop Tomcat", e);

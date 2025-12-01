@@ -659,7 +659,7 @@ public interface McpServer {
 		 * Example usage:
 		 *
 		 * <pre>{@code
-		 * .prompts(Map.of("analysis", new McpServerFeatures.AsyncPromptSpecification(
+		 * .prompts(Collections.map("analysis", new McpServerFeatures.AsyncPromptSpecification(
 		 *     new Prompt("analysis", "Code analysis template"),
 		 *     request -> Mono.fromSupplier(() -> generateAnalysisPrompt(request))
 		 *         .map(GetPromptResult::new)
