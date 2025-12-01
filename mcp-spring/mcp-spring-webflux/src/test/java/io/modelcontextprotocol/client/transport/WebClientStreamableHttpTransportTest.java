@@ -4,6 +4,9 @@
 package io.modelcontextprotocol.client.transport;
 
 import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.McpSchema.InitializeRequest;
+import io.modelcontextprotocol.spec.McpSchema.JSONRPCRequest;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -41,14 +44,14 @@ class WebClientStreamableHttpTransportTest {
 
 	@Test
 	void testCloseUninitialized() {
-		var transport = WebClientStreamableHttpTransport.builder(builder).build();
+		WebClientStreamableHttpTransport transport = WebClientStreamableHttpTransport.builder(builder).build();
 
 		StepVerifier.create(transport.closeGracefully()).verifyComplete();
 
-		var initializeRequest = new McpSchema.InitializeRequest(McpSchema.LATEST_PROTOCOL_VERSION,
+		InitializeRequest initializeRequest = new McpSchema.InitializeRequest(McpSchema.LATEST_PROTOCOL_VERSION,
 				McpSchema.ClientCapabilities.builder().roots(true).build(),
 				new McpSchema.Implementation("MCP Client", "0.3.1"));
-		var testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, McpSchema.METHOD_INITIALIZE,
+		JSONRPCRequest testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, McpSchema.METHOD_INITIALIZE,
 				"test-id", initializeRequest);
 
 		StepVerifier.create(transport.sendMessage(testMessage))
@@ -58,12 +61,12 @@ class WebClientStreamableHttpTransportTest {
 
 	@Test
 	void testCloseInitialized() {
-		var transport = WebClientStreamableHttpTransport.builder(builder).build();
+		WebClientStreamableHttpTransport transport = WebClientStreamableHttpTransport.builder(builder).build();
 
-		var initializeRequest = new McpSchema.InitializeRequest(McpSchema.LATEST_PROTOCOL_VERSION,
+		InitializeRequest initializeRequest = new McpSchema.InitializeRequest(McpSchema.LATEST_PROTOCOL_VERSION,
 				McpSchema.ClientCapabilities.builder().roots(true).build(),
 				new McpSchema.Implementation("MCP Client", "0.3.1"));
-		var testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, McpSchema.METHOD_INITIALIZE,
+		JSONRPCRequest testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, McpSchema.METHOD_INITIALIZE,
 				"test-id", initializeRequest);
 
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();

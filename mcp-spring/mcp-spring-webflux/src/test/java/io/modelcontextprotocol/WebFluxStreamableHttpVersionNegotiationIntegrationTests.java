@@ -5,11 +5,13 @@
 package io.modelcontextprotocol;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 
 import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.WebClientStreamableHttpTransport;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.server.McpServer;
@@ -21,6 +23,8 @@ import io.modelcontextprotocol.server.transport.WebFluxStreamableServerTransport
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.ProtocolVersions;
 import io.modelcontextprotocol.utils.McpTestRequestRecordingExchangeFilterFunction;
+import io.modelcontextprotocol.utils.McpTestRequestRecordingExchangeFilterFunction.Call;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,7 +61,7 @@ class WebFluxStreamableHttpVersionNegotiationIntegrationTests {
 	private final WebFluxStreamableServerTransportProvider mcpStreamableServerTransportProvider = WebFluxStreamableServerTransportProvider
 		.builder()
 		.contextExtractor(req -> McpTransportContext
-			.create(Map.of("protocol-version", req.headers().firstHeader("MCP-protocol-version"))))
+			.create(Collections.singletonMap("protocol-version", req.headers().firstHeader("MCP-protocol-version"))))
 		.build();
 
 	private final McpSyncServer mcpServer = McpServer.sync(mcpStreamableServerTransportProvider)
@@ -89,7 +93,7 @@ class WebFluxStreamableHttpVersionNegotiationIntegrationTests {
 
 	@Test
 	void usesLatestVersion() {
-		var client = McpClient
+		McpSyncClient client = McpClient
 			.sync(WebClientStreamableHttpTransport.builder(WebClient.builder().baseUrl("http://localhost:" + PORT))
 				.build())
 			.requestTimeout(Duration.ofHours(10))
@@ -97,53 +101,53 @@ class WebFluxStreamableHttpVersionNegotiationIntegrationTests {
 
 		client.initialize();
 
-		McpSchema.CallToolResult response = client.callTool(new McpSchema.CallToolRequest("test-tool", Map.of()));
+		McpSchema.CallToolResult response = client.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()));
 
-		var calls = recordingFilterFunction.getCalls();
-		assertThat(calls).filteredOn(c -> !c.body().contains("\"method\":\"initialize\""))
+		List<Call> calls = recordingFilterFunction.getCalls();
+		assertThat(calls).filteredOn(c -> !c.getBody().contains("\"method\":\"initialize\""))
 			// GET /mcp ; POST notification/initialized ; POST tools/call
 			.hasSize(3)
-			.map(McpTestRequestRecordingExchangeFilterFunction.Call::headers)
+			.map(McpTestRequestRecordingExchangeFilterFunction.Call::getHeaders)
 			.allSatisfy(headers -> assertThat(headers).containsEntry("mcp-protocol-version",
 					ProtocolVersions.MCP_2025_06_18));
 
 		assertThat(response).isNotNull();
-		assertThat(response.content()).hasSize(1)
+		assertThat(response.getContent()).hasSize(1)
 			.first()
 			.extracting(McpSchema.TextContent.class::cast)
-			.extracting(McpSchema.TextContent::text)
+			.extracting(McpSchema.TextContent::getText)
 			.isEqualTo(ProtocolVersions.MCP_2025_06_18);
 		mcpServer.close();
 	}
 
 	@Test
 	void usesServerSupportedVersion() {
-		var transport = WebClientStreamableHttpTransport
+		WebClientStreamableHttpTransport transport = WebClientStreamableHttpTransport
 			.builder(WebClient.builder().baseUrl("http://localhost:" + PORT))
-			.supportedProtocolVersions(List.of(ProtocolVersions.MCP_2025_06_18, "2263-03-18"))
+			.supportedProtocolVersions(java.util.Arrays.asList(ProtocolVersions.MCP_2025_06_18, "2263-03-18"))
 			.build();
-		var client = McpClient.sync(transport).requestTimeout(Duration.ofHours(10)).build();
+		McpSyncClient client = McpClient.sync(transport).requestTimeout(Duration.ofHours(10)).build();
 
 		client.initialize();
 
-		McpSchema.CallToolResult response = client.callTool(new McpSchema.CallToolRequest("test-tool", Map.of()));
+		McpSchema.CallToolResult response = client.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()));
 
-		var calls = recordingFilterFunction.getCalls();
+		List<Call> calls = recordingFilterFunction.getCalls();
 		// Initialize tells the server the Client's latest supported version
 		// FIXME: Set the correct protocol version on GET /mcp
 		assertThat(calls)
-			.filteredOn(c -> !c.body().contains("\"method\":\"initialize\"") && c.method().equals(HttpMethod.POST))
+			.filteredOn(c -> !c.getBody().contains("\"method\":\"initialize\"") && c.getMethod().equals(HttpMethod.POST))
 			// POST notification/initialized ; POST tools/call
 			.hasSize(2)
-			.map(McpTestRequestRecordingExchangeFilterFunction.Call::headers)
+			.map(McpTestRequestRecordingExchangeFilterFunction.Call::getHeaders)
 			.allSatisfy(headers -> assertThat(headers).containsEntry("mcp-protocol-version",
 					ProtocolVersions.MCP_2025_06_18));
 
 		assertThat(response).isNotNull();
-		assertThat(response.content()).hasSize(1)
+		assertThat(response.getContent()).hasSize(1)
 			.first()
 			.extracting(McpSchema.TextContent.class::cast)
-			.extracting(McpSchema.TextContent::text)
+			.extracting(McpSchema.TextContent::getText)
 			.isEqualTo(ProtocolVersions.MCP_2025_06_18);
 		mcpServer.close();
 	}
