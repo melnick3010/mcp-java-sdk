@@ -33,7 +33,7 @@ public class KeepAliveScheduler {
 
 	private static final Logger logger = LoggerFactory.getLogger(KeepAliveScheduler.class);
 
-	private static final TypeRef<Object> OBJECT_TYPE_REF = new TypeRef<>() {
+	private static final TypeRef<Object> OBJECT_TYPE_REF = new TypeRef<Object>() {
 	};
 
 	/** Initial delay before the first keepAlive call */

@@ -3,36 +3,28 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-
 	<groupId>io.modelcontextprotocol.sdk</groupId>
 	<artifactId>mcp-parent</artifactId>
 	<version>0.17.0-SNAPSHOT</version>
-
 	<packaging>pom</packaging>
 	<url>https://github.com/modelcontextprotocol/java-sdk</url>
-
 	<scm>
 		<url>https://github.com/modelcontextprotocol/java-sdk</url>
 		<connection>git://github.com/modelcontextprotocol/java-sdk.git</connection>
 		<developerConnection>git@github.com/modelcontextprotocol/java-sdk.git</developerConnection>
 	</scm>
-
 	<name>Java SDK MCP Parent</name>
 	<description>Java SDK for the Model Context Protocol (MCP), enabling interaction with AI models and tools through a standardized interface</description>
-
-
 	<organization>
 		<name>Anthropic</name>
 		<url>https://www.anthropic.com</url>
 	</organization>
-
 	<licenses>
 		<license>
 			<name>MIT License</name>
 			<url>http://www.opensource.org/licenses/mit-license.php</url>
 		</license>
 	</licenses>
-
 	<developers>
 		<developer>
 			<name>Christian Tzolov</name>
@@ -41,7 +33,6 @@
 			<name>Dariusz Jędrzejczyk</name>
 		</developer>
 	</developers>
-
 	<issueManagement>
 		<system>Github Issues</system>
 		<url>https://github.com/modelcontextprotocol/java-sdk/issues</url>
@@ -50,67 +41,55 @@
 		<system>Github Actions</system>
 		<url>https://github.com/modelcontextprotocol/java-sdk/actions</url>
 	</ciManagement>
-
 	<properties>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-		<java.version>17</java.version>
-		<maven.compiler.source>17</maven.compiler.source>
-		<maven.compiler.target>17</maven.compiler.target>
-		<surefireArgLine/>
-
-		<assert4j.version>3.27.6</assert4j.version>
+		<!-- Java/Compiler -->
+		<java.version>8</java.version>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
+		<!-- Spring Framework per Java 8 -->
+		<springframework.version>5.3.31</springframework.version>
+		<!-- Testing compatibili Java 8 -->
 		<junit.version>5.10.2</junit.version>
-		<mockito.version>5.20.0</mockito.version>
-		<testcontainers.version>1.20.4</testcontainers.version>
-		<byte-buddy.version>1.17.8</byte-buddy.version>
-		<toxiproxy.version>1.21.0</toxiproxy.version>
-
-		<slf4j-api.version>2.0.16</slf4j-api.version>
-		<logback.version>1.5.15</logback.version>
-		<jackson.version>2.19.2</jackson.version>
-		<springframework.version>6.2.1</springframework.version>
-
-		<!-- plugin versions -->
+		<junit-jupiter.version>5.10.5</junit-jupiter.version>
+		<mockito.version>4.11.0</mockito.version>
+		<byte-buddy.version>1.12.23</byte-buddy.version>
+		<testcontainers.version>1.17.6</testcontainers.version>
+		<awaitility.version>4.2.0</awaitility.version>
+		<!-- JSON/Assert -->
+		<assertj.version>3.27.6</assertj.version> <!-- correzione: 'assertj', non 'assert4j' -->
+		<json-unit-assertj.version>4.1.0</json-unit-assertj.version>
+		<jackson.version>2.13.5</jackson.version>
+		<json-schema-validator.version>2.0.0</json-schema-validator.version> <!-- linea Java 8 -->
+		<!-- Logging -->
+		<slf4j-api.version>1.7.36</slf4j-api.version>
+		<logback.version>1.2.13</logback.version>
+		<!-- Servlet/Tomcat per Java 8 -->
+		<javax.servlet.version>3.1.0</javax.servlet.version> <!-- usa javax, NON jakarta -->
+		<tomcat.version>9.0.87</tomcat.version>
+		<!-- Plugin versions -->
+		<spring-javaformat-maven-plugin.version>0.0.36</spring-javaformat-maven-plugin.version>
 		<maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
 		<maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
-		<maven-failsafe-plugin.version>3.5.2</maven-failsafe-plugin.version>
-		<maven-javadoc-plugin.version>3.5.0</maven-javadoc-plugin.version>
+		<bnd-maven-plugin.version>6.3.1</bnd-maven-plugin.version> <!-- stabile su JDK8 -->
+		<!-- Plugin versions (usate nel parent) -->
+		<maven-site-plugin.version>4.0.0-M13</maven-site-plugin.version>
+		<maven-jar-plugin.version>3.3.0</maven-jar-plugin.version>
 		<maven-source-plugin.version>3.3.0</maven-source-plugin.version>
-		<jacoco-maven-plugin.version>0.8.10</jacoco-maven-plugin.version>
 		<flatten-maven-plugin.version>1.5.0</flatten-maven-plugin.version>
 		<maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
-		<asciidoctor-maven-plugin.version>2.2.3</asciidoctor-maven-plugin.version>
-		<maven-assembly-plugin.version>3.7.0</maven-assembly-plugin.version>
-		<maven-dependency-plugin.version>3.5.0</maven-dependency-plugin.version>
-		<maven-site-plugin.version>4.0.0-M13</maven-site-plugin.version>
-		<maven-project-info-reports-plugin.version>3.4.5</maven-project-info-reports-plugin.version>
-		<maven-jar-plugin.version>3.3.0</maven-jar-plugin.version>
-		<spring-javaformat-maven-plugin.version>0.0.43</spring-javaformat-maven-plugin.version>
-		<org.maven.antora-version>1.0.0-alpha.4</org.maven.antora-version>
-		<io.spring.maven.antora-version>0.0.4</io.spring.maven.antora-version>
-		<asciidoctorj-pdf.version>1.6.2</asciidoctorj-pdf.version>
-		<junit-jupiter.version>5.10.5</junit-jupiter.version>
-		<tomcat.version>11.0.2</tomcat.version>
-		<jakarta.servlet.version>6.1.0</jakarta.servlet.version>
-		<awaitility.version>4.2.0</awaitility.version>
-		<bnd-maven-plugin.version>7.1.0</bnd-maven-plugin.version>
-		<json-unit-assertj.version>4.1.0</json-unit-assertj.version>
-		<json-schema-validator.version>2.0.0</json-schema-validator.version>
-
+		<maven.compiler.release>8</maven.compiler.release>
+		<surefireArgLine/>
 	</properties>
-
 	<modules>
 		<module>mcp-bom</module>
 		<module>mcp</module>
-        <module>mcp-core</module>
-        <module>mcp-json-jackson2</module>
-        <module>mcp-json</module>
+		<module>mcp-core</module>
+		<module>mcp-json-jackson2</module>
+		<module>mcp-json</module>
 		<module>mcp-spring/mcp-spring-webflux</module>
 		<module>mcp-spring/mcp-spring-webmvc</module>
 		<module>mcp-test</module>
 	</modules>
-
 	<build>
 		<plugins>
 			<plugin>
@@ -137,7 +116,7 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>${maven-compiler-plugin.version}</version>
 				<configuration>
-					<release>${java.version}</release>
+					<release>${maven.compiler.release}</release>
 					<compilerArgs>
 						<compilerArg>-parameters</compilerArg>
 					</compilerArgs>
@@ -185,16 +164,12 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>${maven-surefire-plugin.version}</version>
 				<configuration>
-					<argLine>${surefireArgLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
 					<useFile>false</useFile>
 					<trimStackTrace>false</trimStackTrace>
-
 					<!-- Show test timing information -->
 					<reportFormat>plain</reportFormat>
-
 					<!-- Output test execution times in the logs -->
 					<redirectTestOutputToFile>false</redirectTestOutputToFile>
-
 				</configuration>
 			</plugin>
 			<plugin>
@@ -264,7 +239,6 @@
 			</plugin>
 		</plugins>
 	</build>
-
 	<profiles>
 		<profile>
 			<id>javadoc</id>
@@ -346,7 +320,6 @@
 			</build>
 		</profile>
 	</profiles>
-
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
@@ -358,8 +331,6 @@
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
-
-
 	<repositories>
 		<repository>
 			<id>maven-central</id>
@@ -372,5 +343,4 @@
 			</releases>
 		</repository>
 	</repositories>
-
 </project>

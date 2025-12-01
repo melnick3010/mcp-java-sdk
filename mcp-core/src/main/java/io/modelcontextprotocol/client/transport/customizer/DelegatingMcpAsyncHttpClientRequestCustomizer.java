@@ -1,17 +1,17 @@
+
 /*
  * Copyright 2024-2025 the original author or authors.
  */
 package io.modelcontextprotocol.client.transport.customizer;
 
 import java.net.URI;
-import java.net.http.HttpRequest;
 import java.util.List;
 
+import org.apache.http.client.methods.RequestBuilder;
 import org.reactivestreams.Publisher;
 
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.util.Assert;
-
 import reactor.core.publisher.Mono;
 
 /**
@@ -30,10 +30,10 @@ public class DelegatingMcpAsyncHttpClientRequestCustomizer implements McpAsyncHt
 	}
 
 	@Override
-	public Publisher<HttpRequest.Builder> customize(HttpRequest.Builder builder, String method, URI endpoint,
-			String body, McpTransportContext context) {
-		var result = Mono.just(builder);
-		for (var customizer : this.customizers) {
+	public Publisher<RequestBuilder> customize(RequestBuilder builder, String method, URI endpoint, String body,
+			McpTransportContext context) {
+		Mono<RequestBuilder> result = Mono.just(builder);
+		for (McpAsyncHttpClientRequestCustomizer customizer : this.customizers) {
 			result = result.flatMap(b -> Mono.from(customizer.customize(b, method, endpoint, body, context)));
 		}
 		return result;

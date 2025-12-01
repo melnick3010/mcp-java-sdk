@@ -270,20 +270,35 @@ class LifecycleInitializer {
 	 * @param operation The operation to execute when the client is initialized
 	 * @return A Mono that completes with the result of the operation
 	 */
+
 	public <T> Mono<T> withInitialization(String actionName, Function<Initialization, Mono<T>> operation) {
 		return Mono.deferContextual(ctx -> {
-			DefaultInitialization newInit = new DefaultInitialization();
-			DefaultInitialization previous = this.initializationRef.compareAndExchange(null, newInit);
+			final DefaultInitialization newInit = new DefaultInitialization();
 
-			boolean needsToInitialize = previous == null;
+			// Prova ad installare newInit solo se attualmente è null
+			DefaultInitialization previous = this.initializationRef.get();
+			boolean needsToInitialize = (previous == null) && this.initializationRef.compareAndSet(null, newInit);
+
+			if (!needsToInitialize) {
+				// Qualcuno ha già installato una inizializzazione: rileggi quella
+				// corrente
+				previous = this.initializationRef.get();
+			}
+
 			logger.debug(needsToInitialize ? "Initialization process started" : "Joining previous initialization");
 
-			Mono<McpSchema.InitializeResult> initializationJob = needsToInitialize
+			final Mono<McpSchema.InitializeResult> initializationJob = needsToInitialize
 					? this.doInitialize(newInit, this.postInitializationHook, ctx) : previous.await();
 
-			return initializationJob.map(initializeResult -> this.initializationRef.get())
+			return initializationJob
+				// Dopo l'init, usa l'Initialization installata (potrebbe essere newInit o
+				// quella preesistente)
+				.map(initializeResult -> this.initializationRef.get())
 				.timeout(this.initializationTimeout)
 				.onErrorResume(ex -> {
+					// Se l'errore è avvenuto durante la nostra inizializzazione, smonta
+					// il
+					// riferimento
 					this.initializationRef.compareAndSet(newInit, null);
 					return Mono.error(new RuntimeException("Client failed to initialize " + actionName, ex));
 				})

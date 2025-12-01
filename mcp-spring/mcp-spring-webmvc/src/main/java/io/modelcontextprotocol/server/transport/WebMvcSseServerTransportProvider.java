@@ -6,7 +6,9 @@ package io.modelcontextprotocol.server.transport;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -166,7 +168,7 @@ public class WebMvcSseServerTransportProvider implements McpServerTransportProvi
 
 	@Override
 	public List<String> protocolVersions() {
-		return List.of(ProtocolVersions.MCP_2024_11_05);
+		return Collections.singletonList(ProtocolVersions.MCP_2024_11_05);
 	}
 
 	@Override
@@ -313,7 +315,8 @@ public class WebMvcSseServerTransportProvider implements McpServerTransportProvi
 			return ServerResponse.status(HttpStatus.SERVICE_UNAVAILABLE).body("Server is shutting down");
 		}
 
-		if (request.param(SESSION_ID).isEmpty()) {
+		Optional<String> sidOpt = request.param(SESSION_ID);
+		if (!sidOpt.isPresent()) {
 			return ServerResponse.badRequest().body(new McpError("Session ID missing in message endpoint"));
 		}
 

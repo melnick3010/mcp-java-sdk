@@ -5,6 +5,8 @@
 package io.modelcontextprotocol.server;
 
 import io.modelcontextprotocol.spec.McpSchema;
+
+import org.assertj.core.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -40,7 +42,7 @@ public class ResourceTemplateListingTest {
 	@Test
 	void testResourceListingWithMixedResources() {
 		// Create resource list with both regular and template resources
-		List<McpSchema.Resource> allResources = List.of(
+		List<McpSchema.Resource> allResources = java.util.Arrays.asList(
 				new McpSchema.Resource("file:///test/doc1.txt", "Document 1", "text/plain", null, null),
 				new McpSchema.Resource("file:///test/doc2.txt", "Document 2", "text/plain", null, null),
 				new McpSchema.Resource("file:///test/{type}/document.txt", "Typed Document", "text/plain", null, null),
@@ -60,7 +62,7 @@ public class ResourceTemplateListingTest {
 	@Test
 	void testResourceTemplatesListedSeparately() {
 		// Create mixed resources
-		List<McpSchema.Resource> resources = List.of(
+		List<McpSchema.Resource> resources = java.util.Arrays.asList(
 				new McpSchema.Resource("file:///test/regular.txt", "Regular Resource", "text/plain", null, null),
 				new McpSchema.Resource("file:///test/user/{userId}/profile.txt", "User Profile", "text/plain", null,
 						null));
@@ -90,7 +92,8 @@ public class ResourceTemplateListingTest {
 		assertThat(templateResources.get(0).uriTemplate()).isEqualTo("file:///test/user/{userId}/profile.txt");
 
 		// In the actual implementation, both would be combined
-		List<McpSchema.ResourceTemplate> allTemplates = List.of(templateResources.get(0), explicitTemplate);
+		List<McpSchema.ResourceTemplate> allTemplates = java.util.Arrays.asList(templateResources.get(0),
+				explicitTemplate);
 		assertThat(allTemplates).hasSize(2);
 		assertThat(allTemplates).extracting(McpSchema.ResourceTemplate::uriTemplate)
 			.containsExactlyInAnyOrder("file:///test/user/{userId}/profile.txt",

@@ -25,6 +25,8 @@ import io.modelcontextprotocol.server.transport.TomcatTestUtil;
 import io.modelcontextprotocol.spec.HttpHeaders;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.McpSchema.InitializeRequest;
+import io.modelcontextprotocol.spec.McpSchema.JSONRPCRequest;
 import io.modelcontextprotocol.spec.McpTransportException;
 import io.modelcontextprotocol.spec.McpTransportSessionNotFoundException;
 import io.modelcontextprotocol.spec.ProtocolVersions;
@@ -114,7 +116,7 @@ public class HttpClientStreamableHttpTransportErrorHandlingTest {
 		serverResponseStatus.set(404);
 		currentServerSessionId.set(null); // No session ID in response
 
-		var testMessage = createTestRequestMessage();
+		JSONRPCRequest testMessage = createTestRequestMessage();
 
 		StepVerifier.create(transport.sendMessage(testMessage))
 			.expectErrorMatches(throwable -> throwable instanceof McpTransportException
@@ -143,7 +145,7 @@ public class HttpClientStreamableHttpTransportErrorHandlingTest {
 		StepVerifier.create(transport.connect(msg -> msg)).verifyComplete();
 
 		// Send initial message to establish session
-		var testMessage = createTestRequestMessage();
+		JSONRPCRequest testMessage = createTestRequestMessage();
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
 
 		// The session should now be established, next request will include session ID
@@ -170,7 +172,7 @@ public class HttpClientStreamableHttpTransportErrorHandlingTest {
 		serverResponseStatus.set(400);
 		currentServerSessionId.set(null); // No session ID
 
-		var testMessage = createTestRequestMessage();
+		JSONRPCRequest testMessage = createTestRequestMessage();
 
 		StepVerifier.create(transport.sendMessage(testMessage))
 			.expectErrorMatches(throwable -> throwable instanceof McpTransportException
@@ -201,7 +203,7 @@ public class HttpClientStreamableHttpTransportErrorHandlingTest {
 		StepVerifier.create(transport.connect(msg -> msg)).verifyComplete();
 
 		// Send initial message to establish session
-		var testMessage = createTestRequestMessage();
+		JSONRPCRequest testMessage = createTestRequestMessage();
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
 
 		// The session should now be established, next request will include session ID
@@ -230,7 +232,7 @@ public class HttpClientStreamableHttpTransportErrorHandlingTest {
 		currentServerSessionId.set("session-1");
 
 		// Send initial message to establish session
-		var testMessage = createTestRequestMessage();
+		JSONRPCRequest testMessage = createTestRequestMessage();
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
 
 		assertThat(lastReceivedSessionId.get()).isNull();
@@ -313,7 +315,7 @@ public class HttpClientStreamableHttpTransportErrorHandlingTest {
 		serverResponseStatus.set(200);
 		currentServerSessionId.set("sse-session-1");
 
-		var transport = HttpClientStreamableHttpTransport.builder(HOST)
+		McpClientTransport transport = HttpClientStreamableHttpTransport.builder(HOST)
 			.endpoint("/mcp-sse")
 			.openConnectionOnStartup(true) // This will trigger GET request on connect
 			.build();
@@ -322,7 +324,7 @@ public class HttpClientStreamableHttpTransportErrorHandlingTest {
 		StepVerifier.create(transport.connect(msg -> msg)).verifyComplete();
 
 		// Send message to establish session
-		var testMessage = createTestRequestMessage();
+		JSONRPCRequest testMessage = createTestRequestMessage();
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
 
 		// Now simulate server returning 404 on reconnect
@@ -335,7 +337,7 @@ public class HttpClientStreamableHttpTransportErrorHandlingTest {
 	}
 
 	private McpSchema.JSONRPCRequest createTestRequestMessage() {
-		var initializeRequest = new McpSchema.InitializeRequest(ProtocolVersions.MCP_2025_03_26,
+		InitializeRequest initializeRequest = new McpSchema.InitializeRequest(ProtocolVersions.MCP_2025_03_26,
 				McpSchema.ClientCapabilities.builder().roots(true).build(),
 				new McpSchema.Implementation("Test Client", "1.0.0"));
 		return new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, McpSchema.METHOD_INITIALIZE, "test-id",

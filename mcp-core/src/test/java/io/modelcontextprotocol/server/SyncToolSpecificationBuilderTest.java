@@ -8,6 +8,7 @@ import static io.modelcontextprotocol.util.ToolsUtils.EMPTY_JSON_SCHEMA;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -33,7 +34,7 @@ class SyncToolSpecificationBuilderTest {
 		McpServerFeatures.SyncToolSpecification specification = McpServerFeatures.SyncToolSpecification.builder()
 			.tool(tool)
 			.callHandler((exchange, request) -> CallToolResult.builder()
-				.content(List.of(new TextContent("Test result")))
+				.content(Collections.singletonList(new TextContent("Test result")))
 				.isError(false)
 				.build())
 			.build();
@@ -47,7 +48,8 @@ class SyncToolSpecificationBuilderTest {
 	@Test
 	void builderShouldThrowExceptionWhenToolIsNull() {
 		assertThatThrownBy(() -> McpServerFeatures.SyncToolSpecification.builder()
-			.callHandler((exchange, request) -> CallToolResult.builder().content(List.of()).isError(false).build())
+			.callHandler((exchange,
+					request) -> CallToolResult.builder().content(Collections.emptyList()).isError(false).build())
 			.build()).isInstanceOf(IllegalArgumentException.class).hasMessage("Tool must not be null");
 	}
 
@@ -67,8 +69,8 @@ class SyncToolSpecificationBuilderTest {
 
 		// Then - verify method chaining returns the same builder instance
 		assertThat(builder.tool(tool)).isSameAs(builder);
-		assertThat(builder
-			.callHandler((exchange, request) -> CallToolResult.builder().content(List.of()).isError(false).build()))
+		assertThat(builder.callHandler((exchange,
+				request) -> CallToolResult.builder().content(Collections.emptyList()).isError(false).build()))
 			.isSameAs(builder);
 	}
 
@@ -86,20 +88,20 @@ class SyncToolSpecificationBuilderTest {
 			.callHandler((exchange, request) -> {
 				// Simple test implementation
 				return CallToolResult.builder()
-					.content(List.of(new TextContent(expectedResult)))
+					.content(Collections.singletonList(new TextContent(expectedResult)))
 					.isError(false)
 					.build();
 			})
 			.build();
 
-		CallToolRequest request = new CallToolRequest("calculator", Map.of());
+		CallToolRequest request = new CallToolRequest("calculator", Collections.emptyMap());
 		CallToolResult result = specification.callHandler().apply(null, request);
 
 		assertThat(result).isNotNull();
-		assertThat(result.content()).hasSize(1);
-		assertThat(result.content().get(0)).isInstanceOf(TextContent.class);
-		assertThat(((TextContent) result.content().get(0)).text()).isEqualTo(expectedResult);
-		assertThat(result.isError()).isFalse();
+		assertThat(result.getContent()).hasSize(1);
+		assertThat(result.getContent().get(0)).isInstanceOf(TextContent.class);
+		assertThat(((TextContent) result.getContent().get(0)).getText()).isEqualTo(expectedResult);
+		assertThat(result.getIsError()).isFalse();
 	}
 
 }

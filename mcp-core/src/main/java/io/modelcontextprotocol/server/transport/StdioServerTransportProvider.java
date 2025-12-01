@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -84,13 +85,13 @@ public class StdioServerTransportProvider implements McpServerTransportProvider 
 
 	@Override
 	public List<String> protocolVersions() {
-		return List.of(ProtocolVersions.MCP_2024_11_05);
+		return Collections.singletonList(ProtocolVersions.MCP_2024_11_05);
 	}
 
 	@Override
 	public void setSessionFactory(McpServerSession.Factory sessionFactory) {
 		// Create a single session for the stdio connection
-		var transport = new StdioMcpSessionTransport();
+		StdioMcpSessionTransport transport = new StdioMcpSessionTransport();
 		this.session = sessionFactory.create(transport);
 		transport.initProcessing();
 	}

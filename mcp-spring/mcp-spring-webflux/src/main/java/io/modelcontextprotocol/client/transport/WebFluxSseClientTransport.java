@@ -5,6 +5,7 @@
 package io.modelcontextprotocol.client.transport;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -90,7 +91,7 @@ public class WebFluxSseClientTransport implements McpClientTransport {
 	/**
 	 * Type reference for parsing SSE events containing string data.
 	 */
-	private static final ParameterizedTypeReference<ServerSentEvent<String>> SSE_TYPE = new ParameterizedTypeReference<>() {
+	private static final ParameterizedTypeReference<ServerSentEvent<String>> SSE_TYPE = new ParameterizedTypeReference<ServerSentEvent<String>>() {
 	};
 
 	/**
@@ -162,7 +163,7 @@ public class WebFluxSseClientTransport implements McpClientTransport {
 
 	@Override
 	public List<String> protocolVersions() {
-		return List.of(MCP_PROTOCOL_VERSION);
+		return Collections.singletonList(MCP_PROTOCOL_VERSION);
 	}
 
 	/**

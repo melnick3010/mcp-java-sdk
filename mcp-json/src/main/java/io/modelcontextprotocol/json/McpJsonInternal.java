@@ -40,33 +40,44 @@ final class McpJsonInternal {
 	 * @throws IllegalStateException if no default {@link McpJsonMapper} implementation is
 	 * found
 	 */
+
 	static McpJsonMapper createDefaultMapper() {
 		AtomicReference<IllegalStateException> ex = new AtomicReference<>();
-		return ServiceLoader.load(McpJsonMapperSupplier.class).stream().flatMap(p -> {
+
+		// ServiceLoader compatibile con Java 8: si itera direttamente sui fornitori
+		ServiceLoader<McpJsonMapperSupplier> loader = ServiceLoader.load(McpJsonMapperSupplier.class);
+
+		for (McpJsonMapperSupplier supplier : loader) {
 			try {
-				McpJsonMapperSupplier supplier = p.get();
-				return Stream.ofNullable(supplier);
+				// supplier può essere null in casi patologici, difendiamoci
+				if (supplier == null) {
+					continue;
+				}
+
+				try {
+					McpJsonMapper mapper = supplier.get();
+					if (mapper != null) {
+						return mapper; // primo mapper valido trovato
+					}
+				}
+				catch (Exception e) {
+					addException(ex, e);
+					// continua a cercare altri supplier
+				}
 			}
 			catch (Exception e) {
+				// eccezioni durante l'iterazione/caricamento del provider
 				addException(ex, e);
-				return Stream.empty();
 			}
-		}).flatMap(jsonMapperSupplier -> {
-			try {
-				return Stream.ofNullable(jsonMapperSupplier.get());
-			}
-			catch (Exception e) {
-				addException(ex, e);
-				return Stream.empty();
-			}
-		}).findFirst().orElseThrow(() -> {
-			if (ex.get() != null) {
-				return ex.get();
-			}
-			else {
-				return new IllegalStateException("No default McpJsonMapper implementation found");
-			}
-		});
+		}
+
+		// Nessun supplier valido trovato: propaga l'ultima IllegalStateException se
+		// presente
+		IllegalStateException last = ex.get();
+		if (last != null) {
+			throw last;
+		}
+		throw new IllegalStateException("No default McpJsonMapper implementation found");
 	}
 
 	private static void addException(AtomicReference<IllegalStateException> ref, Exception toAdd) {

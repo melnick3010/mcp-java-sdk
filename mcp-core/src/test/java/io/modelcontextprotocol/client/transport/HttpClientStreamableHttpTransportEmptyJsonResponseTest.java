@@ -22,9 +22,12 @@ import org.junit.jupiter.api.Timeout;
 
 import com.sun.net.httpserver.HttpServer;
 
+import io.modelcontextprotocol.client.transport.customizer.McpAsyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.server.transport.TomcatTestUtil;
 import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.McpSchema.InitializeRequest;
+import io.modelcontextprotocol.spec.McpSchema.JSONRPCRequest;
 import io.modelcontextprotocol.spec.ProtocolVersions;
 import reactor.test.StepVerifier;
 
@@ -70,17 +73,20 @@ public class HttpClientStreamableHttpTransportEmptyJsonResponseTest {
 	@Timeout(3)
 	void testNotificationInitialized() throws URISyntaxException {
 
-		var uri = new URI(host + "/mcp");
-		var mockRequestCustomizer = mock(McpSyncHttpClientRequestCustomizer.class);
-		var transport = HttpClientStreamableHttpTransport.builder(host)
-			.httpRequestCustomizer(mockRequestCustomizer)
+		URI uri = new URI(host + "/mcp");
+		McpSyncHttpClientRequestCustomizer mockRequestCustomizer = mock(McpSyncHttpClientRequestCustomizer.class);
+
+		// Convertiamo il customizer sincrono in async, come fa la versione Java 17
+		// internamente
+		HttpClientStreamableHttpTransport transport = HttpClientStreamableHttpTransport.builder(host)
+			.asyncHttpRequestCustomizer(McpAsyncHttpClientRequestCustomizer.fromSync(mockRequestCustomizer))
 			.build();
 
-		var initializeRequest = new McpSchema.InitializeRequest(ProtocolVersions.MCP_2025_03_26,
+		InitializeRequest initializeRequest = new McpSchema.InitializeRequest(ProtocolVersions.MCP_2025_03_26,
 				McpSchema.ClientCapabilities.builder().roots(true).build(),
 				new McpSchema.Implementation("MCP Client", "0.3.1"));
-		var testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, McpSchema.METHOD_INITIALIZE,
-				"test-id", initializeRequest);
+		JSONRPCRequest testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION,
+				McpSchema.METHOD_INITIALIZE, "test-id", initializeRequest);
 
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
 

@@ -1,12 +1,12 @@
+
 /*
  * Copyright 2024-2025 the original author or authors.
  */
-
 package io.modelcontextprotocol.client.transport.customizer;
 
 import java.net.URI;
-import java.net.http.HttpRequest;
 
+import org.apache.http.client.methods.RequestBuilder;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -15,7 +15,7 @@ import reactor.util.annotation.Nullable;
 import io.modelcontextprotocol.common.McpTransportContext;
 
 /**
- * Customize {@link HttpRequest.Builder} before executing the request, in either SSE or
+ * Customize {@link RequestBuilder} before executing the request, in either SSE or
  * Streamable HTTP transport.
  * <p>
  * When used in a non-blocking context, implementations MUST be non-blocking.
@@ -24,8 +24,8 @@ import io.modelcontextprotocol.common.McpTransportContext;
  */
 public interface McpAsyncHttpClientRequestCustomizer {
 
-	Publisher<HttpRequest.Builder> customize(HttpRequest.Builder builder, String method, URI endpoint,
-			@Nullable String body, McpTransportContext context);
+	Publisher<RequestBuilder> customize(RequestBuilder builder, String method, URI endpoint, @Nullable String body,
+			McpTransportContext context);
 
 	McpAsyncHttpClientRequestCustomizer NOOP = new Noop();
 
@@ -45,8 +45,8 @@ public interface McpAsyncHttpClientRequestCustomizer {
 	class Noop implements McpAsyncHttpClientRequestCustomizer {
 
 		@Override
-		public Publisher<HttpRequest.Builder> customize(HttpRequest.Builder builder, String method, URI endpoint,
-				String body, McpTransportContext context) {
+		public Publisher<RequestBuilder> customize(RequestBuilder builder, String method, URI endpoint, String body,
+				McpTransportContext context) {
 			return Mono.just(builder);
 		}
 

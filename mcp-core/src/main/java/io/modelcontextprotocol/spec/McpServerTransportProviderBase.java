@@ -4,6 +4,7 @@
 
 package io.modelcontextprotocol.spec;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -65,7 +66,7 @@ public interface McpServerTransportProviderBase {
 	 * @return the protocol version as a string
 	 */
 	default List<String> protocolVersions() {
-		return List.of(ProtocolVersions.MCP_2024_11_05);
+		return Collections.singletonList(ProtocolVersions.MCP_2024_11_05);
 	}
 
 }

@@ -14,14 +14,12 @@ class CompleteCompletionSerializationTest {
 		McpSchema.CompleteResult.CompleteCompletion codeComplete = new McpSchema.CompleteResult.CompleteCompletion(
 				Collections.emptyList(), 0, false);
 		String json = jsonMapper.writeValueAsString(codeComplete);
-		String expected = """
-				{"values":[],"total":0,"hasMore":false}""";
+		String expected = "{\"values\":[],\"total\":0,\"hasMore\":false}";
 		assertEquals(expected, json, json);
 
 		McpSchema.CompleteResult completeResult = new McpSchema.CompleteResult(codeComplete);
 		json = jsonMapper.writeValueAsString(completeResult);
-		expected = """
-				{"completion":{"values":[],"total":0,"hasMore":false}}""";
+		expected = "{\"completion\":{\"values\":[],\"total\":0,\"hasMore\":false}}";
 		assertEquals(expected, json, json);
 	}
 

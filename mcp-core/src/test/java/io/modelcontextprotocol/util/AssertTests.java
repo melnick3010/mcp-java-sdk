@@ -6,6 +6,7 @@ package io.modelcontextprotocol.util;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -21,10 +22,10 @@ class AssertTests {
 		assertEquals("collection is null", e1.getMessage());
 
 		IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class,
-				() -> Assert.notEmpty(List.of(), "collection is empty"));
+				() -> Assert.notEmpty(Collections.emptyList(), "collection is empty"));
 		assertEquals("collection is empty", e2.getMessage());
 
-		assertDoesNotThrow(() -> Assert.notEmpty(List.of("test"), "collection is not empty"));
+		assertDoesNotThrow(() -> Assert.notEmpty(Collections.singletonList("test"), "collection is not empty"));
 	}
 
 	@Test

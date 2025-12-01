@@ -5,6 +5,8 @@
 package io.modelcontextprotocol.client.transport;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -34,6 +36,7 @@ import io.modelcontextprotocol.spec.HttpHeaders;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpError;
 import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.McpSchema.JSONRPCMessage;
 import io.modelcontextprotocol.spec.McpTransportException;
 import io.modelcontextprotocol.spec.McpTransportSession;
 import io.modelcontextprotocol.spec.McpTransportSessionNotFoundException;
@@ -86,7 +89,7 @@ public class WebClientStreamableHttpTransport implements McpClientTransport {
 	 */
 	private static final String MESSAGE_EVENT_TYPE = "message";
 
-	private static final ParameterizedTypeReference<ServerSentEvent<String>> PARAMETERIZED_TYPE_REF = new ParameterizedTypeReference<>() {
+	private static final ParameterizedTypeReference<ServerSentEvent<String>> PARAMETERIZED_TYPE_REF = new ParameterizedTypeReference<ServerSentEvent<String>>() {
 	};
 
 	private final McpJsonMapper jsonMapper;
@@ -118,7 +121,11 @@ public class WebClientStreamableHttpTransport implements McpClientTransport {
 		this.resumableStreams = resumableStreams;
 		this.openConnectionOnStartup = openConnectionOnStartup;
 		this.activeSession.set(createTransportSession());
-		this.supportedProtocolVersions = List.copyOf(supportedProtocolVersions);
+
+		List<String> src = (supportedProtocolVersions != null) ? supportedProtocolVersions
+				: Collections.<String>emptyList();
+		this.supportedProtocolVersions = Collections.unmodifiableList(new ArrayList<String>(src));
+
 		this.latestSupportedProtocolVersion = this.supportedProtocolVersions.stream()
 			.sorted(Comparator.reverseOrder())
 			.findFirst()
@@ -170,10 +177,15 @@ public class WebClientStreamableHttpTransport implements McpClientTransport {
 	}
 
 	private McpTransportSession<Disposable> createClosedSession(McpTransportSession<Disposable> existingSession) {
-		var existingSessionId = Optional.ofNullable(existingSession)
-			.filter(session -> !(session instanceof ClosedMcpTransportSession<Disposable>))
-			.flatMap(McpTransportSession::sessionId)
-			.orElse(null);
+		String existingSessionId = null;
+
+		if (existingSession != null && !(existingSession instanceof ClosedMcpTransportSession<?>)) {
+			Optional<String> sidOpt = existingSession.sessionId();
+			if (sidOpt != null && sidOpt.isPresent()) {
+				existingSessionId = sidOpt.get();
+			}
+		}
+
 		return new ClosedMcpTransportSession<>(existingSessionId);
 	}
 
@@ -222,7 +234,6 @@ public class WebClientStreamableHttpTransport implements McpClientTransport {
 			// is a simple, stateless one.
 			final AtomicReference<Disposable> disposableRef = new AtomicReference<>();
 			final McpTransportSession<Disposable> transportSession = this.activeSession.get();
-
 			Disposable connection = webClient.get()
 				.uri(this.endpoint)
 				.accept(MediaType.TEXT_EVENT_STREAM)
@@ -254,9 +265,15 @@ public class WebClientStreamableHttpTransport implements McpClientTransport {
 						}
 					}
 					else {
-						return response.<McpSchema.JSONRPCMessage>createError().doOnError(e -> {
-							logger.info("Opening an SSE stream failed. This can be safely ignored.", e);
-						}).flux();
+
+						// Spring 5.3.x: NON c’è createError(), usa createException()
+						return response.createException() // Mono<WebClientResponseException>
+							.flatMapMany(e -> {
+								logger.info("Opening an SSE stream failed. This can be safely ignored.", e);
+								// Propaga l’errore come Flux<McpSchema.JSONRPCMessage>
+								return Flux.error(e);
+							});
+
 					}
 				})
 				.flatMap(jsonrpcMessage -> this.handler.get().apply(Mono.just(jsonrpcMessage)))
@@ -318,7 +335,7 @@ public class WebClientStreamableHttpTransport implements McpClientTransport {
 						long contentLength = response.headers().contentLength().orElse(-1);
 						// Existing SDKs consume notifications with no response body nor
 						// content type
-						if (contentType.isEmpty() || contentLength == 0) {
+						if (!contentType.isPresent() || contentLength == 0) {
 							logger.trace("Message was successfully sent via POST for session {}",
 									sessionRepresentation);
 							// signal the caller that the message was successfully
@@ -384,36 +401,45 @@ public class WebClientStreamableHttpTransport implements McpClientTransport {
 	}
 
 	private Flux<McpSchema.JSONRPCMessage> extractError(ClientResponse response, String sessionRepresentation) {
-		return response.<McpSchema.JSONRPCMessage>createError().onErrorResume(e -> {
-			WebClientResponseException responseException = (WebClientResponseException) e;
-			byte[] body = responseException.getResponseBodyAsByteArray();
-			McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError = null;
-			Exception toPropagate;
-			try {
-				McpSchema.JSONRPCResponse jsonRpcResponse = jsonMapper.readValue(body, McpSchema.JSONRPCResponse.class);
-				jsonRpcError = jsonRpcResponse.error();
-				toPropagate = jsonRpcError != null ? new McpError(jsonRpcError)
-						: new McpTransportException("Can't parse the jsonResponse " + jsonRpcResponse);
-			}
-			catch (IOException ex) {
-				toPropagate = new McpTransportException("Sending request failed, " + e.getMessage(), e);
-				logger.debug("Received content together with {} HTTP code response: {}", response.rawStatusCode(),
-						body);
-			}
+		// In 5.3.x non esiste createError(); usa createException() e converti in Flux di
+		// errore
+		return response.createException() // Mono<WebClientResponseException>
+			.flatMapMany(e -> {
+				byte[] body = e.getResponseBodyAsByteArray();
+				McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError = null;
+				Exception toPropagate;
 
-			// Some implementations can return 400 when presented with a
-			// session id that it doesn't know about, so we will
-			// invalidate the session
-			// https://github.com/modelcontextprotocol/typescript-sdk/issues/389
-			if (isBadRequest(responseException)) {
-				if (!sessionRepresentation.equals(MISSING_SESSION_ID)) {
-					return Mono.error(new McpTransportSessionNotFoundException(sessionRepresentation, toPropagate));
+				try {
+					// Prova a deserializzare la risposta JSON-RPC di errore
+					McpSchema.JSONRPCResponse jsonRpcResponse = jsonMapper.readValue(body,
+							McpSchema.JSONRPCResponse.class);
+					jsonRpcError = jsonRpcResponse.error();
+					toPropagate = (jsonRpcError != null) ? new McpError(jsonRpcError)
+							: new McpTransportException("Can't parse the jsonResponse " + jsonRpcResponse);
 				}
-				return Mono.error(new McpTransportException("Received 400 BAD REQUEST for session "
-						+ sessionRepresentation + ". " + toPropagate.getMessage(), toPropagate));
-			}
-			return Mono.error(toPropagate);
-		}).flux();
+				catch (IOException ex) {
+					// Se non riesci a leggere il body, costruisci un TransportException
+					// con dettagli
+					toPropagate = new McpTransportException("Sending request failed, " + e.getMessage(), e);
+					logger.debug("Received content together with {} HTTP code response: {}", response.rawStatusCode(),
+							body);
+				}
+
+				// Alcune implementazioni rispondono 400 quando la sessione è sconosciuta:
+				// invalida la sessione e solleva l’eccezione appropriata
+				// https://github.com/modelcontextprotocol/typescript-sdk/issues/389
+				if (isBadRequest(e)) { // usa l'eccezione WebClientResponseException per
+										// controllare lo status
+					if (!MISSING_SESSION_ID.equals(sessionRepresentation)) {
+						return Flux.error(new McpTransportSessionNotFoundException(sessionRepresentation, toPropagate));
+					}
+					return Flux.error(new McpTransportException("Received 400 BAD REQUEST for session "
+							+ sessionRepresentation + ". " + toPropagate.getMessage(), toPropagate));
+				}
+
+				// Propaga l’errore: il tipo del Flux resta Flux<McpSchema.JSONRPCMessage>
+				return Flux.error(toPropagate);
+			});
 	}
 
 	private Flux<McpSchema.JSONRPCMessage> eventStream(McpTransportStream<Disposable> stream, ClientResponse response) {
@@ -421,7 +447,9 @@ public class WebClientStreamableHttpTransport implements McpClientTransport {
 				: new DefaultMcpTransportStream<>(this.resumableStreams, this::reconnect);
 		logger.debug("Connected stream {}", sessionStream.streamId());
 
-		var idWithMessages = response.bodyToFlux(PARAMETERIZED_TYPE_REF).map(this::parse);
+		Flux<Tuple2<Optional<String>, Iterable<JSONRPCMessage>>> idWithMessages = response
+			.bodyToFlux(PARAMETERIZED_TYPE_REF)
+			.map(this::parse);
 		return Flux.from(sessionStream.consumeSseStream(idWithMessages));
 	}
 
@@ -446,7 +474,7 @@ public class WebClientStreamableHttpTransport implements McpClientTransport {
 				else {
 					McpSchema.JSONRPCMessage jsonRpcResponse = McpSchema.deserializeJsonRpcMessage(jsonMapper,
 							responseMessage);
-					s.next(List.of(jsonRpcResponse));
+					s.next(Arrays.asList(jsonRpcResponse));
 				}
 			}
 			catch (IOException e) {
@@ -474,7 +502,7 @@ public class WebClientStreamableHttpTransport implements McpClientTransport {
 				// We don't support batching ATM and probably won't since the next version
 				// considers removing it.
 				McpSchema.JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(this.jsonMapper, event.data());
-				return Tuples.of(Optional.ofNullable(event.id()), List.of(message));
+				return Tuples.of(Optional.ofNullable(event.id()), Collections.singletonList(message));
 			}
 			catch (IOException ioException) {
 				throw new McpTransportException("Error parsing JSON-RPC message: " + event.data(), ioException);
@@ -482,7 +510,7 @@ public class WebClientStreamableHttpTransport implements McpClientTransport {
 		}
 		else {
 			logger.debug("Received SSE event with type: {}", event);
-			return Tuples.of(Optional.empty(), List.of());
+			return Tuples.of(Optional.empty(), Collections.emptyList());
 		}
 	}
 
@@ -501,7 +529,7 @@ public class WebClientStreamableHttpTransport implements McpClientTransport {
 
 		private boolean openConnectionOnStartup = false;
 
-		private List<String> supportedProtocolVersions = List.of(ProtocolVersions.MCP_2024_11_05,
+		private List<String> supportedProtocolVersions = Arrays.asList(ProtocolVersions.MCP_2024_11_05,
 				ProtocolVersions.MCP_2025_03_26, ProtocolVersions.MCP_2025_06_18);
 
 		private Builder(WebClient.Builder webClientBuilder) {

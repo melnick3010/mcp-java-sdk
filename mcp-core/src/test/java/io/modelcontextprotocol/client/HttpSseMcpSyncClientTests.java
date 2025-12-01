@@ -5,6 +5,7 @@
 package io.modelcontextprotocol.client;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.jupiter.api.AfterAll;
@@ -15,6 +16,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
+import io.modelcontextprotocol.client.transport.customizer.McpAsyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.spec.McpClientTransport;
@@ -48,7 +50,9 @@ class HttpSseMcpSyncClientTests extends AbstractMcpSyncClientTests {
 
 	@Override
 	protected McpClientTransport createMcpTransport() {
-		return HttpClientSseClientTransport.builder(host).httpRequestCustomizer(requestCustomizer).build();
+		return HttpClientSseClientTransport.builder(host)
+			.asyncHttpRequestCustomizer(McpAsyncHttpClientRequestCustomizer.fromSync(requestCustomizer))
+			.build();
 	}
 
 	@BeforeAll
@@ -65,7 +69,11 @@ class HttpSseMcpSyncClientTests extends AbstractMcpSyncClientTests {
 
 	@Test
 	void customizesRequests() {
-		var mcpTransportContext = McpTransportContext.create(Map.of("some-key", "some-value"));
+		// Sostituzione di Map.of(...) con HashMap
+		Map<String, Object> map = new HashMap<String, Object>();
+		map.put("some-key", "some-value");
+		McpTransportContext mcpTransportContext = McpTransportContext.create(map);
+
 		withClient(createMcpTransport(), syncSpec -> syncSpec.transportContextProvider(() -> mcpTransportContext),
 				mcpSyncClient -> {
 					mcpSyncClient.initialize();

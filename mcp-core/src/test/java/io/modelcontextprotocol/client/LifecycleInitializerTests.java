@@ -5,6 +5,7 @@
 package io.modelcontextprotocol.client;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -14,6 +15,8 @@ import io.modelcontextprotocol.client.LifecycleInitializer.Initialization;
 import io.modelcontextprotocol.spec.McpClientSession;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpTransportSessionNotFoundException;
+
+import org.assertj.core.util.Arrays;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -46,7 +49,7 @@ class LifecycleInitializerTests {
 
 	private static final McpSchema.Implementation CLIENT_INFO = new McpSchema.Implementation("test-client", "1.0.0");
 
-	private static final List<String> PROTOCOL_VERSIONS = List.of("1.0.0", "2.0.0");
+	private static final List<String> PROTOCOL_VERSIONS = java.util.Arrays.asList("1.0.0", "2.0.0");
 
 	private static final McpSchema.InitializeResult MOCK_INIT_RESULT = new McpSchema.InitializeResult("2.0.0",
 			McpSchema.ServerCapabilities.builder().build(), new McpSchema.Implementation("test-server", "1.0.0"),
@@ -96,7 +99,7 @@ class LifecycleInitializerTests {
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("Protocol versions must not be empty");
 
-		assertThatThrownBy(() -> new LifecycleInitializer(CLIENT_CAPABILITIES, CLIENT_INFO, List.of(),
+		assertThatThrownBy(() -> new LifecycleInitializer(CLIENT_CAPABILITIES, CLIENT_INFO, Collections.emptyList(),
 				INITIALIZATION_TIMEOUT, mockSessionSupplier, mockPostInitializationHook))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("Protocol versions must not be empty");
@@ -335,7 +338,7 @@ class LifecycleInitializerTests {
 
 	@Test
 	void shouldSetProtocolVersionsForTesting() {
-		List<String> newVersions = List.of("3.0.0", "4.0.0");
+		List<String> newVersions = java.util.Arrays.asList("3.0.0", "4.0.0");
 		initializer.setProtocolVersions(newVersions);
 
 		AtomicReference<McpSchema.InitializeRequest> capturedRequest = new AtomicReference<>();

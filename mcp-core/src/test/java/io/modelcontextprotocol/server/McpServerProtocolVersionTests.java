@@ -10,6 +10,8 @@ import java.util.UUID;
 import io.modelcontextprotocol.MockMcpServerTransport;
 import io.modelcontextprotocol.MockMcpServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema;
+
+import org.assertj.core.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,7 +33,7 @@ class McpServerProtocolVersionTests {
 	@Test
 	void shouldUseLatestVersionByDefault() {
 		MockMcpServerTransport serverTransport = new MockMcpServerTransport();
-		var transportProvider = new MockMcpServerTransportProvider(serverTransport);
+		MockMcpServerTransportProvider transportProvider = new MockMcpServerTransportProvider(serverTransport);
 		McpAsyncServer server = McpServer.async(transportProvider).serverInfo(SERVER_INFO).build();
 
 		String requestId = UUID.randomUUID().toString();
@@ -46,7 +48,8 @@ class McpServerProtocolVersionTests {
 		assertThat(jsonResponse.result()).isInstanceOf(McpSchema.InitializeResult.class);
 		McpSchema.InitializeResult result = (McpSchema.InitializeResult) jsonResponse.result();
 
-		var protocolVersion = transportProvider.protocolVersions().get(transportProvider.protocolVersions().size() - 1);
+		String protocolVersion = transportProvider.protocolVersions()
+			.get(transportProvider.protocolVersions().size() - 1);
 		assertThat(result.protocolVersion()).isEqualTo(protocolVersion);
 
 		server.closeGracefully().subscribe();
@@ -56,11 +59,11 @@ class McpServerProtocolVersionTests {
 	void shouldNegotiateSpecificVersion() {
 		String oldVersion = "0.1.0";
 		MockMcpServerTransport serverTransport = new MockMcpServerTransport();
-		var transportProvider = new MockMcpServerTransportProvider(serverTransport);
+		MockMcpServerTransportProvider transportProvider = new MockMcpServerTransportProvider(serverTransport);
 
 		McpAsyncServer server = McpServer.async(transportProvider).serverInfo(SERVER_INFO).build();
 
-		server.setProtocolVersions(List.of(oldVersion, McpSchema.LATEST_PROTOCOL_VERSION));
+		server.setProtocolVersions(java.util.Arrays.asList(oldVersion, McpSchema.LATEST_PROTOCOL_VERSION));
 
 		String requestId = UUID.randomUUID().toString();
 
@@ -81,7 +84,7 @@ class McpServerProtocolVersionTests {
 	void shouldSuggestLatestVersionForUnsupportedVersion() {
 		String unsupportedVersion = "999.999.999";
 		MockMcpServerTransport serverTransport = new MockMcpServerTransport();
-		var transportProvider = new MockMcpServerTransportProvider(serverTransport);
+		MockMcpServerTransportProvider transportProvider = new MockMcpServerTransportProvider(serverTransport);
 
 		McpAsyncServer server = McpServer.async(transportProvider).serverInfo(SERVER_INFO).build();
 
@@ -95,7 +98,8 @@ class McpServerProtocolVersionTests {
 		assertThat(jsonResponse.id()).isEqualTo(requestId);
 		assertThat(jsonResponse.result()).isInstanceOf(McpSchema.InitializeResult.class);
 		McpSchema.InitializeResult result = (McpSchema.InitializeResult) jsonResponse.result();
-		var protocolVersion = transportProvider.protocolVersions().get(transportProvider.protocolVersions().size() - 1);
+		String protocolVersion = transportProvider.protocolVersions()
+			.get(transportProvider.protocolVersions().size() - 1);
 		assertThat(result.protocolVersion()).isEqualTo(protocolVersion);
 
 		server.closeGracefully().subscribe();
@@ -108,11 +112,11 @@ class McpServerProtocolVersionTests {
 		String latestVersion = McpSchema.LATEST_PROTOCOL_VERSION;
 
 		MockMcpServerTransport serverTransport = new MockMcpServerTransport();
-		var transportProvider = new MockMcpServerTransportProvider(serverTransport);
+		MockMcpServerTransportProvider transportProvider = new MockMcpServerTransportProvider(serverTransport);
 
 		McpAsyncServer server = McpServer.async(transportProvider).serverInfo(SERVER_INFO).build();
 
-		server.setProtocolVersions(List.of(oldVersion, middleVersion, latestVersion));
+		server.setProtocolVersions(java.util.Arrays.asList(oldVersion, middleVersion, latestVersion));
 
 		String requestId = UUID.randomUUID().toString();
 		transportProvider.simulateIncomingMessage(jsonRpcInitializeRequest(requestId, latestVersion));

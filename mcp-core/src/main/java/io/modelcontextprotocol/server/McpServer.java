@@ -8,6 +8,7 @@ import io.modelcontextprotocol.common.McpTransportContext;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +18,8 @@ import java.util.function.BiFunction;
 import io.modelcontextprotocol.json.McpJsonMapper;
 
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
+import io.modelcontextprotocol.server.McpServerFeatures.Async;
+import io.modelcontextprotocol.server.McpStatelessServerFeatures.Sync;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.ResourceTemplate;
@@ -63,31 +66,30 @@ import reactor.core.publisher.Mono;
  * </ul>
  *
  * <p>
- * Example of creating a basic synchronous server: <pre>{@code
- * McpServer.sync(transportProvider)
- *     .serverInfo("my-server", "1.0.0")
- *     .tool(Tool.builder().name("calculator").title("Performs calculations").inputSchema(schema).build(),
- *           (exchange, args) -> CallToolResult.builder()
- *                   .content(List.of(new McpSchema.TextContent("Result: " + calculate(args))))
- *                   .isError(false)
- *                   .build())
- *     .build();
+ * Example of creating a basic synchronous server:
+ *
+ * <pre>{@code
+ * McpServer.sync(transportProvider).serverInfo("my-server", "1.0.0").tool(
+ * 		Tool.builder().name("calculator").title("Performs calculations").inputSchema(schema).build(),
+ * 		(exchange, args) -> CallToolResult.builder()
+ * 				.content(List.of(new McpSchema.TextContent("Result: " + calculate(args)))).isError(false).build())
+ * 		.build();
  * }</pre>
  *
- * Example of creating a basic asynchronous server: <pre>{@code
- * McpServer.async(transportProvider)
- *     .serverInfo("my-server", "1.0.0")
- *     .tool(Tool.builder().name("calculator").title("Performs calculations").inputSchema(schema).build(),
- *           (exchange, args) -> Mono.fromSupplier(() -> calculate(args))
- *               .map(result -> CallToolResult.builder()
- *                   .content(List.of(new McpSchema.TextContent("Result: " + result)))
- *                   .isError(false)
- *                   .build()))
- *     .build();
+ * Example of creating a basic asynchronous server:
+ *
+ * <pre>{@code
+ * McpServer.async(transportProvider).serverInfo("my-server", "1.0.0")
+ * 		.tool(Tool.builder().name("calculator").title("Performs calculations").inputSchema(schema).build(),
+ * 				(exchange, args) -> Mono.fromSupplier(() -> calculate(args)).map(result -> CallToolResult.builder()
+ * 						.content(List.of(new McpSchema.TextContent("Result: " + result))).isError(false).build()))
+ * 		.build();
  * }</pre>
  *
  * <p>
- * Example with comprehensive asynchronous configuration: <pre>{@code
+ * Example with comprehensive asynchronous configuration:
+ *
+ * <pre>{@code
  * McpServer.async(transportProvider)
  *     .serverInfo("advanced-server", "2.0.0")
  *     .capabilities(new ServerCapabilities(...))
@@ -235,11 +237,11 @@ public interface McpServer {
 		 */
 		@Override
 		public McpAsyncServer build() {
-			var features = new McpServerFeatures.Async(this.serverInfo, this.serverCapabilities, this.tools,
-					this.resources, this.resourceTemplates, this.prompts, this.completions, this.rootsChangeHandlers,
-					this.instructions);
+			McpServerFeatures.Async features = new McpServerFeatures.Async(this.serverInfo, this.serverCapabilities,
+					this.tools, this.resources, this.resourceTemplates, this.prompts, this.completions,
+					this.rootsChangeHandlers, this.instructions);
 
-			var jsonSchemaValidator = (this.jsonSchemaValidator != null) ? this.jsonSchemaValidator
+			jsonSchemaValidator = (this.jsonSchemaValidator != null) ? this.jsonSchemaValidator
 					: JsonSchemaValidator.getDefault();
 
 			return new McpAsyncServer(transportProvider, jsonMapper == null ? McpJsonMapper.getDefault() : jsonMapper,
@@ -263,10 +265,10 @@ public interface McpServer {
 		 */
 		@Override
 		public McpAsyncServer build() {
-			var features = new McpServerFeatures.Async(this.serverInfo, this.serverCapabilities, this.tools,
-					this.resources, this.resourceTemplates, this.prompts, this.completions, this.rootsChangeHandlers,
-					this.instructions);
-			var jsonSchemaValidator = this.jsonSchemaValidator != null ? this.jsonSchemaValidator
+			McpServerFeatures.Async features = new McpServerFeatures.Async(this.serverInfo, this.serverCapabilities,
+					this.tools, this.resources, this.resourceTemplates, this.prompts, this.completions,
+					this.rootsChangeHandlers, this.instructions);
+			jsonSchemaValidator = this.jsonSchemaValidator != null ? this.jsonSchemaValidator
 					: JsonSchemaValidator.getDefault();
 			return new McpAsyncServer(transportProvider, jsonMapper == null ? McpJsonMapper.getDefault() : jsonMapper,
 					features, requestTimeout, uriTemplateManagerFactory, jsonSchemaValidator);
@@ -433,7 +435,9 @@ public interface McpServer {
 		 * {@link McpServerFeatures.AsyncToolSpecification} explicitly.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .tool(
 		 *     Tool.builder().name("calculator").title("Performs calculations").inputSchema(schema).build(),
 		 *     (exchange, args) -> Mono.fromSupplier(() -> calculate(args))
@@ -459,7 +463,7 @@ public interface McpServer {
 				BiFunction<McpAsyncServerExchange, Map<String, Object>, Mono<CallToolResult>> handler) {
 			Assert.notNull(tool, "Tool must not be null");
 			Assert.notNull(handler, "Handler must not be null");
-			assertNoDuplicateTool(tool.name());
+			assertNoDuplicateTool(tool.getName());
 
 			this.tools.add(new McpServerFeatures.AsyncToolSpecification(tool, handler));
 
@@ -484,7 +488,7 @@ public interface McpServer {
 
 			Assert.notNull(tool, "Tool must not be null");
 			Assert.notNull(callHandler, "Handler must not be null");
-			assertNoDuplicateTool(tool.name());
+			assertNoDuplicateTool(tool.getName());
 
 			this.tools
 				.add(McpServerFeatures.AsyncToolSpecification.builder().tool(tool).callHandler(callHandler).build());
@@ -505,8 +509,8 @@ public interface McpServer {
 		public AsyncSpecification<S> tools(List<McpServerFeatures.AsyncToolSpecification> toolSpecifications) {
 			Assert.notNull(toolSpecifications, "Tool handlers list must not be null");
 
-			for (var tool : toolSpecifications) {
-				assertNoDuplicateTool(tool.tool().name());
+			for (McpServerFeatures.AsyncToolSpecification tool : toolSpecifications) {
+				assertNoDuplicateTool(tool.tool().getName());
 				this.tools.add(tool);
 			}
 
@@ -518,7 +522,9 @@ public interface McpServer {
 		 * method provides a convenient way to register multiple tools inline.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .tools(
 		 *     McpServerFeatures.AsyncToolSpecification.builder().tool(calculatorTool).callTool(calculatorHandler).build(),
 		 *     McpServerFeatures.AsyncToolSpecification.builder().tool(weatherTool).callTool(weatherHandler).build(),
@@ -533,14 +539,14 @@ public interface McpServer {
 			Assert.notNull(toolSpecifications, "Tool handlers list must not be null");
 
 			for (McpServerFeatures.AsyncToolSpecification tool : toolSpecifications) {
-				assertNoDuplicateTool(tool.tool().name());
+				assertNoDuplicateTool(tool.tool().getName());
 				this.tools.add(tool);
 			}
 			return this;
 		}
 
 		private void assertNoDuplicateTool(String toolName) {
-			if (this.tools.stream().anyMatch(toolSpec -> toolSpec.tool().name().equals(toolName))) {
+			if (this.tools.stream().anyMatch(toolSpec -> toolSpec.tool().getName().equals(toolName))) {
 				throw new IllegalArgumentException("Tool with name '" + toolName + "' is already registered.");
 			}
 		}
@@ -585,7 +591,9 @@ public interface McpServer {
 		 * provides a convenient way to register multiple resources inline.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .resources(
 		 *     new McpServerFeatures.AsyncResourceSpecification(fileResource, fileHandler),
 		 *     new McpServerFeatures.AsyncResourceSpecification(dbResource, dbHandler),
@@ -617,7 +625,7 @@ public interface McpServer {
 		public AsyncSpecification<S> resourceTemplates(
 				List<McpServerFeatures.AsyncResourceTemplateSpecification> resourceTemplates) {
 			Assert.notNull(resourceTemplates, "Resource templates must not be null");
-			for (var resourceTemplate : resourceTemplates) {
+			for (McpServerFeatures.AsyncResourceTemplateSpecification resourceTemplate : resourceTemplates) {
 				this.resourceTemplates.put(resourceTemplate.resourceTemplate().uriTemplate(), resourceTemplate);
 			}
 			return this;
@@ -648,7 +656,9 @@ public interface McpServer {
 		 * source.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .prompts(Map.of("analysis", new McpServerFeatures.AsyncPromptSpecification(
 		 *     new Prompt("analysis", "Code analysis template"),
 		 *     request -> Mono.fromSupplier(() -> generateAnalysisPrompt(request))
@@ -686,7 +696,9 @@ public interface McpServer {
 		 * provides a convenient way to register multiple prompts inline.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .prompts(
 		 *     new McpServerFeatures.AsyncPromptSpecification(analysisPrompt, analysisHandler),
 		 *     new McpServerFeatures.AsyncPromptSpecification(summaryPrompt, summaryHandler),
@@ -833,7 +845,7 @@ public interface McpServer {
 			McpServerFeatures.Async asyncFeatures = McpServerFeatures.Async.fromSync(syncFeatures,
 					this.immediateExecution);
 
-			var asyncServer = new McpAsyncServer(transportProvider,
+			McpAsyncServer asyncServer = new McpAsyncServer(transportProvider,
 					jsonMapper == null ? McpJsonMapper.getDefault() : jsonMapper, asyncFeatures, requestTimeout,
 					uriTemplateManagerFactory,
 					jsonSchemaValidator != null ? jsonSchemaValidator : JsonSchemaValidator.getDefault());
@@ -863,9 +875,9 @@ public interface McpServer {
 					this.rootsChangeHandlers, this.instructions);
 			McpServerFeatures.Async asyncFeatures = McpServerFeatures.Async.fromSync(syncFeatures,
 					this.immediateExecution);
-			var jsonSchemaValidator = this.jsonSchemaValidator != null ? this.jsonSchemaValidator
+			jsonSchemaValidator = this.jsonSchemaValidator != null ? this.jsonSchemaValidator
 					: JsonSchemaValidator.getDefault();
-			var asyncServer = new McpAsyncServer(transportProvider,
+			McpAsyncServer asyncServer = new McpAsyncServer(transportProvider,
 					jsonMapper == null ? McpJsonMapper.getDefault() : jsonMapper, asyncFeatures, this.requestTimeout,
 					this.uriTemplateManagerFactory, jsonSchemaValidator);
 			return new McpSyncServer(asyncServer, this.immediateExecution);
@@ -1034,7 +1046,9 @@ public interface McpServer {
 		 * {@link McpServerFeatures.SyncToolSpecification} explicitly.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .tool(
 		 *     Tool.builder().name("calculator").title("Performs calculations".inputSchema(schema).build(),
 		 *     (exchange, args) -> CallToolResult.builder()
@@ -1059,7 +1073,7 @@ public interface McpServer {
 				BiFunction<McpSyncServerExchange, Map<String, Object>, McpSchema.CallToolResult> handler) {
 			Assert.notNull(tool, "Tool must not be null");
 			Assert.notNull(handler, "Handler must not be null");
-			assertNoDuplicateTool(tool.name());
+			assertNoDuplicateTool(tool.getName());
 
 			this.tools.add(new McpServerFeatures.SyncToolSpecification(tool, handler));
 
@@ -1083,7 +1097,7 @@ public interface McpServer {
 				BiFunction<McpSyncServerExchange, McpSchema.CallToolRequest, McpSchema.CallToolResult> handler) {
 			Assert.notNull(tool, "Tool must not be null");
 			Assert.notNull(handler, "Handler must not be null");
-			assertNoDuplicateTool(tool.name());
+			assertNoDuplicateTool(tool.getName());
 
 			this.tools.add(new McpServerFeatures.SyncToolSpecification(tool, null, handler));
 
@@ -1103,8 +1117,8 @@ public interface McpServer {
 		public SyncSpecification<S> tools(List<McpServerFeatures.SyncToolSpecification> toolSpecifications) {
 			Assert.notNull(toolSpecifications, "Tool handlers list must not be null");
 
-			for (var tool : toolSpecifications) {
-				String toolName = tool.tool().name();
+			for (McpServerFeatures.SyncToolSpecification tool : toolSpecifications) {
+				String toolName = tool.tool().getName();
 				assertNoDuplicateTool(toolName); // Check against existing tools
 				this.tools.add(tool);
 			}
@@ -1117,7 +1131,9 @@ public interface McpServer {
 		 * method provides a convenient way to register multiple tools inline.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .tools(
 		 *     new ToolSpecification(calculatorTool, calculatorHandler),
 		 *     new ToolSpecification(weatherTool, weatherHandler),
@@ -1133,14 +1149,14 @@ public interface McpServer {
 			Assert.notNull(toolSpecifications, "Tool handlers list must not be null");
 
 			for (McpServerFeatures.SyncToolSpecification tool : toolSpecifications) {
-				assertNoDuplicateTool(tool.tool().name());
+				assertNoDuplicateTool(tool.tool().getName());
 				this.tools.add(tool);
 			}
 			return this;
 		}
 
 		private void assertNoDuplicateTool(String toolName) {
-			if (this.tools.stream().anyMatch(toolSpec -> toolSpec.tool().name().equals(toolName))) {
+			if (this.tools.stream().anyMatch(toolSpec -> toolSpec.tool().getName().equals(toolName))) {
 				throw new IllegalArgumentException("Tool with name '" + toolName + "' is already registered.");
 			}
 		}
@@ -1185,7 +1201,9 @@ public interface McpServer {
 		 * provides a convenient way to register multiple resources inline.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .resources(
 		 *     new ResourceSpecification(fileResource, fileHandler),
 		 *     new ResourceSpecification(dbResource, dbHandler),
@@ -1245,7 +1263,9 @@ public interface McpServer {
 		 * source.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * Map<String, PromptSpecification> prompts = new HashMap<>();
 		 * prompts.put("analysis", new PromptSpecification(
 		 *     new Prompt("analysis", "Code analysis template"),
@@ -1284,7 +1304,9 @@ public interface McpServer {
 		 * provides a convenient way to register multiple prompts inline.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .prompts(
 		 *     new PromptSpecification(analysisPrompt, analysisHandler),
 		 *     new PromptSpecification(summaryPrompt, summaryHandler),
@@ -1376,10 +1398,13 @@ public interface McpServer {
 		 * @throws IllegalArgumentException if consumers is null
 		 * @see #rootsChangeHandlers(List)
 		 */
+
 		public SyncSpecification<S> rootsChangeHandlers(
 				BiConsumer<McpSyncServerExchange, List<McpSchema.Root>>... handlers) {
 			Assert.notNull(handlers, "Handlers list must not be null");
-			return this.rootsChangeHandlers(List.of(handlers));
+			List<BiConsumer<McpSyncServerExchange, List<McpSchema.Root>>> list = (handlers.length == 0)
+					? Collections.emptyList() : Arrays.asList(handlers);
+			return this.rootsChangeHandlers(list);
 		}
 
 		/**
@@ -1589,7 +1614,7 @@ public interface McpServer {
 
 			Assert.notNull(tool, "Tool must not be null");
 			Assert.notNull(callHandler, "Handler must not be null");
-			assertNoDuplicateTool(tool.name());
+			assertNoDuplicateTool(tool.getName());
 
 			this.tools.add(new McpStatelessServerFeatures.AsyncToolSpecification(tool, callHandler));
 
@@ -1610,8 +1635,8 @@ public interface McpServer {
 				List<McpStatelessServerFeatures.AsyncToolSpecification> toolSpecifications) {
 			Assert.notNull(toolSpecifications, "Tool handlers list must not be null");
 
-			for (var tool : toolSpecifications) {
-				assertNoDuplicateTool(tool.tool().name());
+			for (McpStatelessServerFeatures.AsyncToolSpecification tool : toolSpecifications) {
+				assertNoDuplicateTool(tool.tool().getName());
 				this.tools.add(tool);
 			}
 
@@ -1623,7 +1648,9 @@ public interface McpServer {
 		 * method provides a convenient way to register multiple tools inline.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .tools(
 		 *     McpServerFeatures.AsyncToolSpecification.builder().tool(calculatorTool).callTool(calculatorHandler).build(),
 		 *     McpServerFeatures.AsyncToolSpecification.builder().tool(weatherTool).callTool(weatherHandler).build(),
@@ -1638,15 +1665,15 @@ public interface McpServer {
 				McpStatelessServerFeatures.AsyncToolSpecification... toolSpecifications) {
 			Assert.notNull(toolSpecifications, "Tool handlers list must not be null");
 
-			for (var tool : toolSpecifications) {
-				assertNoDuplicateTool(tool.tool().name());
+			for (McpStatelessServerFeatures.AsyncToolSpecification tool : toolSpecifications) {
+				assertNoDuplicateTool(tool.tool().getName());
 				this.tools.add(tool);
 			}
 			return this;
 		}
 
 		private void assertNoDuplicateTool(String toolName) {
-			if (this.tools.stream().anyMatch(toolSpec -> toolSpec.tool().name().equals(toolName))) {
+			if (this.tools.stream().anyMatch(toolSpec -> toolSpec.tool().getName().equals(toolName))) {
 				throw new IllegalArgumentException("Tool with name '" + toolName + "' is already registered.");
 			}
 		}
@@ -1680,7 +1707,7 @@ public interface McpServer {
 		public StatelessAsyncSpecification resources(
 				List<McpStatelessServerFeatures.AsyncResourceSpecification> resourceSpecifications) {
 			Assert.notNull(resourceSpecifications, "Resource handlers list must not be null");
-			for (var resource : resourceSpecifications) {
+			for (McpStatelessServerFeatures.AsyncResourceSpecification resource : resourceSpecifications) {
 				this.resources.put(resource.resource().uri(), resource);
 			}
 			return this;
@@ -1691,7 +1718,9 @@ public interface McpServer {
 		 * provides a convenient way to register multiple resources inline.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .resources(
 		 *     new McpServerFeatures.AsyncResourceSpecification(fileResource, fileHandler),
 		 *     new McpServerFeatures.AsyncResourceSpecification(dbResource, dbHandler),
@@ -1706,7 +1735,7 @@ public interface McpServer {
 		public StatelessAsyncSpecification resources(
 				McpStatelessServerFeatures.AsyncResourceSpecification... resourceSpecifications) {
 			Assert.notNull(resourceSpecifications, "Resource handlers list must not be null");
-			for (var resource : resourceSpecifications) {
+			for (McpStatelessServerFeatures.AsyncResourceSpecification resource : resourceSpecifications) {
 				this.resources.put(resource.resource().uri(), resource);
 			}
 			return this;
@@ -1723,7 +1752,7 @@ public interface McpServer {
 		public StatelessAsyncSpecification resourceTemplates(
 				List<McpStatelessServerFeatures.AsyncResourceTemplateSpecification> resourceTemplates) {
 			Assert.notNull(resourceTemplates, "Resource templates must not be null");
-			for (var resourceTemplate : resourceTemplates) {
+			for (McpStatelessServerFeatures.AsyncResourceTemplateSpecification resourceTemplate : resourceTemplates) {
 				this.resourceTemplates.put(resourceTemplate.resourceTemplate().uriTemplate(), resourceTemplate);
 			}
 			return this;
@@ -1752,7 +1781,9 @@ public interface McpServer {
 		 * source.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .prompts(Map.of("analysis", new McpServerFeatures.AsyncPromptSpecification(
 		 *     new Prompt("analysis", "Code analysis template"),
 		 *     request -> Mono.fromSupplier(() -> generateAnalysisPrompt(request))
@@ -1780,7 +1811,7 @@ public interface McpServer {
 		 */
 		public StatelessAsyncSpecification prompts(List<McpStatelessServerFeatures.AsyncPromptSpecification> prompts) {
 			Assert.notNull(prompts, "Prompts list must not be null");
-			for (var prompt : prompts) {
+			for (McpStatelessServerFeatures.AsyncPromptSpecification prompt : prompts) {
 				this.prompts.put(prompt.prompt().name(), prompt);
 			}
 			return this;
@@ -1791,7 +1822,9 @@ public interface McpServer {
 		 * provides a convenient way to register multiple prompts inline.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .prompts(
 		 *     new McpServerFeatures.AsyncPromptSpecification(analysisPrompt, analysisHandler),
 		 *     new McpServerFeatures.AsyncPromptSpecification(summaryPrompt, summaryHandler),
@@ -1804,7 +1837,7 @@ public interface McpServer {
 		 */
 		public StatelessAsyncSpecification prompts(McpStatelessServerFeatures.AsyncPromptSpecification... prompts) {
 			Assert.notNull(prompts, "Prompts list must not be null");
-			for (var prompt : prompts) {
+			for (McpStatelessServerFeatures.AsyncPromptSpecification prompt : prompts) {
 				this.prompts.put(prompt.prompt().name(), prompt);
 			}
 			return this;
@@ -1820,7 +1853,7 @@ public interface McpServer {
 		public StatelessAsyncSpecification completions(
 				List<McpStatelessServerFeatures.AsyncCompletionSpecification> completions) {
 			Assert.notNull(completions, "Completions list must not be null");
-			for (var completion : completions) {
+			for (McpStatelessServerFeatures.AsyncCompletionSpecification completion : completions) {
 				this.completions.put(completion.referenceKey(), completion);
 			}
 			return this;
@@ -1836,7 +1869,7 @@ public interface McpServer {
 		public StatelessAsyncSpecification completions(
 				McpStatelessServerFeatures.AsyncCompletionSpecification... completions) {
 			Assert.notNull(completions, "Completions list must not be null");
-			for (var completion : completions) {
+			for (McpStatelessServerFeatures.AsyncCompletionSpecification completion : completions) {
 				this.completions.put(completion.referenceKey(), completion);
 			}
 			return this;
@@ -1869,8 +1902,9 @@ public interface McpServer {
 		}
 
 		public McpStatelessAsyncServer build() {
-			var features = new McpStatelessServerFeatures.Async(this.serverInfo, this.serverCapabilities, this.tools,
-					this.resources, this.resourceTemplates, this.prompts, this.completions, this.instructions);
+			McpStatelessServerFeatures.Async features = new McpStatelessServerFeatures.Async(this.serverInfo,
+					this.serverCapabilities, this.tools, this.resources, this.resourceTemplates, this.prompts,
+					this.completions, this.instructions);
 			return new McpStatelessAsyncServer(transport, jsonMapper == null ? McpJsonMapper.getDefault() : jsonMapper,
 					features, requestTimeout, uriTemplateManagerFactory,
 					jsonSchemaValidator != null ? jsonSchemaValidator : JsonSchemaValidator.getDefault());
@@ -2051,7 +2085,7 @@ public interface McpServer {
 
 			Assert.notNull(tool, "Tool must not be null");
 			Assert.notNull(callHandler, "Handler must not be null");
-			assertNoDuplicateTool(tool.name());
+			assertNoDuplicateTool(tool.getName());
 
 			this.tools.add(new McpStatelessServerFeatures.SyncToolSpecification(tool, callHandler));
 
@@ -2072,8 +2106,8 @@ public interface McpServer {
 				List<McpStatelessServerFeatures.SyncToolSpecification> toolSpecifications) {
 			Assert.notNull(toolSpecifications, "Tool handlers list must not be null");
 
-			for (var tool : toolSpecifications) {
-				assertNoDuplicateTool(tool.tool().name());
+			for (McpStatelessServerFeatures.SyncToolSpecification tool : toolSpecifications) {
+				assertNoDuplicateTool(tool.tool().getName());
 				this.tools.add(tool);
 			}
 
@@ -2085,7 +2119,9 @@ public interface McpServer {
 		 * method provides a convenient way to register multiple tools inline.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .tools(
 		 *     McpServerFeatures.SyncToolSpecification.builder().tool(calculatorTool).callTool(calculatorHandler).build(),
 		 *     McpServerFeatures.SyncToolSpecification.builder().tool(weatherTool).callTool(weatherHandler).build(),
@@ -2100,15 +2136,15 @@ public interface McpServer {
 				McpStatelessServerFeatures.SyncToolSpecification... toolSpecifications) {
 			Assert.notNull(toolSpecifications, "Tool handlers list must not be null");
 
-			for (var tool : toolSpecifications) {
-				assertNoDuplicateTool(tool.tool().name());
+			for (McpStatelessServerFeatures.SyncToolSpecification tool : toolSpecifications) {
+				assertNoDuplicateTool(tool.tool().getName());
 				this.tools.add(tool);
 			}
 			return this;
 		}
 
 		private void assertNoDuplicateTool(String toolName) {
-			if (this.tools.stream().anyMatch(toolSpec -> toolSpec.tool().name().equals(toolName))) {
+			if (this.tools.stream().anyMatch(toolSpec -> toolSpec.tool().getName().equals(toolName))) {
 				throw new IllegalArgumentException("Tool with name '" + toolName + "' is already registered.");
 			}
 		}
@@ -2142,7 +2178,7 @@ public interface McpServer {
 		public StatelessSyncSpecification resources(
 				List<McpStatelessServerFeatures.SyncResourceSpecification> resourceSpecifications) {
 			Assert.notNull(resourceSpecifications, "Resource handlers list must not be null");
-			for (var resource : resourceSpecifications) {
+			for (McpStatelessServerFeatures.SyncResourceSpecification resource : resourceSpecifications) {
 				this.resources.put(resource.resource().uri(), resource);
 			}
 			return this;
@@ -2153,7 +2189,9 @@ public interface McpServer {
 		 * provides a convenient way to register multiple resources inline.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .resources(
 		 *     new McpServerFeatures.SyncResourceSpecification(fileResource, fileHandler),
 		 *     new McpServerFeatures.SyncResourceSpecification(dbResource, dbHandler),
@@ -2168,7 +2206,7 @@ public interface McpServer {
 		public StatelessSyncSpecification resources(
 				McpStatelessServerFeatures.SyncResourceSpecification... resourceSpecifications) {
 			Assert.notNull(resourceSpecifications, "Resource handlers list must not be null");
-			for (var resource : resourceSpecifications) {
+			for (McpStatelessServerFeatures.SyncResourceSpecification resource : resourceSpecifications) {
 				this.resources.put(resource.resource().uri(), resource);
 			}
 			return this;
@@ -2185,7 +2223,7 @@ public interface McpServer {
 		public StatelessSyncSpecification resourceTemplates(
 				List<McpStatelessServerFeatures.SyncResourceTemplateSpecification> resourceTemplatesSpec) {
 			Assert.notNull(resourceTemplatesSpec, "Resource templates must not be null");
-			for (var resourceTemplate : resourceTemplatesSpec) {
+			for (McpStatelessServerFeatures.SyncResourceTemplateSpecification resourceTemplate : resourceTemplatesSpec) {
 				this.resourceTemplates.put(resourceTemplate.resourceTemplate().uriTemplate(), resourceTemplate);
 			}
 			return this;
@@ -2214,7 +2252,9 @@ public interface McpServer {
 		 * source.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .prompts(Map.of("analysis", new McpServerFeatures.SyncPromptSpecification(
 		 *     new Prompt("analysis", "Code analysis template"),
 		 *     request -> Mono.fromSupplier(() -> generateAnalysisPrompt(request))
@@ -2242,7 +2282,7 @@ public interface McpServer {
 		 */
 		public StatelessSyncSpecification prompts(List<McpStatelessServerFeatures.SyncPromptSpecification> prompts) {
 			Assert.notNull(prompts, "Prompts list must not be null");
-			for (var prompt : prompts) {
+			for (McpStatelessServerFeatures.SyncPromptSpecification prompt : prompts) {
 				this.prompts.put(prompt.prompt().name(), prompt);
 			}
 			return this;
@@ -2253,7 +2293,9 @@ public interface McpServer {
 		 * provides a convenient way to register multiple prompts inline.
 		 *
 		 * <p>
-		 * Example usage: <pre>{@code
+		 * Example usage:
+		 *
+		 * <pre>{@code
 		 * .prompts(
 		 *     new McpServerFeatures.SyncPromptSpecification(analysisPrompt, analysisHandler),
 		 *     new McpServerFeatures.SyncPromptSpecification(summaryPrompt, summaryHandler),
@@ -2266,7 +2308,7 @@ public interface McpServer {
 		 */
 		public StatelessSyncSpecification prompts(McpStatelessServerFeatures.SyncPromptSpecification... prompts) {
 			Assert.notNull(prompts, "Prompts list must not be null");
-			for (var prompt : prompts) {
+			for (McpStatelessServerFeatures.SyncPromptSpecification prompt : prompts) {
 				this.prompts.put(prompt.prompt().name(), prompt);
 			}
 			return this;
@@ -2282,7 +2324,7 @@ public interface McpServer {
 		public StatelessSyncSpecification completions(
 				List<McpStatelessServerFeatures.SyncCompletionSpecification> completions) {
 			Assert.notNull(completions, "Completions list must not be null");
-			for (var completion : completions) {
+			for (McpStatelessServerFeatures.SyncCompletionSpecification completion : completions) {
 				this.completions.put(completion.referenceKey(), completion);
 			}
 			return this;
@@ -2298,7 +2340,7 @@ public interface McpServer {
 		public StatelessSyncSpecification completions(
 				McpStatelessServerFeatures.SyncCompletionSpecification... completions) {
 			Assert.notNull(completions, "Completions list must not be null");
-			for (var completion : completions) {
+			for (McpStatelessServerFeatures.SyncCompletionSpecification completion : completions) {
 				this.completions.put(completion.referenceKey(), completion);
 			}
 			return this;
@@ -2347,10 +2389,12 @@ public interface McpServer {
 		}
 
 		public McpStatelessSyncServer build() {
-			var syncFeatures = new McpStatelessServerFeatures.Sync(this.serverInfo, this.serverCapabilities, this.tools,
-					this.resources, this.resourceTemplates, this.prompts, this.completions, this.instructions);
-			var asyncFeatures = McpStatelessServerFeatures.Async.fromSync(syncFeatures, this.immediateExecution);
-			var asyncServer = new McpStatelessAsyncServer(transport,
+			McpStatelessServerFeatures.Sync syncFeatures = new McpStatelessServerFeatures.Sync(this.serverInfo,
+					this.serverCapabilities, this.tools, this.resources, this.resourceTemplates, this.prompts,
+					this.completions, this.instructions);
+			McpStatelessServerFeatures.Async asyncFeatures = McpStatelessServerFeatures.Async.fromSync(syncFeatures,
+					this.immediateExecution);
+			McpStatelessAsyncServer asyncServer = new McpStatelessAsyncServer(transport,
 					jsonMapper == null ? McpJsonMapper.getDefault() : jsonMapper, asyncFeatures, requestTimeout,
 					uriTemplateManagerFactory,
 					this.jsonSchemaValidator != null ? this.jsonSchemaValidator : JsonSchemaValidator.getDefault());

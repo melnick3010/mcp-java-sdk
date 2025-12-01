@@ -1,26 +1,30 @@
 /*
-* Copyright 2024 - 2024 the original author or authors.
-*/
-
+ * Copyright 2024 - 2024 the original author or authors.
+ */
 package io.modelcontextprotocol.spec;
 
 import io.modelcontextprotocol.spec.McpSchema.JSONRPCResponse.JSONRPCError;
 import io.modelcontextprotocol.util.Assert;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.function.Function;
 
 public class McpError extends RuntimeException {
 
 	/**
-	 * <a href=
-	 * "https://modelcontextprotocol.io/specification/2025-06-18/server/resources#error-handling">Resource
-	 * Error Handling</a>
+	 * Resource Error Handling
+	 * https://modelcontextprotocol.io/specification/2025-06-18/server/resources#error-handling
 	 */
-	public static final Function<String, McpError> RESOURCE_NOT_FOUND = resourceUri -> new McpError(new JSONRPCError(
-			McpSchema.ErrorCodes.RESOURCE_NOT_FOUND, "Resource not found", Map.of("uri", resourceUri)));
+	public static final Function<String, McpError> RESOURCE_NOT_FOUND = new Function<String, McpError>() {
+		@Override
+		public McpError apply(String resourceUri) {
+			return new McpError(new JSONRPCError(McpSchema.ErrorCodes.RESOURCE_NOT_FOUND, "Resource not found",
+					Collections.<String, Object>singletonMap("uri", resourceUri)));
+		}
+	};
 
-	private JSONRPCError jsonRpcError;
+	private final JSONRPCError jsonRpcError;
 
 	public McpError(JSONRPCError jsonRpcError) {
 		super(jsonRpcError.message());
@@ -29,7 +33,8 @@ public class McpError extends RuntimeException {
 
 	@Deprecated
 	public McpError(Object error) {
-		super(error.toString());
+		super(String.valueOf(error));
+		this.jsonRpcError = null;
 	}
 
 	public JSONRPCError getJsonRpcError() {
@@ -38,7 +43,7 @@ public class McpError extends RuntimeException {
 
 	@Override
 	public String toString() {
-		var builder = new StringBuilder(super.toString());
+		StringBuilder builder = new StringBuilder(super.toString());
 		if (jsonRpcError != null) {
 			builder.append("\n");
 			builder.append(jsonRpcError.toString());
@@ -90,26 +95,21 @@ public class McpError extends RuntimeException {
 
 	public static String aggregateExceptionMessages(Throwable throwable) {
 		Assert.notNull(throwable, "throwable must not be null");
-
 		StringBuilder messages = new StringBuilder();
 		Throwable current = throwable;
-
 		while (current != null) {
 			if (messages.length() > 0) {
-				messages.append("\n  Caused by: ");
+				messages.append("\n Caused by: ");
 			}
-
 			messages.append(current.getClass().getSimpleName());
 			if (current.getMessage() != null) {
 				messages.append(": ").append(current.getMessage());
 			}
-
 			if (current.getCause() == current) {
 				break;
 			}
 			current = current.getCause();
 		}
-
 		return messages.toString();
 	}
 

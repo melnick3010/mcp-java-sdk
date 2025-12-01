@@ -39,33 +39,39 @@ final class JsonSchemaInternal {
 	 * @throws IllegalStateException If no {@link JsonSchemaValidatorSupplier}
 	 * implementation is found or if an error occurs during instantiation.
 	 */
+
 	static JsonSchemaValidator createDefaultValidator() {
 		AtomicReference<IllegalStateException> ex = new AtomicReference<>();
-		return ServiceLoader.load(JsonSchemaValidatorSupplier.class).stream().flatMap(p -> {
+
+		ServiceLoader<JsonSchemaValidatorSupplier> loader = ServiceLoader.load(JsonSchemaValidatorSupplier.class);
+
+		for (JsonSchemaValidatorSupplier supplier : loader) {
 			try {
-				JsonSchemaValidatorSupplier supplier = p.get();
-				return Stream.ofNullable(supplier);
+				if (supplier == null) {
+					continue; // difesa contro provider null
+				}
+				try {
+					JsonSchemaValidator validator = supplier.get();
+					if (validator != null) {
+						return validator; // primo valido trovato
+					}
+				}
+				catch (Exception e) {
+					addException(ex, e);
+					// continua a cercare altri supplier
+				}
 			}
 			catch (Exception e) {
+				// eccezioni durante la risoluzione del provider
 				addException(ex, e);
-				return Stream.empty();
 			}
-		}).flatMap(jsonMapperSupplier -> {
-			try {
-				return Stream.of(jsonMapperSupplier.get());
-			}
-			catch (Exception e) {
-				addException(ex, e);
-				return Stream.empty();
-			}
-		}).findFirst().orElseThrow(() -> {
-			if (ex.get() != null) {
-				return ex.get();
-			}
-			else {
-				return new IllegalStateException("No default JsonSchemaValidatorSupplier implementation found");
-			}
-		});
+		}
+
+		IllegalStateException last = ex.get();
+		if (last != null) {
+			throw last;
+		}
+		throw new IllegalStateException("No default JsonSchemaValidatorSupplier implementation found");
 	}
 
 	private static void addException(AtomicReference<IllegalStateException> ref, Exception toAdd) {

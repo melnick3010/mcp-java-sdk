@@ -4,6 +4,7 @@
 
 package io.modelcontextprotocol.common;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
@@ -15,6 +16,8 @@ import io.modelcontextprotocol.client.transport.WebFluxSseClientTransport;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpStatelessServerFeatures;
+import io.modelcontextprotocol.server.McpStatelessSyncServer;
+import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.server.McpTransportContextExtractor;
 import io.modelcontextprotocol.server.TestUtil;
@@ -83,10 +86,19 @@ public class SyncServerMcpTransportContextIntegrationTests {
 
 	private static final String HEADER_NAME = "x-test";
 
-	private final Supplier<McpTransportContext> clientContextProvider = () -> {
-		var headerValue = CLIENT_SIDE_HEADER_VALUE_HOLDER.get();
-		return headerValue != null ? McpTransportContext.create(Map.of("client-side-header-value", headerValue))
-				: McpTransportContext.EMPTY;
+	private final java.util.function.Supplier<McpTransportContext> clientContextProvider = new java.util.function.Supplier<McpTransportContext>() {
+		@Override
+		public McpTransportContext get() {
+			String headerValue = CLIENT_SIDE_HEADER_VALUE_HOLDER.get();
+			if (headerValue != null) {
+				java.util.Map<String, Object> map = new java.util.HashMap<String, Object>();
+				map.put("client-side-header-value", headerValue);
+				return McpTransportContext.create(map);
+			}
+			else {
+				return McpTransportContext.EMPTY;
+			}
+		}
 	};
 
 	private final BiFunction<McpTransportContext, McpSchema.CallToolRequest, McpSchema.CallToolResult> statelessHandler = (
@@ -98,9 +110,15 @@ public class SyncServerMcpTransportContextIntegrationTests {
 			exchange, request) -> statelessHandler.apply(exchange.transportContext(), request);
 
 	private final McpTransportContextExtractor<ServerRequest> serverContextExtractor = (ServerRequest r) -> {
-		var headerValue = r.headers().firstHeader(HEADER_NAME);
-		return headerValue != null ? McpTransportContext.create(Map.of("server-side-header-value", headerValue))
-				: McpTransportContext.EMPTY;
+		String headerValue = r.headers().firstHeader(HEADER_NAME);
+		if (headerValue != null) {
+			java.util.Map<String, Object> map = new java.util.HashMap<String, Object>();
+			map.put("server-side-header-value", headerValue);
+			return McpTransportContext.create(map);
+		}
+		else {
+			return McpTransportContext.EMPTY;
+		}
 	};
 
 	private final WebFluxStatelessServerTransport statelessServerTransport = WebFluxStatelessServerTransport.builder()
@@ -121,13 +139,15 @@ public class SyncServerMcpTransportContextIntegrationTests {
 		.sync(WebClientStreamableHttpTransport.builder(WebClient.builder()
 			.baseUrl("http://localhost:" + PORT)
 			.filter((request, next) -> Mono.deferContextual(ctx -> {
-				var context = ctx.getOrDefault(McpTransportContext.KEY, McpTransportContext.EMPTY);
-				// // do stuff with the context
-				var headerValue = context.get("client-side-header-value");
+				McpTransportContext context = ctx.getOrDefault(McpTransportContext.KEY, McpTransportContext.EMPTY);
+				// do stuff with the context
+				Object headerValue = context.get("client-side-header-value");
 				if (headerValue == null) {
 					return next.exchange(request);
 				}
-				var reqWithHeader = ClientRequest.from(request).header(HEADER_NAME, headerValue.toString()).build();
+				ClientRequest reqWithHeader = ClientRequest.from(request)
+					.header(HEADER_NAME, headerValue.toString())
+					.build();
 				return next.exchange(reqWithHeader);
 			}))).build())
 		.transportContextProvider(clientContextProvider)
@@ -136,13 +156,15 @@ public class SyncServerMcpTransportContextIntegrationTests {
 	private final McpSyncClient sseClient = McpClient.sync(WebFluxSseClientTransport.builder(WebClient.builder()
 		.baseUrl("http://localhost:" + PORT)
 		.filter((request, next) -> Mono.deferContextual(ctx -> {
-			var context = ctx.getOrDefault(McpTransportContext.KEY, McpTransportContext.EMPTY);
-			// // do stuff with the context
-			var headerValue = context.get("client-side-header-value");
+			McpTransportContext context = ctx.getOrDefault(McpTransportContext.KEY, McpTransportContext.EMPTY);
+			// do stuff with the context
+			Object headerValue = context.get("client-side-header-value");
 			if (headerValue == null) {
 				return next.exchange(request);
 			}
-			var reqWithHeader = ClientRequest.from(request).header(HEADER_NAME, headerValue.toString()).build();
+			ClientRequest reqWithHeader = ClientRequest.from(request)
+				.header(HEADER_NAME, headerValue.toString())
+				.build();
 			return next.exchange(reqWithHeader);
 		}))).build()).transportContextProvider(clientContextProvider).build();
 
@@ -179,7 +201,7 @@ public class SyncServerMcpTransportContextIntegrationTests {
 
 		startHttpServer(statelessServerTransport.getRouterFunction());
 
-		var mcpServer = McpServer.sync(statelessServerTransport)
+		McpStatelessSyncServer mcpServer = McpServer.sync(statelessServerTransport)
 			.capabilities(McpSchema.ServerCapabilities.builder().tools(true).build())
 			.tools(new McpStatelessServerFeatures.SyncToolSpecification(tool, statelessHandler))
 			.build();
@@ -189,13 +211,13 @@ public class SyncServerMcpTransportContextIntegrationTests {
 
 		CLIENT_SIDE_HEADER_VALUE_HOLDER.set("some important value");
 		McpSchema.CallToolResult response = streamableClient
-			.callTool(new McpSchema.CallToolRequest("test-tool", Map.of()));
+			.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()));
 
 		assertThat(response).isNotNull();
-		assertThat(response.content()).hasSize(1)
+		assertThat(response.getContent()).hasSize(1)
 			.first()
 			.extracting(McpSchema.TextContent.class::cast)
-			.extracting(McpSchema.TextContent::text)
+			.extracting(McpSchema.TextContent::getText)
 			.isEqualTo("some important value");
 
 		mcpServer.close();
@@ -206,7 +228,7 @@ public class SyncServerMcpTransportContextIntegrationTests {
 
 		startHttpServer(streamableServerTransport.getRouterFunction());
 
-		var mcpServer = McpServer.sync(streamableServerTransport)
+		McpSyncServer mcpServer = McpServer.sync(streamableServerTransport)
 			.capabilities(McpSchema.ServerCapabilities.builder().tools(true).build())
 			.tools(new McpServerFeatures.SyncToolSpecification(tool, null, statefulHandler))
 			.build();
@@ -216,13 +238,13 @@ public class SyncServerMcpTransportContextIntegrationTests {
 
 		CLIENT_SIDE_HEADER_VALUE_HOLDER.set("some important value");
 		McpSchema.CallToolResult response = streamableClient
-			.callTool(new McpSchema.CallToolRequest("test-tool", Map.of()));
+			.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()));
 
 		assertThat(response).isNotNull();
-		assertThat(response.content()).hasSize(1)
+		assertThat(response.getContent()).hasSize(1)
 			.first()
 			.extracting(McpSchema.TextContent.class::cast)
-			.extracting(McpSchema.TextContent::text)
+			.extracting(McpSchema.TextContent::getText)
 			.isEqualTo("some important value");
 
 		mcpServer.close();
@@ -232,7 +254,7 @@ public class SyncServerMcpTransportContextIntegrationTests {
 	void sseServer() {
 		startHttpServer(sseServerTransport.getRouterFunction());
 
-		var mcpServer = McpServer.sync(sseServerTransport)
+		McpSyncServer mcpServer = McpServer.sync(sseServerTransport)
 			.capabilities(McpSchema.ServerCapabilities.builder().tools(true).build())
 			.tools(new McpServerFeatures.SyncToolSpecification(tool, null, statefulHandler))
 			.build();
@@ -241,13 +263,14 @@ public class SyncServerMcpTransportContextIntegrationTests {
 		assertThat(initResult).isNotNull();
 
 		CLIENT_SIDE_HEADER_VALUE_HOLDER.set("some important value");
-		McpSchema.CallToolResult response = sseClient.callTool(new McpSchema.CallToolRequest("test-tool", Map.of()));
+		McpSchema.CallToolResult response = sseClient
+			.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()));
 
 		assertThat(response).isNotNull();
-		assertThat(response.content()).hasSize(1)
+		assertThat(response.getContent()).hasSize(1)
 			.first()
 			.extracting(McpSchema.TextContent.class::cast)
-			.extracting(McpSchema.TextContent::text)
+			.extracting(McpSchema.TextContent::getText)
 			.isEqualTo("some important value");
 
 		mcpServer.close();

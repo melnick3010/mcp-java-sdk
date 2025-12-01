@@ -9,9 +9,19 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+
+import javax.servlet.AsyncContext;
+import javax.servlet.AsyncEvent;
+import javax.servlet.AsyncListener;
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,12 +40,7 @@ import io.modelcontextprotocol.spec.ProtocolVersions;
 import io.modelcontextprotocol.util.Assert;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.util.KeepAliveScheduler;
-import jakarta.servlet.AsyncContext;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -156,7 +161,7 @@ public class HttpServletStreamableServerTransportProvider extends HttpServlet
 
 	@Override
 	public List<String> protocolVersions() {
-		return List.of(ProtocolVersions.MCP_2024_11_05, ProtocolVersions.MCP_2025_03_26,
+		return Arrays.asList(ProtocolVersions.MCP_2024_11_05, ProtocolVersions.MCP_2025_03_26,
 				ProtocolVersions.MCP_2025_06_18);
 	}
 
@@ -255,7 +260,7 @@ public class HttpServletStreamableServerTransportProvider extends HttpServlet
 
 		String sessionId = request.getHeader(HttpHeaders.MCP_SESSION_ID);
 
-		if (sessionId == null || sessionId.isBlank()) {
+		if (sessionId == null || sessionId.trim().isEmpty()) {
 			badRequestErrors.add("Session ID required in mcp-session-id header");
 		}
 
@@ -315,32 +320,33 @@ public class HttpServletStreamableServerTransportProvider extends HttpServlet
 				}
 			}
 			else {
-				// Establish new listening stream
+				// Nuovo stream in ascolto (SSE “live”)
 				McpStreamableServerSession.McpStreamableServerSessionStream listeningStream = session
 					.listeningStream(sessionTransport);
 
-				asyncContext.addListener(new jakarta.servlet.AsyncListener() {
+				// Listener asincrono: versione javax.servlet
+				asyncContext.addListener(new AsyncListener() {
 					@Override
-					public void onComplete(jakarta.servlet.AsyncEvent event) throws IOException {
+					public void onComplete(AsyncEvent event) throws IOException {
 						logger.debug("SSE connection completed for session: {}", sessionId);
 						listeningStream.close();
 					}
 
 					@Override
-					public void onTimeout(jakarta.servlet.AsyncEvent event) throws IOException {
+					public void onTimeout(AsyncEvent event) throws IOException {
 						logger.debug("SSE connection timed out for session: {}", sessionId);
 						listeningStream.close();
 					}
 
 					@Override
-					public void onError(jakarta.servlet.AsyncEvent event) throws IOException {
+					public void onError(AsyncEvent event) throws IOException {
 						logger.debug("SSE connection error for session: {}", sessionId);
 						listeningStream.close();
 					}
 
 					@Override
-					public void onStartAsync(jakarta.servlet.AsyncEvent event) throws IOException {
-						// No action needed
+					public void onStartAsync(AsyncEvent event) throws IOException {
+						// Nessuna azione necessaria
 					}
 				});
 			}
@@ -396,48 +402,54 @@ public class HttpServletStreamableServerTransportProvider extends HttpServlet
 			McpSchema.JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(jsonMapper, body.toString());
 
 			// Handle initialization request
-			if (message instanceof McpSchema.JSONRPCRequest jsonrpcRequest
-					&& jsonrpcRequest.method().equals(McpSchema.METHOD_INITIALIZE)) {
-				if (!badRequestErrors.isEmpty()) {
-					String combinedMessage = String.join("; ", badRequestErrors);
-					this.responseError(response, HttpServletResponse.SC_BAD_REQUEST, new McpError(combinedMessage));
-					return;
-				}
+			if (message instanceof McpSchema.JSONRPCRequest) {
+				final McpSchema.JSONRPCRequest jsonrpcRequest = (McpSchema.JSONRPCRequest) message;
 
-				McpSchema.InitializeRequest initializeRequest = jsonMapper.convertValue(jsonrpcRequest.params(),
-						new TypeRef<McpSchema.InitializeRequest>() {
+				if (McpSchema.METHOD_INITIALIZE.equals(jsonrpcRequest.method())) {
+					if (!badRequestErrors.isEmpty()) {
+						final String combinedMessage = String.join("; ", badRequestErrors);
+						this.responseError(response, HttpServletResponse.SC_BAD_REQUEST, new McpError(combinedMessage));
+						return;
+					}
+
+					// convertValue su Java 8 con TypeRef<T>
+					final McpSchema.InitializeRequest initializeRequest = jsonMapper
+						.convertValue(jsonrpcRequest.params(), new TypeRef<McpSchema.InitializeRequest>() {
 						});
-				McpStreamableServerSession.McpStreamableServerSessionInit init = this.sessionFactory
-					.startSession(initializeRequest);
-				this.sessions.put(init.session().getId(), init.session());
 
-				try {
-					McpSchema.InitializeResult initResult = init.initResult().block();
+					final McpStreamableServerSession.McpStreamableServerSessionInit init = this.sessionFactory
+						.startSession(initializeRequest);
 
-					response.setContentType(APPLICATION_JSON);
-					response.setCharacterEncoding(UTF_8);
-					response.setHeader(HttpHeaders.MCP_SESSION_ID, init.session().getId());
-					response.setStatus(HttpServletResponse.SC_OK);
+					this.sessions.put(init.session().getId(), init.session());
 
-					String jsonResponse = jsonMapper.writeValueAsString(new McpSchema.JSONRPCResponse(
-							McpSchema.JSONRPC_VERSION, jsonrpcRequest.id(), initResult, null));
+					try {
+						final McpSchema.InitializeResult initResult = init.initResult().block();
 
-					PrintWriter writer = response.getWriter();
-					writer.write(jsonResponse);
-					writer.flush();
-					return;
-				}
-				catch (Exception e) {
-					logger.error("Failed to initialize session: {}", e.getMessage());
-					this.responseError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-							new McpError("Failed to initialize session: " + e.getMessage()));
-					return;
+						response.setContentType(APPLICATION_JSON);
+						response.setCharacterEncoding(UTF_8);
+						response.setHeader(HttpHeaders.MCP_SESSION_ID, init.session().getId());
+						response.setStatus(HttpServletResponse.SC_OK);
+
+						final String jsonResponse = jsonMapper.writeValueAsString(new McpSchema.JSONRPCResponse(
+								McpSchema.JSONRPC_VERSION, jsonrpcRequest.id(), initResult, null));
+
+						final PrintWriter writer = response.getWriter();
+						writer.write(jsonResponse);
+						writer.flush();
+						return;
+					}
+					catch (Exception e) {
+						logger.error("Failed to initialize session: {}", e.getMessage());
+						this.responseError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+								new McpError("Failed to initialize session: " + e.getMessage()));
+						return;
+					}
 				}
 			}
 
 			String sessionId = request.getHeader(HttpHeaders.MCP_SESSION_ID);
 
-			if (sessionId == null || sessionId.isBlank()) {
+			if (sessionId == null || sessionId.trim().isEmpty()) {
 				badRequestErrors.add("Session ID required in mcp-session-id header");
 			}
 
@@ -455,19 +467,29 @@ public class HttpServletStreamableServerTransportProvider extends HttpServlet
 				return;
 			}
 
-			if (message instanceof McpSchema.JSONRPCResponse jsonrpcResponse) {
+			if (message instanceof McpSchema.JSONRPCResponse) {
+				final McpSchema.JSONRPCResponse jsonrpcResponse = (McpSchema.JSONRPCResponse) message;
+
 				session.accept(jsonrpcResponse)
 					.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
 					.block();
+
 				response.setStatus(HttpServletResponse.SC_ACCEPTED);
+
 			}
-			else if (message instanceof McpSchema.JSONRPCNotification jsonrpcNotification) {
+			else if (message instanceof McpSchema.JSONRPCNotification) {
+				final McpSchema.JSONRPCNotification jsonrpcNotification = (McpSchema.JSONRPCNotification) message;
+
 				session.accept(jsonrpcNotification)
 					.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
 					.block();
+
 				response.setStatus(HttpServletResponse.SC_ACCEPTED);
+
 			}
-			else if (message instanceof McpSchema.JSONRPCRequest jsonrpcRequest) {
+			else if (message instanceof McpSchema.JSONRPCRequest) {
+				final McpSchema.JSONRPCRequest jsonrpcRequest = (McpSchema.JSONRPCRequest) message;
+
 				// For streaming responses, we need to return SSE
 				response.setContentType(TEXT_EVENT_STREAM);
 				response.setCharacterEncoding(UTF_8);
@@ -475,10 +497,10 @@ public class HttpServletStreamableServerTransportProvider extends HttpServlet
 				response.setHeader("Connection", "keep-alive");
 				response.setHeader("Access-Control-Allow-Origin", "*");
 
-				AsyncContext asyncContext = request.startAsync();
+				final AsyncContext asyncContext = request.startAsync();
 				asyncContext.setTimeout(0);
 
-				HttpServletStreamableMcpSessionTransport sessionTransport = new HttpServletStreamableMcpSessionTransport(
+				final HttpServletStreamableMcpSessionTransport sessionTransport = new HttpServletStreamableMcpSessionTransport(
 						sessionId, asyncContext, response.getWriter());
 
 				try {
@@ -490,6 +512,7 @@ public class HttpServletStreamableServerTransportProvider extends HttpServlet
 					logger.error("Failed to handle request stream: {}", e.getMessage());
 					asyncContext.complete();
 				}
+
 			}
 			else {
 				this.responseError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,

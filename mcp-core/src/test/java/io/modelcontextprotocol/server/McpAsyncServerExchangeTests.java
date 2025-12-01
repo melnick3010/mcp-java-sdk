@@ -7,6 +7,7 @@ package io.modelcontextprotocol.server;
 import io.modelcontextprotocol.common.McpTransportContext;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -70,15 +71,15 @@ class McpAsyncServerExchangeTests {
 			.thenReturn(Mono.just(singlePageResult));
 
 		StepVerifier.create(exchange.listRoots()).assertNext(result -> {
-			assertThat(result.roots()).hasSize(2);
-			assertThat(result.roots().get(0).uri()).isEqualTo("file:///home/user/project1");
-			assertThat(result.roots().get(0).name()).isEqualTo("Project 1");
-			assertThat(result.roots().get(1).uri()).isEqualTo("file:///home/user/project2");
-			assertThat(result.roots().get(1).name()).isEqualTo("Project 2");
-			assertThat(result.nextCursor()).isNull();
+			assertThat(result.getRoots()).hasSize(2);
+			assertThat(result.getRoots().get(0).getUri()).isEqualTo("file:///home/user/project1");
+			assertThat(result.getRoots().get(0).getName()).isEqualTo("Project 1");
+			assertThat(result.getRoots().get(1).getUri()).isEqualTo("file:///home/user/project2");
+			assertThat(result.getRoots().get(1).getName()).isEqualTo("Project 2");
+			assertThat(result.getNextCursor()).isNull();
 
 			// Verify that the returned list is unmodifiable
-			assertThatThrownBy(() -> result.roots().add(new McpSchema.Root("file:///test", "Test")))
+			assertThatThrownBy(() -> result.getRoots().add(new McpSchema.Root("file:///test", "Test")))
 				.isInstanceOf(UnsupportedOperationException.class);
 		}).verifyComplete();
 	}
@@ -102,14 +103,14 @@ class McpAsyncServerExchangeTests {
 			.thenReturn(Mono.just(page2Result));
 
 		StepVerifier.create(exchange.listRoots()).assertNext(result -> {
-			assertThat(result.roots()).hasSize(3);
-			assertThat(result.roots().get(0).uri()).isEqualTo("file:///home/user/project1");
-			assertThat(result.roots().get(1).uri()).isEqualTo("file:///home/user/project2");
-			assertThat(result.roots().get(2).uri()).isEqualTo("file:///home/user/project3");
-			assertThat(result.nextCursor()).isNull();
+			assertThat(result.getRoots()).hasSize(3);
+			assertThat(result.getRoots().get(0).getUri()).isEqualTo("file:///home/user/project1");
+			assertThat(result.getRoots().get(1).getUri()).isEqualTo("file:///home/user/project2");
+			assertThat(result.getRoots().get(2).getUri()).isEqualTo("file:///home/user/project3");
+			assertThat(result.getNextCursor()).isNull();
 
 			// Verify that the returned list is unmodifiable
-			assertThatThrownBy(() -> result.roots().add(new McpSchema.Root("file:///test", "Test")))
+			assertThatThrownBy(() -> result.getRoots().add(new McpSchema.Root("file:///test", "Test")))
 				.isInstanceOf(UnsupportedOperationException.class);
 		}).verifyComplete();
 	}
@@ -124,11 +125,11 @@ class McpAsyncServerExchangeTests {
 			.thenReturn(Mono.just(emptyResult));
 
 		StepVerifier.create(exchange.listRoots()).assertNext(result -> {
-			assertThat(result.roots()).isEmpty();
-			assertThat(result.nextCursor()).isNull();
+			assertThat(result.getRoots()).isEmpty();
+			assertThat(result.getNextCursor()).isNull();
 
 			// Verify that the returned list is unmodifiable
-			assertThatThrownBy(() -> result.roots().add(new McpSchema.Root("file:///test", "Test")))
+			assertThatThrownBy(() -> result.getRoots().add(new McpSchema.Root("file:///test", "Test")))
 				.isInstanceOf(UnsupportedOperationException.class);
 		}).verifyComplete();
 	}
@@ -144,9 +145,9 @@ class McpAsyncServerExchangeTests {
 			.thenReturn(Mono.just(result));
 
 		StepVerifier.create(exchange.listRoots("someCursor")).assertNext(listResult -> {
-			assertThat(listResult.roots()).hasSize(1);
-			assertThat(listResult.roots().get(0).uri()).isEqualTo("file:///home/user/project3");
-			assertThat(listResult.nextCursor()).isEqualTo("nextCursor");
+			assertThat(listResult.getRoots()).hasSize(1);
+			assertThat(listResult.getRoots().get(0).getUri()).isEqualTo("file:///home/user/project3");
+			assertThat(listResult.getNextCursor()).isEqualTo("nextCursor");
 		}).verifyComplete();
 	}
 
@@ -184,17 +185,17 @@ class McpAsyncServerExchangeTests {
 
 		StepVerifier.create(exchange.listRoots()).assertNext(result -> {
 			// Verify the accumulated result is correct
-			assertThat(result.roots()).hasSize(2);
+			assertThat(result.getRoots()).hasSize(2);
 
 			// Verify that the returned list is unmodifiable
-			assertThatThrownBy(() -> result.roots().add(new McpSchema.Root("file:///test", "Test")))
+			assertThatThrownBy(() -> result.getRoots().add(new McpSchema.Root("file:///test", "Test")))
 				.isInstanceOf(UnsupportedOperationException.class);
 
 			// Verify that clear() also throws UnsupportedOperationException
-			assertThatThrownBy(() -> result.roots().clear()).isInstanceOf(UnsupportedOperationException.class);
+			assertThatThrownBy(() -> result.getRoots().clear()).isInstanceOf(UnsupportedOperationException.class);
 
 			// Verify that remove() also throws UnsupportedOperationException
-			assertThatThrownBy(() -> result.roots().remove(0)).isInstanceOf(UnsupportedOperationException.class);
+			assertThatThrownBy(() -> result.getRoots().remove(0)).isInstanceOf(UnsupportedOperationException.class);
 		}).verifyComplete();
 	}
 
@@ -352,11 +353,21 @@ class McpAsyncServerExchangeTests {
 				capabilitiesWithElicitation, clientInfo);
 
 		// Create a complex elicit request with schema
-		java.util.Map<String, Object> requestedSchema = new java.util.HashMap<>();
+		java.util.Map<String, Object> requestedSchema = new java.util.HashMap<String, Object>();
 		requestedSchema.put("type", "object");
-		requestedSchema.put("properties", java.util.Map.of("name", java.util.Map.of("type", "string"), "age",
-				java.util.Map.of("type", "number")));
-		requestedSchema.put("required", java.util.List.of("name"));
+
+		// Costruzione delle proprietà senza Map.of
+		java.util.Map<String, Object> nameProps = new java.util.HashMap<String, Object>();
+		nameProps.put("type", "string");
+
+		java.util.Map<String, Object> ageProps = java.util.Collections.singletonMap("type", "number");
+
+		java.util.Map<String, Object> properties = new java.util.HashMap<String, Object>();
+		properties.put("name", nameProps);
+		properties.put("age", ageProps);
+
+		requestedSchema.put("properties", properties);
+		requestedSchema.put("required", java.util.Collections.singletonList("name"));
 
 		McpSchema.ElicitRequest elicitRequest = McpSchema.ElicitRequest.builder()
 			.message("Please provide your personal information")
@@ -377,10 +388,10 @@ class McpAsyncServerExchangeTests {
 
 		StepVerifier.create(exchangeWithElicitation.createElicitation(elicitRequest)).assertNext(result -> {
 			assertThat(result).isEqualTo(expectedResult);
-			assertThat(result.action()).isEqualTo(McpSchema.ElicitResult.Action.ACCEPT);
-			assertThat(result.content()).isNotNull();
-			assertThat(result.content().get("name")).isEqualTo("John Doe");
-			assertThat(result.content().get("age")).isEqualTo(30);
+			assertThat(result.getAction()).isEqualTo(McpSchema.ElicitResult.Action.ACCEPT);
+			assertThat(result.getContent()).isNotNull();
+			assertThat(result.getContent().get("name")).isEqualTo("John Doe");
+			assertThat(result.getContent().get("age")).isEqualTo(30);
 		}).verifyComplete();
 	}
 
@@ -407,7 +418,7 @@ class McpAsyncServerExchangeTests {
 
 		StepVerifier.create(exchangeWithElicitation.createElicitation(elicitRequest)).assertNext(result -> {
 			assertThat(result).isEqualTo(expectedResult);
-			assertThat(result.action()).isEqualTo(McpSchema.ElicitResult.Action.DECLINE);
+			assertThat(result.getAction()).isEqualTo(McpSchema.ElicitResult.Action.DECLINE);
 		}).verifyComplete();
 	}
 
@@ -434,7 +445,7 @@ class McpAsyncServerExchangeTests {
 
 		StepVerifier.create(exchangeWithElicitation.createElicitation(elicitRequest)).assertNext(result -> {
 			assertThat(result).isEqualTo(expectedResult);
-			assertThat(result.action()).isEqualTo(McpSchema.ElicitResult.Action.CANCEL);
+			assertThat(result.getAction()).isEqualTo(McpSchema.ElicitResult.Action.CANCEL);
 		}).verifyComplete();
 	}
 
@@ -538,11 +549,12 @@ class McpAsyncServerExchangeTests {
 
 		StepVerifier.create(exchangeWithSampling.createMessage(createMessageRequest)).assertNext(result -> {
 			assertThat(result).isEqualTo(expectedResult);
-			assertThat(result.role()).isEqualTo(McpSchema.Role.ASSISTANT);
-			assertThat(result.content()).isInstanceOf(McpSchema.TextContent.class);
-			assertThat(((McpSchema.TextContent) result.content()).text()).isEqualTo("Hello! How can I help you today?");
-			assertThat(result.model()).isEqualTo("gpt-4");
-			assertThat(result.stopReason()).isEqualTo(McpSchema.CreateMessageResult.StopReason.END_TURN);
+			assertThat(result.getRole()).isEqualTo(McpSchema.Role.ASSISTANT);
+			assertThat(result.getContent()).isInstanceOf(McpSchema.TextContent.class);
+			assertThat(((McpSchema.TextContent) result.getContent()).getText())
+				.isEqualTo("Hello! How can I help you today?");
+			assertThat(result.getModel()).isEqualTo("gpt-4");
+			assertThat(result.getStopReason()).isEqualTo(McpSchema.CreateMessageResult.StopReason.END_TURN);
 		}).verifyComplete();
 	}
 
@@ -576,8 +588,8 @@ class McpAsyncServerExchangeTests {
 
 		StepVerifier.create(exchangeWithSampling.createMessage(createMessageRequest)).assertNext(result -> {
 			assertThat(result).isEqualTo(expectedResult);
-			assertThat(result.role()).isEqualTo(McpSchema.Role.ASSISTANT);
-			assertThat(result.model()).isEqualTo("gpt-4-vision");
+			assertThat(result.getRole()).isEqualTo(McpSchema.Role.ASSISTANT);
+			assertThat(result.getModel()).isEqualTo("gpt-4-vision");
 		}).verifyComplete();
 	}
 
@@ -634,7 +646,7 @@ class McpAsyncServerExchangeTests {
 
 		StepVerifier.create(exchangeWithSampling.createMessage(createMessageRequest)).assertNext(result -> {
 			assertThat(result).isEqualTo(expectedResult);
-			assertThat(((McpSchema.TextContent) result.content()).text()).contains("context");
+			assertThat(((McpSchema.TextContent) result.getContent()).getText()).contains("context");
 		}).verifyComplete();
 	}
 
@@ -645,7 +657,7 @@ class McpAsyncServerExchangeTests {
 	@Test
 	void testPingWithSuccessfulResponse() {
 
-		java.util.Map<String, Object> expectedResponse = java.util.Map.of();
+		java.util.Map<String, Object> expectedResponse = Collections.emptyMap();
 
 		when(mockSession.sendRequest(eq(McpSchema.METHOD_PING), eq(null), any(TypeRef.class)))
 			.thenReturn(Mono.just(expectedResponse));
@@ -678,8 +690,8 @@ class McpAsyncServerExchangeTests {
 	void testPingMultipleCalls() {
 
 		when(mockSession.sendRequest(eq(McpSchema.METHOD_PING), eq(null), any(TypeRef.class)))
-			.thenReturn(Mono.just(Map.of()))
-			.thenReturn(Mono.just(Map.of()));
+			.thenReturn(Mono.just(Collections.emptyMap()))
+			.thenReturn(Mono.just(Collections.emptyMap()));
 
 		// First call
 		StepVerifier.create(exchange.ping()).assertNext(result -> {

@@ -12,6 +12,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -102,7 +104,7 @@ public abstract class AbstractMcpAsyncClientTests {
 
 	void withClient(McpClientTransport transport, Function<McpClient.AsyncSpec, McpClient.AsyncSpec> customizer,
 			Consumer<McpAsyncClient> c) {
-		var client = client(transport, customizer);
+		McpAsyncClient client = client(transport, customizer);
 		try {
 			c.accept(client);
 		}
@@ -144,11 +146,11 @@ public abstract class AbstractMcpAsyncClientTests {
 		withClient(createMcpTransport(), mcpAsyncClient -> {
 			StepVerifier.create(mcpAsyncClient.initialize().then(mcpAsyncClient.listTools(McpSchema.FIRST_PAGE)))
 				.consumeNextWith(result -> {
-					assertThat(result.tools()).isNotNull().isNotEmpty();
+					assertThat(result.getTools()).isNotNull().isNotEmpty();
 
-					Tool firstTool = result.tools().get(0);
-					assertThat(firstTool.name()).isNotNull();
-					assertThat(firstTool.description()).isNotNull();
+					Tool firstTool = result.getTools().get(0);
+					assertThat(firstTool.getName()).isNotNull();
+					assertThat(firstTool.getDescription()).isNotNull();
 				})
 				.verifyComplete();
 		});
@@ -159,11 +161,11 @@ public abstract class AbstractMcpAsyncClientTests {
 		withClient(createMcpTransport(), mcpAsyncClient -> {
 			StepVerifier.create(mcpAsyncClient.initialize().then(mcpAsyncClient.listTools()))
 				.consumeNextWith(result -> {
-					assertThat(result.tools()).isNotNull().isNotEmpty();
+					assertThat(result.getTools()).isNotNull().isNotEmpty();
 
-					Tool firstTool = result.tools().get(0);
-					assertThat(firstTool.name()).isNotNull();
-					assertThat(firstTool.description()).isNotNull();
+					Tool firstTool = result.getTools().get(0);
+					assertThat(firstTool.getName()).isNotNull();
+					assertThat(firstTool.getDescription()).isNotNull();
 				})
 				.verifyComplete();
 		});
@@ -174,9 +176,9 @@ public abstract class AbstractMcpAsyncClientTests {
 		withClient(createMcpTransport(), mcpAsyncClient -> {
 			StepVerifier.create(mcpAsyncClient.initialize().then(mcpAsyncClient.listTools()))
 				.consumeNextWith(result -> {
-					assertThat(result.tools()).isNotNull();
+					assertThat(result.getTools()).isNotNull();
 					// Verify that the returned list is immutable
-					assertThatThrownBy(() -> result.tools()
+					assertThatThrownBy(() -> result.getTools()
 						.add(Tool.builder()
 							.name("test")
 							.title("test")
@@ -204,20 +206,22 @@ public abstract class AbstractMcpAsyncClientTests {
 
 	@Test
 	void testCallToolWithoutInitialization() {
-		CallToolRequest callToolRequest = new CallToolRequest("echo", Map.of("message", ECHO_TEST_MESSAGE));
+		CallToolRequest callToolRequest = new CallToolRequest("echo",
+				Collections.singletonMap("message", ECHO_TEST_MESSAGE));
 		verifyCallSucceedsWithImplicitInitialization(client -> client.callTool(callToolRequest), "calling tools");
 	}
 
 	@Test
 	void testCallTool() {
 		withClient(createMcpTransport(), mcpAsyncClient -> {
-			CallToolRequest callToolRequest = new CallToolRequest("echo", Map.of("message", ECHO_TEST_MESSAGE));
+			CallToolRequest callToolRequest = new CallToolRequest("echo",
+					Collections.singletonMap("message", ECHO_TEST_MESSAGE));
 
 			StepVerifier.create(mcpAsyncClient.initialize().then(mcpAsyncClient.callTool(callToolRequest)))
 				.consumeNextWith(callToolResult -> {
 					assertThat(callToolResult).isNotNull().satisfies(result -> {
-						assertThat(result.content()).isNotNull();
-						assertThat(result.isError()).isNull();
+						assertThat(result.getContent()).isNotNull();
+						assertThat(result.getIsError()).isNull();
 					});
 				})
 				.verifyComplete();
@@ -228,7 +232,7 @@ public abstract class AbstractMcpAsyncClientTests {
 	void testCallToolWithInvalidTool() {
 		withClient(createMcpTransport(), mcpAsyncClient -> {
 			CallToolRequest invalidRequest = new CallToolRequest("nonexistent_tool",
-					Map.of("message", ECHO_TEST_MESSAGE));
+					Collections.singletonMap("message", ECHO_TEST_MESSAGE));
 
 			StepVerifier.create(mcpAsyncClient.initialize().then(mcpAsyncClient.callTool(invalidRequest)))
 				.consumeErrorWith(
@@ -243,19 +247,23 @@ public abstract class AbstractMcpAsyncClientTests {
 		McpClientTransport transport = createMcpTransport();
 
 		withClient(transport, mcpAsyncClient -> {
-			StepVerifier.create(mcpAsyncClient.initialize()
-				.then(mcpAsyncClient.callTool(new McpSchema.CallToolRequest("annotatedMessage",
-						Map.of("messageType", messageType, "includeImage", true)))))
+			Map<String, Object> outputSchema = new HashMap<>();
+			outputSchema.put("messageType", messageType);
+			outputSchema.put("includeImage", true);
+
+			StepVerifier
+				.create(mcpAsyncClient.initialize()
+					.then(mcpAsyncClient.callTool(new McpSchema.CallToolRequest("annotatedMessage", outputSchema))))
 				.consumeNextWith(result -> {
 					assertThat(result).isNotNull();
-					assertThat(result.isError()).isNotEqualTo(true);
-					assertThat(result.content()).isNotEmpty();
-					assertThat(result.content()).allSatisfy(content -> {
+					assertThat(result.getIsError()).isNotEqualTo(true);
+					assertThat(result.getContent()).isNotEmpty();
+					assertThat(result.getContent()).allSatisfy(content -> {
 						switch (content.type()) {
 							case "text":
 								McpSchema.TextContent textContent = assertInstanceOf(McpSchema.TextContent.class,
 										content);
-								assertThat(textContent.text()).isNotEmpty();
+								assertThat(textContent.getText()).isNotEmpty();
 								assertThat(textContent.annotations()).isNotNull();
 
 								switch (messageType) {
@@ -281,7 +289,7 @@ public abstract class AbstractMcpAsyncClientTests {
 							case "image":
 								McpSchema.ImageContent imageContent = assertInstanceOf(McpSchema.ImageContent.class,
 										content);
-								assertThat(imageContent.data()).isNotEmpty();
+								assertThat(imageContent.getData()).isNotEmpty();
 								assertThat(imageContent.annotations()).isNotNull();
 								assertThat(imageContent.annotations().priority()).isEqualTo(0.5);
 								assertThat(imageContent.annotations().audience()).containsExactly(McpSchema.Role.USER);
@@ -373,10 +381,10 @@ public abstract class AbstractMcpAsyncClientTests {
 			StepVerifier.create(mcpAsyncClient.initialize().then(mcpAsyncClient.listPrompts(McpSchema.FIRST_PAGE)))
 				.consumeNextWith(prompts -> {
 					assertThat(prompts).isNotNull().satisfies(result -> {
-						assertThat(result.prompts()).isNotNull();
+						assertThat(result.getPrompts()).isNotNull();
 
-						if (!result.prompts().isEmpty()) {
-							Prompt firstPrompt = result.prompts().get(0);
+						if (!result.getPrompts().isEmpty()) {
+							Prompt firstPrompt = result.getPrompts().get(0);
 							assertThat(firstPrompt.name()).isNotNull();
 							assertThat(firstPrompt.description()).isNotNull();
 						}
@@ -392,10 +400,10 @@ public abstract class AbstractMcpAsyncClientTests {
 			StepVerifier.create(mcpAsyncClient.initialize().then(mcpAsyncClient.listPrompts()))
 				.consumeNextWith(prompts -> {
 					assertThat(prompts).isNotNull().satisfies(result -> {
-						assertThat(result.prompts()).isNotNull();
+						assertThat(result.getPrompts()).isNotNull();
 
-						if (!result.prompts().isEmpty()) {
-							Prompt firstPrompt = result.prompts().get(0);
+						if (!result.getPrompts().isEmpty()) {
+							Prompt firstPrompt = result.getPrompts().get(0);
 							assertThat(firstPrompt.name()).isNotNull();
 							assertThat(firstPrompt.description()).isNotNull();
 						}
@@ -410,9 +418,9 @@ public abstract class AbstractMcpAsyncClientTests {
 		withClient(createMcpTransport(), mcpAsyncClient -> {
 			StepVerifier.create(mcpAsyncClient.initialize().then(mcpAsyncClient.listPrompts()))
 				.consumeNextWith(result -> {
-					assertThat(result.prompts()).isNotNull();
+					assertThat(result.getPrompts()).isNotNull();
 					// Verify that the returned list is immutable
-					assertThatThrownBy(() -> result.prompts().add(new Prompt("test", "test", "test", null)))
+					assertThatThrownBy(() -> result.getPrompts().add(new Prompt("test", "test", "test", null)))
 						.isInstanceOf(UnsupportedOperationException.class);
 				})
 				.verifyComplete();
@@ -421,7 +429,7 @@ public abstract class AbstractMcpAsyncClientTests {
 
 	@Test
 	void testGetPromptWithoutInitialization() {
-		GetPromptRequest request = new GetPromptRequest("simple_prompt", Map.of());
+		GetPromptRequest request = new GetPromptRequest("simple_prompt", Collections.emptyMap());
 		verifyCallSucceedsWithImplicitInitialization(client -> client.getPrompt(request), "getting " + "prompts");
 	}
 
@@ -430,11 +438,11 @@ public abstract class AbstractMcpAsyncClientTests {
 		withClient(createMcpTransport(), mcpAsyncClient -> {
 			StepVerifier
 				.create(mcpAsyncClient.initialize()
-					.then(mcpAsyncClient.getPrompt(new GetPromptRequest("simple_prompt", Map.of()))))
+					.then(mcpAsyncClient.getPrompt(new GetPromptRequest("simple_prompt", Collections.emptyMap()))))
 				.consumeNextWith(prompt -> {
 					assertThat(prompt).isNotNull().satisfies(result -> {
-						assertThat(result.messages()).isNotEmpty();
-						assertThat(result.messages()).hasSize(1);
+						assertThat(result.getMessages()).isNotEmpty();
+						assertThat(result.getMessages()).hasSize(1);
 					});
 				})
 				.verifyComplete();
@@ -487,7 +495,7 @@ public abstract class AbstractMcpAsyncClientTests {
 			Root root = new Root("file:///test/path/to/remove", "root-to-remove");
 			StepVerifier.create(mcpAsyncClient.addRoot(root)).verifyComplete();
 
-			StepVerifier.create(mcpAsyncClient.removeRoot(root.uri())).verifyComplete();
+			StepVerifier.create(mcpAsyncClient.removeRoot(root.getUri())).verifyComplete();
 		});
 	}
 
@@ -514,10 +522,10 @@ public abstract class AbstractMcpAsyncClientTests {
 				for (ReadResourceResult result : readResourceResults) {
 
 					assertThat(result).isNotNull();
-					assertThat(result.contents()).isNotNull().isNotEmpty();
+					assertThat(result.getContents()).isNotNull().isNotEmpty();
 
 					// Validate each content item
-					for (ResourceContents content : result.contents()) {
+					for (ResourceContents content : result.getContents()) {
 						assertThat(content).isNotNull();
 						assertThat(content.uri()).isNotNull().isNotEmpty();
 						assertThat(content.mimeType()).isNotNull().isNotEmpty();
@@ -525,30 +533,31 @@ public abstract class AbstractMcpAsyncClientTests {
 						// Validate content based on its type with more comprehensive
 						// checks
 						switch (content.mimeType()) {
-							case "text/plain" -> {
-								TextResourceContents textContent = assertInstanceOf(TextResourceContents.class,
-										content);
-								assertThat(textContent.text()).isNotNull().isNotEmpty();
+							case "text/plain":
+								TextResourceContents textContent = (TextResourceContents) content;
+								assertThat(textContent.getText()).isNotNull().isNotEmpty();
 								assertThat(textContent.uri()).isNotEmpty();
-							}
-							case "application/octet-stream" -> {
-								BlobResourceContents blobContent = assertInstanceOf(BlobResourceContents.class,
-										content);
-								assertThat(blobContent.blob()).isNotNull().isNotEmpty();
+								break;
+
+							case "application/octet-stream":
+								BlobResourceContents blobContent = (BlobResourceContents) content;
+								assertThat(blobContent.getBlob()).isNotNull().isNotEmpty();
 								assertThat(blobContent.uri()).isNotNull().isNotEmpty();
 								// Validate base64 encoding format
-								assertThat(blobContent.blob()).matches("^[A-Za-z0-9+/]*={0,2}$");
-							}
-							default -> {
+								assertThat(blobContent.getBlob()).matches("^[A-Za-z0-9+/]*={0,2}$");
+								break;
 
+							default:
 								// Still validate basic properties
-								if (content instanceof TextResourceContents textContent) {
-									assertThat(textContent.text()).isNotNull();
+								if (content instanceof TextResourceContents) {
+									TextResourceContents txt = (TextResourceContents) content;
+									assertThat(txt.getText()).isNotNull();
 								}
-								else if (content instanceof BlobResourceContents blobContent) {
-									assertThat(blobContent.blob()).isNotNull();
+								else if (content instanceof BlobResourceContents) {
+									BlobResourceContents blob = (BlobResourceContents) content;
+									assertThat(blob.getBlob()).isNotNull();
 								}
-							}
+								break;
 						}
 					}
 				}
@@ -571,7 +580,7 @@ public abstract class AbstractMcpAsyncClientTests {
 				.create(mcpAsyncClient.initialize().then(mcpAsyncClient.listResourceTemplates(McpSchema.FIRST_PAGE)))
 				.consumeNextWith(result -> {
 					assertThat(result).isNotNull();
-					assertThat(result.resourceTemplates()).isNotNull();
+					assertThat(result.getResourceTemplates()).isNotNull();
 				})
 				.verifyComplete();
 		});
@@ -583,7 +592,7 @@ public abstract class AbstractMcpAsyncClientTests {
 			StepVerifier.create(mcpAsyncClient.initialize().then(mcpAsyncClient.listResourceTemplates()))
 				.consumeNextWith(result -> {
 					assertThat(result).isNotNull();
-					assertThat(result.resourceTemplates()).isNotNull();
+					assertThat(result.getResourceTemplates()).isNotNull();
 				})
 				.verifyComplete();
 		});
@@ -594,9 +603,9 @@ public abstract class AbstractMcpAsyncClientTests {
 		withClient(createMcpTransport(), mcpAsyncClient -> {
 			StepVerifier.create(mcpAsyncClient.initialize().then(mcpAsyncClient.listResourceTemplates()))
 				.consumeNextWith(result -> {
-					assertThat(result.resourceTemplates()).isNotNull();
+					assertThat(result.getResourceTemplates()).isNotNull();
 					// Verify that the returned list is immutable
-					assertThatThrownBy(() -> result.resourceTemplates()
+					assertThatThrownBy(() -> result.getResourceTemplates()
 						.add(new McpSchema.ResourceTemplate("test://template", "test", "test", null, null, null)))
 						.isInstanceOf(UnsupportedOperationException.class);
 				})
@@ -661,7 +670,7 @@ public abstract class AbstractMcpAsyncClientTests {
 		ClientCapabilities capabilities = ClientCapabilities.builder().elicitation().build();
 		ElicitResult elicitResult = ElicitResult.builder()
 			.message(ElicitResult.Action.ACCEPT)
-			.content(Map.of("foo", "bar"))
+			.content(Collections.singletonMap("foo", "bar"))
 			.build();
 		withClient(createMcpTransport(),
 				builder -> builder.capabilities(capabilities).elicitation(request -> Mono.just(elicitResult)),
@@ -672,8 +681,8 @@ public abstract class AbstractMcpAsyncClientTests {
 
 	@Test
 	void testInitializeWithAllCapabilities() {
-		var capabilities = ClientCapabilities.builder()
-			.experimental(Map.of("feature", "test"))
+		ClientCapabilities capabilities = ClientCapabilities.builder()
+			.experimental(Collections.singletonMap("feature", "test"))
 			.roots(true)
 			.sampling()
 			.build();
@@ -681,8 +690,10 @@ public abstract class AbstractMcpAsyncClientTests {
 		Function<CreateMessageRequest, Mono<CreateMessageResult>> samplingHandler = request -> Mono
 			.just(CreateMessageResult.builder().message("test").model("test-model").build());
 
-		Function<ElicitRequest, Mono<ElicitResult>> elicitationHandler = request -> Mono
-			.just(ElicitResult.builder().message(ElicitResult.Action.ACCEPT).content(Map.of("foo", "bar")).build());
+		Function<ElicitRequest, Mono<ElicitResult>> elicitationHandler = request -> Mono.just(ElicitResult.builder()
+			.message(ElicitResult.Action.ACCEPT)
+			.content(Collections.singletonMap("foo", "bar"))
+			.build());
 
 		withClient(createMcpTransport(),
 				builder -> builder.capabilities(capabilities).sampling(samplingHandler).elicitation(elicitationHandler),
@@ -752,28 +763,33 @@ public abstract class AbstractMcpAsyncClientTests {
 		withClient(transport, spec -> spec.capabilities(McpSchema.ClientCapabilities.builder().sampling().build())
 			.sampling(request -> {
 				McpSchema.TextContent messageText = assertInstanceOf(McpSchema.TextContent.class,
-						request.messages().get(0).content());
-				receivedPrompt.set(request.systemPrompt());
-				receivedMessage.set(messageText.text());
-				receivedMaxTokens.set(request.maxTokens());
+						request.getMessages().get(0).getContent());
+				receivedPrompt.set(request.getSystemPrompt());
+				receivedMessage.set(messageText.getText());
+				receivedMaxTokens.set(request.getMaxTokens());
 
 				return Mono
 					.just(new McpSchema.CreateMessageResult(McpSchema.Role.USER, new McpSchema.TextContent(response),
 							"modelId", McpSchema.CreateMessageResult.StopReason.END_TURN));
 			}), client -> {
 				StepVerifier.create(client.initialize()).expectNextMatches(Objects::nonNull).verifyComplete();
-
-				StepVerifier.create(client.callTool(
-						new McpSchema.CallToolRequest("sampleLLM", Map.of("prompt", message, "maxTokens", maxTokens))))
+				Map<String, Object> toolrequest = new HashMap<>();
+				toolrequest.put("prompt", message);
+				toolrequest.put("maxTokens", maxTokens);
+				StepVerifier.create(client.callTool(new McpSchema.CallToolRequest("sampleLLM", toolrequest)))
 					.consumeNextWith(result -> {
 						// Verify tool response to ensure our sampling response was passed
 						// through
-						assertThat(result.content()).hasAtLeastOneElementOfType(McpSchema.TextContent.class);
-						assertThat(result.content()).allSatisfy(content -> {
-							if (!(content instanceof McpSchema.TextContent text))
-								return;
+						assertThat(result.getContent()).hasAtLeastOneElementOfType(McpSchema.TextContent.class);
+						assertThat(result.getContent()).allSatisfy(content -> {
 
-							assertThat(text.text()).endsWith(response); // Prefixed
+							if (!(content instanceof McpSchema.TextContent)) {
+								return;
+							}
+
+							McpSchema.TextContent text = (McpSchema.TextContent) content;
+							assertThat(text.getText()).endsWith(response); // Prefixed
+
 						});
 
 						// Verify sampling request parameters received in our callback
@@ -800,11 +816,13 @@ public abstract class AbstractMcpAsyncClientTests {
 			return Mono.empty();
 		}), client -> {
 			StepVerifier.create(client.initialize()).expectNextMatches(Objects::nonNull).verifyComplete();
-
+			Map<String, Object> args = new HashMap<>();
+			args.put("duration", 1);
+			args.put("steps", 2);
 			// Call a tool that sends progress notifications
 			CallToolRequest request = CallToolRequest.builder()
 				.name("longRunningOperation")
-				.arguments(Map.of("duration", 1, "steps", 2))
+				.arguments(args)
 				.progressToken("test-token")
 				.build();
 
@@ -816,7 +834,7 @@ public abstract class AbstractMcpAsyncClientTests {
 			StepVerifier.create(sink.asFlux()).expectNextCount(2).thenCancel().verify(Duration.ofSeconds(3));
 
 			assertThat(receivedNotifications).hasSize(2);
-			assertThat(receivedNotifications.get(0).progressToken()).isEqualTo("test-token");
+			assertThat(receivedNotifications.get(0).getProgressToken()).isEqualTo("test-token");
 		});
 	}
 

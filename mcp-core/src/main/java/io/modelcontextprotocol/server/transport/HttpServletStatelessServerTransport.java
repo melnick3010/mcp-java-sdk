@@ -8,6 +8,12 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,11 +26,6 @@ import io.modelcontextprotocol.spec.McpError;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpStatelessServerTransport;
 import io.modelcontextprotocol.util.Assert;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import reactor.core.publisher.Mono;
 
 /**
@@ -141,7 +142,8 @@ public class HttpServletStatelessServerTransport extends HttpServlet implements 
 
 			McpSchema.JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(jsonMapper, body.toString());
 
-			if (message instanceof McpSchema.JSONRPCRequest jsonrpcRequest) {
+			if (message instanceof McpSchema.JSONRPCRequest) {
+				McpSchema.JSONRPCRequest jsonrpcRequest = (McpSchema.JSONRPCRequest) message;
 				try {
 					McpSchema.JSONRPCResponse jsonrpcResponse = this.mcpHandler
 						.handleRequest(transportContext, jsonrpcRequest)
@@ -149,13 +151,22 @@ public class HttpServletStatelessServerTransport extends HttpServlet implements 
 						.block();
 
 					response.setContentType(APPLICATION_JSON);
-					response.setCharacterEncoding(UTF_8);
+					// Usa costante o literal "UTF-8" se UTF_8 non è definita
+					response.setCharacterEncoding(UTF_8); // oppure:
+															// response.setCharacterEncoding("UTF-8");
 					response.setStatus(HttpServletResponse.SC_OK);
 
 					String jsonResponseText = jsonMapper.writeValueAsString(jsonrpcResponse);
 					PrintWriter writer = response.getWriter();
-					writer.write(jsonResponseText);
-					writer.flush();
+					try {
+						writer.write(jsonResponseText);
+						writer.flush();
+					}
+					finally {
+						// In genere il container gestisce la chiusura; se preferisci non
+						// chiudere esplicitamente, rimuovi questo
+						writer.close();
+					}
 				}
 				catch (Exception e) {
 					logger.error("Failed to handle request: {}", e.getMessage());
@@ -163,7 +174,8 @@ public class HttpServletStatelessServerTransport extends HttpServlet implements 
 							new McpError("Failed to handle request: " + e.getMessage()));
 				}
 			}
-			else if (message instanceof McpSchema.JSONRPCNotification jsonrpcNotification) {
+			else if (message instanceof McpSchema.JSONRPCNotification) {
+				McpSchema.JSONRPCNotification jsonrpcNotification = (McpSchema.JSONRPCNotification) message;
 				try {
 					this.mcpHandler.handleNotification(transportContext, jsonrpcNotification)
 						.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))

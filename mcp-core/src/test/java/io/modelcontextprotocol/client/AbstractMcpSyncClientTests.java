@@ -11,6 +11,8 @@ import static org.assertj.core.api.Assertions.fail;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import java.time.Duration;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -98,7 +100,7 @@ public abstract class AbstractMcpSyncClientTests {
 
 	void withClient(McpClientTransport transport, Function<McpClient.SyncSpec, McpClient.SyncSpec> customizer,
 			Consumer<McpSyncClient> c) {
-		var client = client(transport, customizer);
+		McpSyncClient client = client(transport, customizer);
 		try {
 			c.accept(client);
 		}
@@ -146,11 +148,11 @@ public abstract class AbstractMcpSyncClientTests {
 			ListToolsResult tools = mcpSyncClient.listTools(McpSchema.FIRST_PAGE);
 
 			assertThat(tools).isNotNull().satisfies(result -> {
-				assertThat(result.tools()).isNotNull().isNotEmpty();
+				assertThat(result.getTools()).isNotNull().isNotEmpty();
 
-				Tool firstTool = result.tools().get(0);
-				assertThat(firstTool.name()).isNotNull();
-				assertThat(firstTool.description()).isNotNull();
+				Tool firstTool = result.getTools().get(0);
+				assertThat(firstTool.getName()).isNotNull();
+				assertThat(firstTool.getDescription()).isNotNull();
 			});
 		});
 	}
@@ -162,36 +164,42 @@ public abstract class AbstractMcpSyncClientTests {
 			ListToolsResult tools = mcpSyncClient.listTools();
 
 			assertThat(tools).isNotNull().satisfies(result -> {
-				assertThat(result.tools()).isNotNull().isNotEmpty();
+				assertThat(result.getTools()).isNotNull().isNotEmpty();
 
-				Tool firstTool = result.tools().get(0);
-				assertThat(firstTool.name()).isNotNull();
-				assertThat(firstTool.description()).isNotNull();
+				Tool firstTool = result.getTools().get(0);
+				assertThat(firstTool.getName()).isNotNull();
+				assertThat(firstTool.getDescription()).isNotNull();
 			});
 		});
 	}
 
 	@Test
 	void testCallToolsWithoutInitialization() {
-		verifyCallSucceedsWithImplicitInitialization(
-				client -> client.callTool(new CallToolRequest("add", Map.of("a", 3, "b", 4))), "calling tools");
+		Map<String, Object> ctrmap = new HashMap<>();
+		ctrmap.put("a", 3);
+		ctrmap.put("b", 4);
+		verifyCallSucceedsWithImplicitInitialization(client -> client.callTool(new CallToolRequest("add", ctrmap)),
+				"calling tools");
 	}
 
 	@Test
 	void testCallTools() {
+		Map<String, Object> ctrmap = new HashMap<>();
+		ctrmap.put("a", 3);
+		ctrmap.put("b", 4);
 		withClient(createMcpTransport(), mcpSyncClient -> {
 			mcpSyncClient.initialize();
-			CallToolResult toolResult = mcpSyncClient.callTool(new CallToolRequest("add", Map.of("a", 3, "b", 4)));
+			CallToolResult toolResult = mcpSyncClient.callTool(new CallToolRequest("add", ctrmap));
 
 			assertThat(toolResult).isNotNull().satisfies(result -> {
 
-				assertThat(result.content()).hasSize(1);
+				assertThat(result.getContent()).hasSize(1);
 
-				TextContent content = (TextContent) result.content().get(0);
+				TextContent content = (TextContent) result.getContent().get(0);
 
 				assertThat(content).isNotNull();
-				assertThat(content.text()).isNotNull();
-				assertThat(content.text()).contains("7");
+				assertThat(content.getText()).isNotNull();
+				assertThat(content.getText()).contains("7");
 			});
 		});
 	}
@@ -211,7 +219,8 @@ public abstract class AbstractMcpSyncClientTests {
 
 	@Test
 	void testCallToolWithoutInitialization() {
-		CallToolRequest callToolRequest = new CallToolRequest("echo", Map.of("message", TEST_MESSAGE));
+		CallToolRequest callToolRequest = new CallToolRequest("echo",
+				Collections.singletonMap("message", TEST_MESSAGE));
 		verifyCallSucceedsWithImplicitInitialization(client -> client.callTool(callToolRequest), "calling tools");
 	}
 
@@ -219,13 +228,14 @@ public abstract class AbstractMcpSyncClientTests {
 	void testCallTool() {
 		withClient(createMcpTransport(), mcpSyncClient -> {
 			mcpSyncClient.initialize();
-			CallToolRequest callToolRequest = new CallToolRequest("echo", Map.of("message", TEST_MESSAGE));
+			CallToolRequest callToolRequest = new CallToolRequest("echo",
+					Collections.singletonMap("message", TEST_MESSAGE));
 
 			CallToolResult callToolResult = mcpSyncClient.callTool(callToolRequest);
 
 			assertThat(callToolResult).isNotNull().satisfies(result -> {
-				assertThat(result.content()).isNotNull();
-				assertThat(result.isError()).isNull();
+				assertThat(result.getContent()).isNotNull();
+				assertThat(result.getIsError()).isNull();
 			});
 		});
 	}
@@ -233,7 +243,8 @@ public abstract class AbstractMcpSyncClientTests {
 	@Test
 	void testCallToolWithInvalidTool() {
 		withClient(createMcpTransport(), mcpSyncClient -> {
-			CallToolRequest invalidRequest = new CallToolRequest("nonexistent_tool", Map.of("message", TEST_MESSAGE));
+			CallToolRequest invalidRequest = new CallToolRequest("nonexistent_tool",
+					Collections.singletonMap("message", TEST_MESSAGE));
 
 			assertThatThrownBy(() -> mcpSyncClient.callTool(invalidRequest)).isInstanceOf(Exception.class);
 		});
@@ -246,18 +257,20 @@ public abstract class AbstractMcpSyncClientTests {
 
 		withClient(transport, client -> {
 			client.initialize();
-
-			McpSchema.CallToolResult result = client.callTool(new McpSchema.CallToolRequest("annotatedMessage",
-					Map.of("messageType", messageType, "includeImage", true)));
+			Map<String, Object> ctrmap = new HashMap<>();
+			ctrmap.put("messageType", messageType);
+			ctrmap.put("includeImage", true);
+			McpSchema.CallToolResult result = client
+				.callTool(new McpSchema.CallToolRequest("annotatedMessage", ctrmap));
 
 			assertThat(result).isNotNull();
-			assertThat(result.isError()).isNotEqualTo(true);
-			assertThat(result.content()).isNotEmpty();
-			assertThat(result.content()).allSatisfy(content -> {
+			assertThat(result.getIsError()).isNotEqualTo(true);
+			assertThat(result.getContent()).isNotEmpty();
+			assertThat(result.getContent()).allSatisfy(content -> {
 				switch (content.type()) {
 					case "text":
 						McpSchema.TextContent textContent = assertInstanceOf(McpSchema.TextContent.class, content);
-						assertThat(textContent.text()).isNotEmpty();
+						assertThat(textContent.getText()).isNotEmpty();
 						assertThat(textContent.annotations()).isNotNull();
 
 						switch (messageType) {
@@ -281,7 +294,7 @@ public abstract class AbstractMcpSyncClientTests {
 						break;
 					case "image":
 						McpSchema.ImageContent imageContent = assertInstanceOf(McpSchema.ImageContent.class, content);
-						assertThat(imageContent.data()).isNotEmpty();
+						assertThat(imageContent.getData()).isNotEmpty();
 						assertThat(imageContent.annotations()).isNotNull();
 						assertThat(imageContent.annotations().priority()).isEqualTo(0.5);
 						assertThat(imageContent.annotations().audience()).containsExactly(McpSchema.Role.USER);
@@ -389,7 +402,7 @@ public abstract class AbstractMcpSyncClientTests {
 			Root root = new Root("file:///test/path/to/remove", "root-to-remove");
 			assertThatCode(() -> {
 				mcpSyncClient.addRoot(root);
-				mcpSyncClient.removeRoot(root.uri());
+				mcpSyncClient.removeRoot(root.getUri());
 			}).doesNotThrowAnyException();
 		});
 	}
@@ -433,49 +446,55 @@ public abstract class AbstractMcpSyncClientTests {
 				ReadResourceResult result = mcpSyncClient.readResource(resource);
 
 				assertThat(result).isNotNull();
-				assertThat(result.contents()).isNotNull().isNotEmpty();
+				assertThat(result.getContents()).isNotNull().isNotEmpty();
 
 				readResourceCount++;
 
 				// Validate each content item
-				for (ResourceContents content : result.contents()) {
+				for (ResourceContents content : result.getContents()) {
 					assertThat(content).isNotNull();
 					assertThat(content.uri()).isNotNull().isNotEmpty();
 					assertThat(content.mimeType()).isNotNull().isNotEmpty();
 
 					// Validate content based on its type with more comprehensive
 					// checks
+
 					switch (content.mimeType()) {
-						case "text/plain" -> {
+						case "text/plain":
 							TextResourceContents textContent = assertInstanceOf(TextResourceContents.class, content);
-							assertThat(textContent.text()).isNotNull().isNotEmpty();
+							assertThat(textContent.getText()).isNotNull().isNotEmpty();
 							// Verify URI consistency
 							assertThat(textContent.uri()).isEqualTo(resource.uri());
-						}
-						case "application/octet-stream" -> {
+							break;
+
+						case "application/octet-stream":
 							BlobResourceContents blobContent = assertInstanceOf(BlobResourceContents.class, content);
-							assertThat(blobContent.blob()).isNotNull().isNotEmpty();
+							assertThat(blobContent.getBlob()).isNotNull().isNotEmpty();
 							// Verify URI consistency
 							assertThat(blobContent.uri()).isEqualTo(resource.uri());
 							// Validate base64 encoding format
-							assertThat(blobContent.blob()).matches("^[A-Za-z0-9+/]*={0,2}$");
-						}
-						default -> {
+							assertThat(blobContent.getBlob()).matches("^[A-Za-z0-9+/]*={0,2}$");
+							break;
+
+						default:
 							// More flexible handling of additional MIME types
-							// Log the unexpected type for debugging but don't fail
-							// the test
+							// Log the unexpected type for debugging but don't fail the
+							// test
 							logger.warn("Warning: Encountered unexpected MIME type: {} for resource: {}",
 									content.mimeType(), resource.uri());
 
 							// Still validate basic properties
-							if (content instanceof TextResourceContents textContent) {
-								assertThat(textContent.text()).isNotNull();
+							if (content instanceof TextResourceContents) {
+								TextResourceContents textContentDefault = (TextResourceContents) content;
+								assertThat(textContentDefault.getText()).isNotNull();
 							}
-							else if (content instanceof BlobResourceContents blobContent) {
-								assertThat(blobContent.blob()).isNotNull();
+							else if (content instanceof BlobResourceContents) {
+								BlobResourceContents blobContentDefault = (BlobResourceContents) content;
+								assertThat(blobContentDefault.getBlob()).isNotNull();
 							}
-						}
+							break;
 					}
+
 				}
 			}
 
@@ -497,7 +516,7 @@ public abstract class AbstractMcpSyncClientTests {
 			ListResourceTemplatesResult result = mcpSyncClient.listResourceTemplates(McpSchema.FIRST_PAGE);
 
 			assertThat(result).isNotNull();
-			assertThat(result.resourceTemplates()).isNotNull();
+			assertThat(result.getResourceTemplates()).isNotNull();
 		});
 	}
 
@@ -508,7 +527,7 @@ public abstract class AbstractMcpSyncClientTests {
 			ListResourceTemplatesResult result = mcpSyncClient.listResourceTemplates();
 
 			assertThat(result).isNotNull();
-			assertThat(result.resourceTemplates()).isNotNull();
+			assertThat(result.getResourceTemplates()).isNotNull();
 		});
 	}
 
@@ -604,26 +623,29 @@ public abstract class AbstractMcpSyncClientTests {
 		withClient(transport, spec -> spec.capabilities(McpSchema.ClientCapabilities.builder().sampling().build())
 			.sampling(request -> {
 				McpSchema.TextContent messageText = assertInstanceOf(McpSchema.TextContent.class,
-						request.messages().get(0).content());
-				receivedPrompt.set(request.systemPrompt());
-				receivedMessage.set(messageText.text());
-				receivedMaxTokens.set(request.maxTokens());
+						request.getMessages().get(0).getContent());
+				receivedPrompt.set(request.getSystemPrompt());
+				receivedMessage.set(messageText.getText());
+				receivedMaxTokens.set(request.getMaxTokens());
 
 				return new McpSchema.CreateMessageResult(McpSchema.Role.USER, new McpSchema.TextContent(response),
 						"modelId", McpSchema.CreateMessageResult.StopReason.END_TURN);
 			}), client -> {
 				client.initialize();
-
-				McpSchema.CallToolResult result = client.callTool(
-						new McpSchema.CallToolRequest("sampleLLM", Map.of("prompt", message, "maxTokens", maxTokens)));
+				Map<String, Object> ctrmap = new HashMap<>();
+				ctrmap.put("prompt", message);
+				ctrmap.put("maxTokens", maxTokens);
+				McpSchema.CallToolResult result = client.callTool(new McpSchema.CallToolRequest("sampleLLM", ctrmap));
 
 				// Verify tool response to ensure our sampling response was passed through
-				assertThat(result.content()).hasAtLeastOneElementOfType(McpSchema.TextContent.class);
-				assertThat(result.content()).allSatisfy(content -> {
-					if (!(content instanceof McpSchema.TextContent text))
+				assertThat(result.getContent()).hasAtLeastOneElementOfType(McpSchema.TextContent.class);
+				assertThat(result.getContent()).allSatisfy(content -> {
+					if (content instanceof McpSchema.TextContent) {
+						McpSchema.TextContent text = (McpSchema.TextContent) content;
+						assertThat(text.getText()).endsWith(response);
+					}
+					else
 						return;
-
-					assertThat(text.text()).endsWith(response); // Prefixed
 				});
 
 				// Verify sampling request parameters received in our callback
@@ -650,11 +672,13 @@ public abstract class AbstractMcpSyncClientTests {
 			latch.countDown();
 		}), client -> {
 			client.initialize();
-
+			Map<String, Object> ctrmap = new HashMap<>();
+			ctrmap.put("duration", 1);
+			ctrmap.put("steps", 2);
 			// Call a tool that sends progress notifications
 			CallToolRequest request = CallToolRequest.builder()
 				.name("longRunningOperation")
-				.arguments(Map.of("duration", 1, "steps", 2))
+				.arguments(ctrmap)
 				.progressToken("test-token")
 				.build();
 
@@ -673,7 +697,7 @@ public abstract class AbstractMcpSyncClientTests {
 			assertThat(progressNotificationCount.get()).isEqualTo(2);
 
 			assertThat(receivedNotifications).isNotEmpty();
-			assertThat(receivedNotifications.get(0).progressToken()).isEqualTo("test-token");
+			assertThat(receivedNotifications.get(0).getProgressToken()).isEqualTo("test-token");
 		});
 	}
 

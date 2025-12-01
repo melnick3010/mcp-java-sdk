@@ -8,8 +8,12 @@ import io.modelcontextprotocol.client.transport.customizer.McpAsyncHttpClientReq
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.McpSchema.InitializeRequest;
+import io.modelcontextprotocol.spec.McpSchema.JSONRPCRequest;
+
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterAll;
@@ -37,7 +41,7 @@ class HttpClientStreamableHttpTransportTest {
 	static String host = "http://localhost:3001";
 
 	private McpTransportContext context = McpTransportContext
-		.create(Map.of("test-transport-context-key", "some-value"));
+		.create(Collections.singletonMap("test-transport-context-key", "some-value"));
 
 	@SuppressWarnings("resource")
 	static GenericContainer<?> container = new GenericContainer<>("docker.io/tzolov/mcp-everything-server:v3")
@@ -69,20 +73,20 @@ class HttpClientStreamableHttpTransportTest {
 
 	@Test
 	void testRequestCustomizer() throws URISyntaxException {
-		var uri = new URI(host + "/mcp");
-		var mockRequestCustomizer = mock(McpSyncHttpClientRequestCustomizer.class);
+		URI uri = new URI(host + "/mcp");
+		McpSyncHttpClientRequestCustomizer mockRequestCustomizer = mock(McpSyncHttpClientRequestCustomizer.class);
 
-		var transport = HttpClientStreamableHttpTransport.builder(host)
+		HttpClientStreamableHttpTransport transport = HttpClientStreamableHttpTransport.builder(host)
 			.httpRequestCustomizer(mockRequestCustomizer)
 			.build();
 
 		withTransport(transport, (t) -> {
 			// Send test message
-			var initializeRequest = new McpSchema.InitializeRequest(McpSchema.LATEST_PROTOCOL_VERSION,
+			InitializeRequest initializeRequest = new McpSchema.InitializeRequest(McpSchema.LATEST_PROTOCOL_VERSION,
 					McpSchema.ClientCapabilities.builder().roots(true).build(),
 					new McpSchema.Implementation("MCP Client", "0.3.1"));
-			var testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, McpSchema.METHOD_INITIALIZE,
-					"test-id", initializeRequest);
+			JSONRPCRequest testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION,
+					McpSchema.METHOD_INITIALIZE, "test-id", initializeRequest);
 
 			StepVerifier
 				.create(t.sendMessage(testMessage).contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context)))
@@ -97,22 +101,22 @@ class HttpClientStreamableHttpTransportTest {
 
 	@Test
 	void testAsyncRequestCustomizer() throws URISyntaxException {
-		var uri = new URI(host + "/mcp");
-		var mockRequestCustomizer = mock(McpAsyncHttpClientRequestCustomizer.class);
+		URI uri = new URI(host + "/mcp");
+		McpAsyncHttpClientRequestCustomizer mockRequestCustomizer = mock(McpAsyncHttpClientRequestCustomizer.class);
 		when(mockRequestCustomizer.customize(any(), any(), any(), any(), any()))
 			.thenAnswer(invocation -> Mono.just(invocation.getArguments()[0]));
 
-		var transport = HttpClientStreamableHttpTransport.builder(host)
+		HttpClientStreamableHttpTransport transport = HttpClientStreamableHttpTransport.builder(host)
 			.asyncHttpRequestCustomizer(mockRequestCustomizer)
 			.build();
 
 		withTransport(transport, (t) -> {
 			// Send test message
-			var initializeRequest = new McpSchema.InitializeRequest(McpSchema.LATEST_PROTOCOL_VERSION,
+			InitializeRequest initializeRequest = new McpSchema.InitializeRequest(McpSchema.LATEST_PROTOCOL_VERSION,
 					McpSchema.ClientCapabilities.builder().roots(true).build(),
 					new McpSchema.Implementation("MCP Client", "0.3.1"));
-			var testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, McpSchema.METHOD_INITIALIZE,
-					"test-id", initializeRequest);
+			JSONRPCRequest testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION,
+					McpSchema.METHOD_INITIALIZE, "test-id", initializeRequest);
 
 			StepVerifier
 				.create(t.sendMessage(testMessage).contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context)))
@@ -127,15 +131,15 @@ class HttpClientStreamableHttpTransportTest {
 
 	@Test
 	void testCloseUninitialized() {
-		var transport = HttpClientStreamableHttpTransport.builder(host).build();
+		HttpClientStreamableHttpTransport transport = HttpClientStreamableHttpTransport.builder(host).build();
 
 		StepVerifier.create(transport.closeGracefully()).verifyComplete();
 
-		var initializeRequest = new McpSchema.InitializeRequest(McpSchema.LATEST_PROTOCOL_VERSION,
+		InitializeRequest initializeRequest = new McpSchema.InitializeRequest(McpSchema.LATEST_PROTOCOL_VERSION,
 				McpSchema.ClientCapabilities.builder().roots(true).build(),
 				new McpSchema.Implementation("MCP Client", "0.3.1"));
-		var testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, McpSchema.METHOD_INITIALIZE,
-				"test-id", initializeRequest);
+		JSONRPCRequest testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION,
+				McpSchema.METHOD_INITIALIZE, "test-id", initializeRequest);
 
 		StepVerifier.create(transport.sendMessage(testMessage))
 			.expectErrorMessage("MCP session has been closed")
@@ -144,13 +148,13 @@ class HttpClientStreamableHttpTransportTest {
 
 	@Test
 	void testCloseInitialized() {
-		var transport = HttpClientStreamableHttpTransport.builder(host).build();
+		HttpClientStreamableHttpTransport transport = HttpClientStreamableHttpTransport.builder(host).build();
 
-		var initializeRequest = new McpSchema.InitializeRequest(McpSchema.LATEST_PROTOCOL_VERSION,
+		InitializeRequest initializeRequest = new McpSchema.InitializeRequest(McpSchema.LATEST_PROTOCOL_VERSION,
 				McpSchema.ClientCapabilities.builder().roots(true).build(),
 				new McpSchema.Implementation("MCP Client", "0.3.1"));
-		var testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, McpSchema.METHOD_INITIALIZE,
-				"test-id", initializeRequest);
+		JSONRPCRequest testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION,
+				McpSchema.METHOD_INITIALIZE, "test-id", initializeRequest);
 
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
 		StepVerifier.create(transport.closeGracefully()).verifyComplete();

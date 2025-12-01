@@ -38,8 +38,15 @@ class DefaultMcpStatelessServerHandler implements McpStatelessServerHandler {
 			.map(result -> new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, request.id(), result, null))
 			.onErrorResume(t -> {
 				McpSchema.JSONRPCResponse.JSONRPCError error;
-				if (t instanceof McpError mcpError && mcpError.getJsonRpcError() != null) {
-					error = mcpError.getJsonRpcError();
+				if (t instanceof McpError) {
+					McpError mcpError = (McpError) t;
+					if (mcpError.getJsonRpcError() != null) {
+						error = mcpError.getJsonRpcError();
+					}
+					else {
+						error = new McpSchema.JSONRPCResponse.JSONRPCError(McpSchema.ErrorCodes.INTERNAL_ERROR,
+								t.getMessage(), null);
+					}
 				}
 				else {
 					error = new McpSchema.JSONRPCResponse.JSONRPCError(McpSchema.ErrorCodes.INTERNAL_ERROR,

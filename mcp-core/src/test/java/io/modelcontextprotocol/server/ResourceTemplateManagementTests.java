@@ -5,6 +5,7 @@
 package io.modelcontextprotocol.server;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 
 import io.modelcontextprotocol.MockMcpServerTransport;
@@ -70,7 +71,7 @@ public class ResourceTemplateManagementTests {
 			.build();
 
 		McpServerFeatures.AsyncResourceTemplateSpecification specification = new McpServerFeatures.AsyncResourceTemplateSpecification(
-				template, (exchange, req) -> Mono.just(new ReadResourceResult(List.of())));
+				template, (exchange, req) -> Mono.just(new ReadResourceResult(Collections.emptyList())));
 
 		StepVerifier.create(mcpAsyncServer.addResourceTemplate(specification)).verifyComplete();
 	}
@@ -90,7 +91,7 @@ public class ResourceTemplateManagementTests {
 			.build();
 
 		McpServerFeatures.AsyncResourceTemplateSpecification specification = new McpServerFeatures.AsyncResourceTemplateSpecification(
-				template, (exchange, req) -> Mono.just(new ReadResourceResult(List.of())));
+				template, (exchange, req) -> Mono.just(new ReadResourceResult(Collections.emptyList())));
 
 		StepVerifier.create(serverWithoutResources.addResourceTemplate(specification)).verifyErrorSatisfies(error -> {
 			assertThat(error).isInstanceOf(IllegalStateException.class)
@@ -111,7 +112,7 @@ public class ResourceTemplateManagementTests {
 			.build();
 
 		McpServerFeatures.AsyncResourceTemplateSpecification specification = new McpServerFeatures.AsyncResourceTemplateSpecification(
-				template, (exchange, req) -> Mono.just(new ReadResourceResult(List.of())));
+				template, (exchange, req) -> Mono.just(new ReadResourceResult(Collections.emptyList())));
 
 		mcpAsyncServer = McpServer.async(mockTransportProvider)
 			.serverInfo("test-server", "1.0.0")
@@ -169,10 +170,10 @@ public class ResourceTemplateManagementTests {
 			.build();
 
 		McpServerFeatures.AsyncResourceTemplateSpecification originalSpec = new McpServerFeatures.AsyncResourceTemplateSpecification(
-				originalTemplate, (exchange, req) -> Mono.just(new ReadResourceResult(List.of())));
+				originalTemplate, (exchange, req) -> Mono.just(new ReadResourceResult(Collections.emptyList())));
 
 		McpServerFeatures.AsyncResourceTemplateSpecification updatedSpec = new McpServerFeatures.AsyncResourceTemplateSpecification(
-				updatedTemplate, (exchange, req) -> Mono.just(new ReadResourceResult(List.of())));
+				updatedTemplate, (exchange, req) -> Mono.just(new ReadResourceResult(Collections.emptyList())));
 
 		mcpAsyncServer = McpServer.async(mockTransportProvider)
 			.serverInfo("test-server", "1.0.0")
@@ -198,9 +199,9 @@ public class ResourceTemplateManagementTests {
 			.build();
 
 		McpServerFeatures.SyncResourceTemplateSpecification specification = new McpServerFeatures.SyncResourceTemplateSpecification(
-				template, (exchange, req) -> new ReadResourceResult(List.of()));
+				template, (exchange, req) -> new ReadResourceResult(Collections.emptyList()));
 
-		var mcpSyncServer = McpServer.sync(mockTransportProvider)
+		McpSyncServer mcpSyncServer = McpServer.sync(mockTransportProvider)
 			.serverInfo("test-server", "1.0.0")
 			.capabilities(ServerCapabilities.builder().resources(true, false).build())
 			.build();
@@ -220,9 +221,9 @@ public class ResourceTemplateManagementTests {
 			.build();
 
 		McpServerFeatures.SyncResourceTemplateSpecification specification = new McpServerFeatures.SyncResourceTemplateSpecification(
-				template, (exchange, req) -> new ReadResourceResult(List.of()));
+				template, (exchange, req) -> new ReadResourceResult(Collections.emptyList()));
 
-		var mcpSyncServer = McpServer.sync(mockTransportProvider)
+		McpSyncServer mcpSyncServer = McpServer.sync(mockTransportProvider)
 			.serverInfo("test-server", "1.0.0")
 			.capabilities(ServerCapabilities.builder().resources(true, false).build())
 			.resourceTemplates(specification)
@@ -254,10 +255,10 @@ public class ResourceTemplateManagementTests {
 			.build();
 
 		McpServerFeatures.AsyncResourceTemplateSpecification spec1 = new McpServerFeatures.AsyncResourceTemplateSpecification(
-				template1, (exchange, req) -> Mono.just(new ReadResourceResult(List.of())));
+				template1, (exchange, req) -> Mono.just(new ReadResourceResult(Collections.emptyList())));
 
 		McpServerFeatures.AsyncResourceTemplateSpecification spec2 = new McpServerFeatures.AsyncResourceTemplateSpecification(
-				template2, (exchange, req) -> Mono.just(new ReadResourceResult(List.of())));
+				template2, (exchange, req) -> Mono.just(new ReadResourceResult(Collections.emptyList())));
 
 		mcpAsyncServer = McpServer.async(mockTransportProvider)
 			.serverInfo("test-server", "1.0.0")
@@ -282,7 +283,7 @@ public class ResourceTemplateManagementTests {
 			.build();
 
 		McpServerFeatures.AsyncResourceTemplateSpecification specification = new McpServerFeatures.AsyncResourceTemplateSpecification(
-				template, (exchange, req) -> Mono.just(new ReadResourceResult(List.of())));
+				template, (exchange, req) -> Mono.just(new ReadResourceResult(Collections.emptyList())));
 
 		// Test varargs builder method
 		assertThatCode(() -> {

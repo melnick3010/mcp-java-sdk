@@ -11,6 +11,7 @@ import io.modelcontextprotocol.server.McpTransportContextExtractor;
 import io.modelcontextprotocol.spec.HttpHeaders;
 import io.modelcontextprotocol.spec.McpError;
 import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.McpSchema.InitializeRequest;
 import io.modelcontextprotocol.spec.McpStreamableServerSession;
 import io.modelcontextprotocol.spec.McpStreamableServerTransport;
 import io.modelcontextprotocol.spec.McpStreamableServerTransportProvider;
@@ -35,6 +36,7 @@ import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -97,7 +99,7 @@ public class WebFluxStreamableServerTransportProvider implements McpStreamableSe
 
 	@Override
 	public List<String> protocolVersions() {
-		return List.of(ProtocolVersions.MCP_2024_11_05, ProtocolVersions.MCP_2025_03_26,
+		return Arrays.asList(ProtocolVersions.MCP_2024_11_05, ProtocolVersions.MCP_2025_03_26,
 				ProtocolVersions.MCP_2025_06_18);
 	}
 
@@ -231,10 +233,15 @@ public class WebFluxStreamableServerTransportProvider implements McpStreamableSe
 
 		return request.bodyToMono(String.class).<ServerResponse>flatMap(body -> {
 			try {
+				final McpSchema.JSONRPCRequest jsonrpcRequest;
 				McpSchema.JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(jsonMapper, body);
-				if (message instanceof McpSchema.JSONRPCRequest jsonrpcRequest
-						&& jsonrpcRequest.method().equals(McpSchema.METHOD_INITIALIZE)) {
-					var typeReference = new TypeRef<McpSchema.InitializeRequest>() {
+				if (message instanceof McpSchema.JSONRPCRequest) {
+					jsonrpcRequest = (McpSchema.JSONRPCRequest) message;
+				}
+				else
+					jsonrpcRequest = null;
+				if ((jsonrpcRequest != null) && jsonrpcRequest.method().equals(McpSchema.METHOD_INITIALIZE)) {
+					TypeRef<InitializeRequest> typeReference = new TypeRef<McpSchema.InitializeRequest>() {
 					};
 					McpSchema.InitializeRequest initializeRequest = jsonMapper.convertValue(jsonrpcRequest.params(),
 							typeReference);
@@ -270,18 +277,21 @@ public class WebFluxStreamableServerTransportProvider implements McpStreamableSe
 						.bodyValue(new McpError("Session not found: " + sessionId));
 				}
 
-				if (message instanceof McpSchema.JSONRPCResponse jsonrpcResponse) {
+				if (message instanceof McpSchema.JSONRPCResponse) {
+					McpSchema.JSONRPCResponse jsonrpcResponse = (McpSchema.JSONRPCResponse) message;
 					return session.accept(jsonrpcResponse).then(ServerResponse.accepted().build());
 				}
-				else if (message instanceof McpSchema.JSONRPCNotification jsonrpcNotification) {
+				else if (message instanceof McpSchema.JSONRPCNotification) {
+					McpSchema.JSONRPCNotification jsonrpcNotification = (McpSchema.JSONRPCNotification) message;
 					return session.accept(jsonrpcNotification).then(ServerResponse.accepted().build());
 				}
-				else if (message instanceof McpSchema.JSONRPCRequest jsonrpcRequest) {
+				else if (message instanceof McpSchema.JSONRPCRequest) {
+					McpSchema.JSONRPCRequest jsonrpcRequest2 = (McpSchema.JSONRPCRequest) message;
 					return ServerResponse.ok()
 						.contentType(MediaType.TEXT_EVENT_STREAM)
 						.body(Flux.<ServerSentEvent<?>>create(sink -> {
 							WebFluxStreamableMcpSessionTransport st = new WebFluxStreamableMcpSessionTransport(sink);
-							Mono<Void> stream = session.responseStream(jsonrpcRequest, st);
+							Mono<Void> stream = session.responseStream(jsonrpcRequest2, st);
 							Disposable streamSubscription = stream.onErrorComplete(err -> {
 								sink.error(err);
 								return true;

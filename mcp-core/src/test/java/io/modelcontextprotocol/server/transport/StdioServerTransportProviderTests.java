@@ -9,6 +9,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -142,7 +143,7 @@ class StdioServerTransportProviderTests {
 
 		// Send notification
 		String method = "testNotification";
-		Map<String, Object> params = Map.of("key", "value");
+		Map<String, Object> params = Collections.singletonMap("key", "value");
 
 		StepVerifier.create(transportProvider.notifyClients(method, params)).verifyComplete();
 
@@ -183,7 +184,8 @@ class StdioServerTransportProviderTests {
 
 		transportProvider = new StdioServerTransportProvider(JSON_MAPPER);
 		// Send notification before setting session factory
-		StepVerifier.create(transportProvider.notifyClients("testNotification", Map.of("key", "value")))
+		StepVerifier
+			.create(transportProvider.notifyClients("testNotification", Collections.singletonMap("key", "value")))
 			.verifyErrorSatisfies(error -> {
 				assertThat(error).isInstanceOf(McpError.class);
 			});

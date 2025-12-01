@@ -112,7 +112,7 @@ public class HttpSseMcpAsyncClientLostConnectionTests {
 	}
 
 	void withClient(McpClientTransport transport, Consumer<McpAsyncClient> c) {
-		var client = client(transport);
+		McpAsyncClient client = client(transport);
 		try {
 			c.accept(client);
 		}

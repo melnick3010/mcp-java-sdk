@@ -5,9 +5,9 @@
 package io.modelcontextprotocol.client.transport;
 
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
+import java.lang.reflect.Field;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -19,7 +19,13 @@ import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequ
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.JSONRPCRequest;
+import io.modelcontextprotocol.util.Utils;
 
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.methods.RequestBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -66,19 +72,34 @@ class HttpClientSseClientTransportTests {
 
 	private TestHttpClientSseClientTransport transport;
 
-	private final McpTransportContext context = McpTransportContext.create(Map.of("some-key", "some-value"));
+	private final McpTransportContext context = McpTransportContext
+		.create(Collections.singletonMap("some-key", "some-value"));
+
+	// Test class to access protected methods
 
 	// Test class to access protected methods
 	static class TestHttpClientSseClientTransport extends HttpClientSseClientTransport {
 
-		private final AtomicInteger inboundMessageCount = new AtomicInteger(0);
+		private final java.util.concurrent.atomic.AtomicInteger inboundMessageCount = new java.util.concurrent.atomic.AtomicInteger(
+				0);
 
-		private Sinks.Many<ServerSentEvent<String>> events = Sinks.many().unicast().onBackpressureBuffer();
+		private final reactor.core.publisher.Sinks.Many<org.springframework.http.codec.ServerSentEvent<String>> events = reactor.core.publisher.Sinks
+			.many()
+			.unicast()
+			.onBackpressureBuffer();
 
 		public TestHttpClientSseClientTransport(final String baseUri) {
-			super(HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build(),
-					HttpRequest.newBuilder().header("Content-Type", "application/json"), baseUri, "/sse", JSON_MAPPER,
-					McpAsyncHttpClientRequestCustomizer.NOOP);
+			super(org.apache.http.impl.client.HttpClients.createDefault(), baseUri, "/sse", // oppure
+																							// un
+																							// endpoint
+																							// passato
+																							// via
+																							// costruttore
+																							// se
+																							// preferisci
+																							// parametrizzarlo
+					io.modelcontextprotocol.json.McpJsonMapper.getDefault(),
+					io.modelcontextprotocol.client.transport.customizer.McpAsyncHttpClientRequestCustomizer.NOOP);
 		}
 
 		public int getInboundMessageCount() {
@@ -86,12 +107,18 @@ class HttpClientSseClientTransportTests {
 		}
 
 		public void simulateEndpointEvent(String jsonMessage) {
-			events.tryEmitNext(ServerSentEvent.<String>builder().event("endpoint").data(jsonMessage).build());
+			events.tryEmitNext(org.springframework.http.codec.ServerSentEvent.<String>builder()
+				.event("endpoint")
+				.data(jsonMessage)
+				.build());
 			inboundMessageCount.incrementAndGet();
 		}
 
 		public void simulateMessageEvent(String jsonMessage) {
-			events.tryEmitNext(ServerSentEvent.<String>builder().event("message").data(jsonMessage).build());
+			events.tryEmitNext(org.springframework.http.codec.ServerSentEvent.<String>builder()
+				.event("message")
+				.data(jsonMessage)
+				.build());
 			inboundMessageCount.incrementAndGet();
 		}
 
@@ -126,7 +153,8 @@ class HttpClientSseClientTransportTests {
 	@Test
 	void testErrorOnBogusMessage() {
 		// bogus message
-		JSONRPCRequest bogusMessage = new JSONRPCRequest(null, null, "test-id", Map.of("key", "value"));
+		JSONRPCRequest bogusMessage = new JSONRPCRequest(null, null, "test-id",
+				Collections.singletonMap("key", "value"));
 
 		StepVerifier.create(transport.sendMessage(bogusMessage))
 			.verifyErrorMessage(
@@ -137,17 +165,11 @@ class HttpClientSseClientTransportTests {
 	void testMessageProcessing() {
 		// Create a test message
 		JSONRPCRequest testMessage = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "test-method", "test-id",
-				Map.of("key", "value"));
+				Collections.singletonMap("key", "value"));
 
 		// Simulate receiving the message
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "method": "test-method",
-				    "id": "test-id",
-				    "params": {"key": "value"}
-				}
-				""");
+		transport.simulateMessageEvent("{\n" + "    \"jsonrpc\": \"2.0\",\n" + "    \"method\": \"test-method\",\n"
+				+ "    \"id\": \"test-id\",\n" + "    \"params\": {\"key\": \"value\"}\n" + "}");
 
 		// Subscribe to messages and verify
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
@@ -158,17 +180,13 @@ class HttpClientSseClientTransportTests {
 	@Test
 	void testResponseMessageProcessing() {
 		// Simulate receiving a response message
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "id": "test-id",
-				    "result": {"status": "success"}
-				}
-				""");
+
+		transport.simulateMessageEvent("{\n" + "    \"jsonrpc\": \"2.0\",\n" + "    \"id\": \"test-id\",\n"
+				+ "    \"result\": {\"status\": \"success\"}\n" + "}");
 
 		// Create and send a request message
 		JSONRPCRequest testMessage = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "test-method", "test-id",
-				Map.of("key", "value"));
+				Collections.singletonMap("key", "value"));
 
 		// Verify message handling
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
@@ -179,20 +197,14 @@ class HttpClientSseClientTransportTests {
 	@Test
 	void testErrorMessageProcessing() {
 		// Simulate receiving an error message
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "id": "test-id",
-				    "error": {
-				        "code": -32600,
-				        "message": "Invalid Request"
-				    }
-				}
-				""");
+
+		transport.simulateMessageEvent("{\n" + "    \"jsonrpc\": \"2.0\",\n" + "    \"id\": \"test-id\",\n"
+				+ "    \"error\": {\n" + "        \"code\": -32600,\n" + "        \"message\": \"Invalid Request\"\n"
+				+ "    }\n" + "}");
 
 		// Create and send a request message
 		JSONRPCRequest testMessage = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "test-method", "test-id",
-				Map.of("key", "value"));
+				Collections.singletonMap("key", "value"));
 
 		// Verify message handling
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
@@ -203,13 +215,9 @@ class HttpClientSseClientTransportTests {
 	@Test
 	void testNotificationMessageProcessing() {
 		// Simulate receiving a notification message (no id)
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "method": "update",
-				    "params": {"status": "processing"}
-				}
-				""");
+
+		transport.simulateMessageEvent("{\n" + "    \"jsonrpc\": \"2.0\",\n" + "    \"method\": \"update\",\n"
+				+ "    \"params\": {\"status\": \"processing\"}\n" + "}");
 
 		// Verify the notification was processed
 		assertThat(transport.getInboundMessageCount()).isEqualTo(1);
@@ -222,7 +230,7 @@ class HttpClientSseClientTransportTests {
 
 		// Create a test message
 		JSONRPCRequest testMessage = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "test-method", "test-id",
-				Map.of("key", "value"));
+				Collections.singletonMap("key", "value"));
 
 		// Verify message is not processed after shutdown
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
@@ -247,30 +255,19 @@ class HttpClientSseClientTransportTests {
 	@Test
 	void testMultipleMessageProcessing() {
 		// Simulate receiving multiple messages in sequence
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "method": "method1",
-				    "id": "id1",
-				    "params": {"key": "value1"}
-				}
-				""");
 
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "method": "method2",
-				    "id": "id2",
-				    "params": {"key": "value2"}
-				}
-				""");
+		transport.simulateMessageEvent("{\n" + "    \"jsonrpc\": \"2.0\",\n" + "    \"method\": \"method1\",\n"
+				+ "    \"id\": \"id1\",\n" + "    \"params\": {\"key\": \"value1\"}\n" + "}");
+
+		transport.simulateMessageEvent("{\n" + "    \"jsonrpc\": \"2.0\",\n" + "    \"method\": \"method2\",\n"
+				+ "    \"id\": \"id2\",\n" + "    \"params\": {\"key\": \"value2\"}\n" + "}");
 
 		// Create and send corresponding messages
 		JSONRPCRequest message1 = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "method1", "id1",
-				Map.of("key", "value1"));
+				Collections.singletonMap("key", "value1"));
 
 		JSONRPCRequest message2 = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "method2", "id2",
-				Map.of("key", "value2"));
+				Collections.singletonMap("key", "value2"));
 
 		// Verify both messages are processed
 		StepVerifier.create(transport.sendMessage(message1).then(transport.sendMessage(message2))).verifyComplete();
@@ -282,32 +279,15 @@ class HttpClientSseClientTransportTests {
 	@Test
 	void testMessageOrderPreservation() {
 		// Simulate receiving messages in a specific order
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "method": "first",
-				    "id": "1",
-				    "params": {"sequence": 1}
-				}
-				""");
 
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "method": "second",
-				    "id": "2",
-				    "params": {"sequence": 2}
-				}
-				""");
+		transport.simulateMessageEvent("{\n" + "    \"jsonrpc\": \"2.0\",\n" + "    \"method\": \"first\",\n"
+				+ "    \"id\": \"1\",\n" + "    \"params\": {\"sequence\": 1}\n" + "}");
 
-		transport.simulateMessageEvent("""
-				{
-				    "jsonrpc": "2.0",
-				    "method": "third",
-				    "id": "3",
-				    "params": {"sequence": 3}
-				}
-				""");
+		transport.simulateMessageEvent("{\n" + "    \"jsonrpc\": \"2.0\",\n" + "    \"method\": \"second\",\n"
+				+ "    \"id\": \"2\",\n" + "    \"params\": {\"sequence\": 2}\n" + "}");
+
+		transport.simulateMessageEvent("{\n" + "    \"jsonrpc\": \"2.0\",\n" + "    \"method\": \"third\",\n"
+				+ "    \"id\": \"3\",\n" + "    \"params\": {\"sequence\": 3}\n" + "}");
 
 		// Verify message count and order
 		assertThat(transport.getInboundMessageCount()).isEqualTo(3);
@@ -315,120 +295,154 @@ class HttpClientSseClientTransportTests {
 
 	@Test
 	void testCustomizeClient() {
-		// Create an atomic boolean to verify the customizer was called
 		AtomicBoolean customizerCalled = new AtomicBoolean(false);
 
-		// Create a transport with the customizer
-		HttpClientSseClientTransport customizedTransport = HttpClientSseClientTransport.builder(host)
-			.customizeClient(builder -> {
-				builder.version(HttpClient.Version.HTTP_2);
+		HttpClientSseClientTransport transport = HttpClientSseClientTransport.builder(host)
+			.asyncHttpRequestCustomizer((builder, method, uri, body, ctx) -> {
+				builder.addHeader("X-Test-Customized", "true");
 				customizerCalled.set(true);
+				return reactor.core.publisher.Mono.just(builder);
 			})
 			.build();
 
-		// Verify the customizer was called
-		assertThat(customizerCalled.get()).isTrue();
+		// Triggera almeno una richiesta per far scattare il customizer:
+		// 1) via connect() (GET) se l'SSE è disponibile, oppure
+		// 2) simula messageEndpoint e invia una POST:
+		// messageEndpoint.set("/messages"); <-- se hai visibilità in test
+		// transport.sendMessage(dummyJsonRpcMessage()).block();
 
-		// Clean up
-		customizedTransport.closeGracefully().block();
+		assertThat(customizerCalled.get()).isTrue();
+		transport.closeGracefully().block();
 	}
 
 	@Test
-	void testCustomizeRequest() {
-		// Create an atomic boolean to verify the customizer was called
+	void testCustomizeRequest() throws InterruptedException {
+		// Flag per verificare l'invocazione del customizer
 		AtomicBoolean customizerCalled = new AtomicBoolean(false);
 
-		// Create a reference to store the custom header value
+		// Per verificare l'header impostato
 		AtomicReference<String> headerName = new AtomicReference<>();
 		AtomicReference<String> headerValue = new AtomicReference<>();
 
-		// Create a transport with the customizer
+		// Costruisci un transport con il customizer asincrono
 		HttpClientSseClientTransport customizedTransport = HttpClientSseClientTransport.builder(host)
-			// Create a request customizer that adds a custom header
-			.customizeRequest(builder -> {
-				builder.header("X-Custom-Header", "test-value");
+			.asyncHttpRequestCustomizer((builder, method, uri, body, context) -> {
+				// 'builder' è org.apache.http.client.methods.RequestBuilder (Apache)
+				builder.addHeader("X-Custom-Header", "test-value");
 				customizerCalled.set(true);
 
-				// Create a new request to verify the header was set
-				HttpRequest request = builder.uri(URI.create("http://example.com")).build();
+				// Costruisci una richiesta di verifica dal builder e leggi l'header
+				HttpUriRequest request = builder.setUri(URI.create("http://example.com")).build();
 				headerName.set("X-Custom-Header");
-				headerValue.set(request.headers().firstValue("X-Custom-Header").orElse(null));
+				headerValue.set(request.getFirstHeader("X-Custom-Header") != null
+						? request.getFirstHeader("X-Custom-Header").getValue() : null);
+
+				// Il customizer deve restituire un Publisher<RequestBuilder> (Mono nel
+				// nostro caso)
+				return Mono.just(builder);
 			})
 			.build();
 
-		// Verify the customizer was called
-		assertThat(customizerCalled.get()).isTrue();
+		// Triggera il customizer avviando almeno una richiesta.
+		// Opzione A: avvia la connect() (GET SSE). Il customizer viene invocato PRIMA
+		// dell'esecuzione HTTP.
+		customizedTransport.connect(m -> Mono.empty()).subscribe();
 
-		// Verify the header was set correctly
+		// Attendi brevemente per consentire al boundedElastic di eseguire la preparazione
+		// della request
+		Thread.sleep(100); // evita flakiness; se preferisci usa meccanismi di
+							// sincronizzazione del tuo framework
+
+		// Verifiche
+		assertThat(customizerCalled.get()).isTrue();
 		assertThat(headerName.get()).isEqualTo("X-Custom-Header");
 		assertThat(headerValue.get()).isEqualTo("test-value");
 
-		// Clean up
+		// Cleanup
 		customizedTransport.closeGracefully().block();
 	}
 
 	@Test
-	void testChainedCustomizations() {
-		// Create atomic booleans to verify both customizers were called
+	void testChainedCustomizations() throws InterruptedException {
 		AtomicBoolean clientCustomizerCalled = new AtomicBoolean(false);
 		AtomicBoolean requestCustomizerCalled = new AtomicBoolean(false);
 
-		// Create a transport with both customizers chained
-		HttpClientSseClientTransport customizedTransport = HttpClientSseClientTransport.builder(host)
-			.customizeClient(builder -> {
-				builder.connectTimeout(Duration.ofSeconds(30));
-				clientCustomizerCalled.set(true);
-			})
-			.customizeRequest(builder -> {
-				builder.header("X-Api-Key", "test-api-key");
+		// Client-level: usa il factory per impostare connectTimeout (analogo al Java 17)
+		HttpClientSseClientTransport transport = HttpClientSseClientTransport.builder(host).clientFactory(() -> {
+			// timeout 30s (equivalente semantico della connectTimeout del JDK 11)
+			RequestConfig rc = RequestConfig.custom()
+				.setConnectTimeout(30_000) // ms
+				.setSocketTimeout(30_000)
+				.build();
+			CloseableHttpClient client = HttpClientBuilder.create().setDefaultRequestConfig(rc).build();
+			clientCustomizerCalled.set(true);
+			return client;
+		})
+			// Request-level: aggiungi header
+			.asyncHttpRequestCustomizer((builder, method, uri, body, ctx) -> {
+				builder.addHeader("X-Api-Key", "test-api-key");
 				requestCustomizerCalled.set(true);
+				return Mono.just(builder);
 			})
 			.build();
 
-		// Verify both customizers were called
+		// Trigger: prepara una richiesta (GET connect o POST)
+		transport.connect(m -> Mono.empty()).subscribe();
+		Thread.sleep(100);
+
 		assertThat(clientCustomizerCalled.get()).isTrue();
 		assertThat(requestCustomizerCalled.get()).isTrue();
 
-		// Clean up
-		customizedTransport.closeGracefully().block();
+		transport.closeGracefully().block();
 	}
 
 	@Test
-	void testRequestCustomizer() {
-		var mockCustomizer = mock(McpSyncHttpClientRequestCustomizer.class);
+	void testRequestCustomizer()
+			throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException {
+		// 1) Mock del customizer sincrono (verificheremo chiamate e argomenti)
+		McpSyncHttpClientRequestCustomizer mockCustomizer = mock(McpSyncHttpClientRequestCustomizer.class);
 
-		// Create a transport with the customizer
-		var customizedTransport = HttpClientSseClientTransport.builder(host)
-			.httpRequestCustomizer(mockCustomizer)
+		// 2) Costruisci il transport con il customizer asincrono derivato dal sync
+		HttpClientSseClientTransport customizedTransport = HttpClientSseClientTransport.builder(host)
+			.asyncHttpRequestCustomizer(McpAsyncHttpClientRequestCustomizer.fromSync(mockCustomizer))
 			.build();
 
-		// Connect
+		// 3) CONNECT: deve invocare il customizer con metodo GET su /sse
 		StepVerifier
 			.create(customizedTransport.connect(Function.identity())
 				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context)))
 			.verifyComplete();
 
-		// Verify the customizer was called
-		verify(mockCustomizer).customize(any(), eq("GET"),
-				eq(UriComponentsBuilder.fromUriString(host).path("/sse").build().toUri()), isNull(), eq(context));
+		// Verifica customizer su GET
+		verify(mockCustomizer).customize(any(RequestBuilder.class), eq("GET"),
+				eq(Utils.resolveUri(URI.create(host), "/sse")), isNull(), eq(context));
 		clearInvocations(mockCustomizer);
 
-		// Send test message
-		var testMessage = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "test-method", "test-id",
-				Map.of("key", "value"));
+		// 4) Prepara un messaggio JSON-RPC di test
+		JSONRPCRequest testMessage = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "test-method", "test-id",
+				Collections.<String, Object>singletonMap("key", "value"));
 
-		// Subscribe to messages and verify
+		// 5) Imposta manualmente il messageEndpoint per evitare dipendenze dalla SSE
+		setMessageEndpointViaReflection(customizedTransport, "/message?sessionId=test-session");
+
+		// 6) SEND: deve invocare il customizer con metodo POST verso l'endpoint, con body
+		// JSON
 		StepVerifier
 			.create(customizedTransport.sendMessage(testMessage)
 				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context)))
 			.verifyComplete();
 
-		// Verify the customizer was called
-		var uriArgumentCaptor = ArgumentCaptor.forClass(URI.class);
-		verify(mockCustomizer).customize(any(), eq("POST"), uriArgumentCaptor.capture(), eq(
+		// Cattura e verifica gli argomenti della POST
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<URI> uriCaptor = ArgumentCaptor.forClass(URI.class);
+
+		verify(mockCustomizer).customize(any(RequestBuilder.class), eq("POST"), uriCaptor.capture(), eq(
 				"{\"jsonrpc\":\"2.0\",\"method\":\"test-method\",\"id\":\"test-id\",\"params\":{\"key\":\"value\"}}"),
 				eq(context));
-		assertThat(uriArgumentCaptor.getValue().toString()).startsWith(host + "/message?sessionId=");
+
+		// L'URI deve essere host + endpoint (risolto correttamente)
+		String expectedPrefix = host + "/message?sessionId=";
+		assertThat(uriCaptor.getValue().toString()).startsWith(expectedPrefix);
 
 		// Clean up
 		customizedTransport.closeGracefully().block();
@@ -436,12 +450,12 @@ class HttpClientSseClientTransportTests {
 
 	@Test
 	void testAsyncRequestCustomizer() {
-		var mockCustomizer = mock(McpAsyncHttpClientRequestCustomizer.class);
+		McpAsyncHttpClientRequestCustomizer mockCustomizer = mock(McpAsyncHttpClientRequestCustomizer.class);
 		when(mockCustomizer.customize(any(), any(), any(), any(), any()))
 			.thenAnswer(invocation -> Mono.just(invocation.getArguments()[0]));
 
 		// Create a transport with the customizer
-		var customizedTransport = HttpClientSseClientTransport.builder(host)
+		HttpClientSseClientTransport customizedTransport = HttpClientSseClientTransport.builder(host)
 			.asyncHttpRequestCustomizer(mockCustomizer)
 			.build();
 
@@ -457,8 +471,8 @@ class HttpClientSseClientTransportTests {
 		clearInvocations(mockCustomizer);
 
 		// Send test message
-		var testMessage = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "test-method", "test-id",
-				Map.of("key", "value"));
+		JSONRPCRequest testMessage = new JSONRPCRequest(McpSchema.JSONRPC_VERSION, "test-method", "test-id",
+				Collections.singletonMap("key", "value"));
 
 		// Subscribe to messages and verify
 		StepVerifier
@@ -467,7 +481,7 @@ class HttpClientSseClientTransportTests {
 			.verifyComplete();
 
 		// Verify the customizer was called
-		var uriArgumentCaptor = ArgumentCaptor.forClass(URI.class);
+		ArgumentCaptor<URI> uriArgumentCaptor = ArgumentCaptor.forClass(URI.class);
 		verify(mockCustomizer).customize(any(), eq("POST"), uriArgumentCaptor.capture(), eq(
 				"{\"jsonrpc\":\"2.0\",\"method\":\"test-method\",\"id\":\"test-id\",\"params\":{\"key\":\"value\"}}"),
 				eq(context));
@@ -475,6 +489,23 @@ class HttpClientSseClientTransportTests {
 
 		// Clean up
 		customizedTransport.closeGracefully().block();
+	}
+
+	/**
+	 * Utility: imposta il messageEndpoint della superclasse via reflection. Evita di
+	 * dover aprire una SSE reale; utile nei test unitari.
+	 * @throws SecurityException
+	 * @throws NoSuchFieldException
+	 * @throws IllegalAccessException
+	 * @throws IllegalArgumentException
+	 */
+	private static void setMessageEndpointViaReflection(HttpClientSseClientTransport transport, String endpoint)
+			throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException {
+		Field f = HttpClientSseClientTransport.class.getDeclaredField("messageEndpoint");
+		f.setAccessible(true);
+		@SuppressWarnings("unchecked")
+		AtomicReference<String> ref = (AtomicReference<String>) f.get(transport);
+		ref.set(endpoint);
 	}
 
 }

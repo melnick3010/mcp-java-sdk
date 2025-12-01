@@ -22,6 +22,7 @@ import reactor.test.StepVerifier;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -155,7 +156,7 @@ public abstract class AbstractMcpAsyncClientResiliencyTests {
 
 	void withClient(McpClientTransport transport, Function<McpClient.AsyncSpec, McpClient.AsyncSpec> customizer,
 			Consumer<McpAsyncClient> c) {
-		var client = client(transport, customizer);
+		McpAsyncClient client = client(transport, customizer);
 		try {
 			c.accept(client);
 		}
@@ -198,14 +199,15 @@ public abstract class AbstractMcpAsyncClientResiliencyTests {
 			AtomicReference<List<McpSchema.Tool>> tools = new AtomicReference<>();
 			StepVerifier.create(mcpAsyncClient.initialize()).expectNextCount(1).verifyComplete();
 			StepVerifier.create(mcpAsyncClient.listTools())
-				.consumeNextWith(list -> tools.set(list.tools()))
+				.consumeNextWith(list -> tools.set(list.getTools()))
 				.verifyComplete();
 
 			disconnect();
 
-			String name = tools.get().get(0).name();
+			String name = tools.get().get(0).getName();
 			// Assuming this is the echo tool
-			McpSchema.CallToolRequest request = new McpSchema.CallToolRequest(name, Map.of("message", "hello"));
+			McpSchema.CallToolRequest request = new McpSchema.CallToolRequest(name,
+					Collections.singletonMap("message", "hello"));
 			StepVerifier.create(mcpAsyncClient.callTool(request)).expectError().verify();
 
 			reconnect();

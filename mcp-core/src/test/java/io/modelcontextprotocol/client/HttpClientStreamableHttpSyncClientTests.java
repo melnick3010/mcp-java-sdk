@@ -5,6 +5,7 @@
 package io.modelcontextprotocol.client;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.Map;
 
 import org.junit.jupiter.api.AfterAll;
@@ -59,7 +60,8 @@ public class HttpClientStreamableHttpSyncClientTests extends AbstractMcpSyncClie
 
 	@Test
 	void customizesRequests() {
-		var mcpTransportContext = McpTransportContext.create(Map.of("some-key", "some-value"));
+		McpTransportContext mcpTransportContext = McpTransportContext
+			.create(Collections.singletonMap("some-key", "some-value"));
 		withClient(createMcpTransport(), syncSpec -> syncSpec.transportContextProvider(() -> mcpTransportContext),
 				mcpSyncClient -> {
 					mcpSyncClient.initialize();

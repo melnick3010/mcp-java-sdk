@@ -109,15 +109,18 @@ public class WebMvcStatelessServerTransport implements McpStatelessServerTranspo
 		}
 
 		try {
+
 			String body = request.body(String.class);
 			McpSchema.JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(jsonMapper, body);
 
-			if (message instanceof McpSchema.JSONRPCRequest jsonrpcRequest) {
+			if (message instanceof McpSchema.JSONRPCRequest) {
+				McpSchema.JSONRPCRequest jsonrpcRequest = (McpSchema.JSONRPCRequest) message;
 				try {
 					McpSchema.JSONRPCResponse jsonrpcResponse = this.mcpHandler
 						.handleRequest(transportContext, jsonrpcRequest)
 						.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
 						.block();
+
 					return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(jsonrpcResponse);
 				}
 				catch (Exception e) {
@@ -125,12 +128,15 @@ public class WebMvcStatelessServerTransport implements McpStatelessServerTranspo
 					return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
 						.body(new McpError("Failed to handle request: " + e.getMessage()));
 				}
+
 			}
-			else if (message instanceof McpSchema.JSONRPCNotification jsonrpcNotification) {
+			else if (message instanceof McpSchema.JSONRPCNotification) {
+				McpSchema.JSONRPCNotification jsonrpcNotification = (McpSchema.JSONRPCNotification) message;
 				try {
 					this.mcpHandler.handleNotification(transportContext, jsonrpcNotification)
 						.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
 						.block();
+
 					return ServerResponse.accepted().build();
 				}
 				catch (Exception e) {
@@ -138,11 +144,13 @@ public class WebMvcStatelessServerTransport implements McpStatelessServerTranspo
 					return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
 						.body(new McpError("Failed to handle notification: " + e.getMessage()));
 				}
+
 			}
 			else {
 				return ServerResponse.badRequest()
 					.body(new McpError("The server accepts either requests or notifications"));
 			}
+
 		}
 		catch (IllegalArgumentException | IOException e) {
 			logger.error("Failed to deserialize message: {}", e.getMessage());

@@ -15,14 +15,39 @@ import java.util.Map;
 public interface JsonSchemaValidator {
 
 	/**
-	 * Represents the result of a validation operation.
+	 * Represents the result of a validation operation. Immutable value type compatible
+	 * with Java 8 (replacement for the Java 16 "record").
 	 *
 	 * @param valid Indicates whether the validation was successful.
 	 * @param errorMessage An error message if the validation failed, otherwise null.
 	 * @param jsonStructuredOutput The text structured content in JSON format if the
 	 * validation was successful, otherwise null.
 	 */
-	public record ValidationResponse(boolean valid, String errorMessage, String jsonStructuredOutput) {
+	final class ValidationResponse {
+
+		private final boolean valid;
+
+		private final String errorMessage;
+
+		private final String jsonStructuredOutput;
+
+		public ValidationResponse(boolean valid, String errorMessage, String jsonStructuredOutput) {
+			this.valid = valid;
+			this.errorMessage = errorMessage;
+			this.jsonStructuredOutput = jsonStructuredOutput;
+		}
+
+		public boolean isValid() {
+			return valid;
+		}
+
+		public String getErrorMessage() {
+			return errorMessage;
+		}
+
+		public String getJsonStructuredOutput() {
+			return jsonStructuredOutput;
+		}
 
 		public static ValidationResponse asValid(String jsonStructuredOutput) {
 			return new ValidationResponse(true, null, jsonStructuredOutput);
@@ -31,6 +56,7 @@ public interface JsonSchemaValidator {
 		public static ValidationResponse asInvalid(String message) {
 			return new ValidationResponse(false, message, null);
 		}
+
 	}
 
 	/**

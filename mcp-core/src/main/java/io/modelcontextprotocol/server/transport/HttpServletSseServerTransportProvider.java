@@ -8,11 +8,19 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import javax.servlet.AsyncContext;
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.json.McpJsonMapper;
@@ -26,12 +34,7 @@ import io.modelcontextprotocol.spec.McpServerTransportProvider;
 import io.modelcontextprotocol.spec.ProtocolVersions;
 import io.modelcontextprotocol.util.Assert;
 import io.modelcontextprotocol.util.KeepAliveScheduler;
-import jakarta.servlet.AsyncContext;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -185,7 +188,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 	@Override
 	public List<String> protocolVersions() {
-		return List.of(ProtocolVersions.MCP_2024_11_05);
+		return Collections.singletonList(ProtocolVersions.MCP_2024_11_05);
 	}
 
 	/**

@@ -6,7 +6,9 @@ package io.modelcontextprotocol.server.transport;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import io.modelcontextprotocol.common.McpTransportContext;
@@ -179,7 +181,7 @@ public class WebFluxSseServerTransportProvider implements McpServerTransportProv
 
 	@Override
 	public List<String> protocolVersions() {
-		return List.of(ProtocolVersions.MCP_2024_11_05);
+		return Collections.singletonList(ProtocolVersions.MCP_2024_11_05);
 	}
 
 	@Override
@@ -332,7 +334,8 @@ public class WebFluxSseServerTransportProvider implements McpServerTransportProv
 			return ServerResponse.status(HttpStatus.SERVICE_UNAVAILABLE).bodyValue("Server is shutting down");
 		}
 
-		if (request.queryParam("sessionId").isEmpty()) {
+		Optional<String> sessionIdOpt = request.queryParam("sessionId");
+		if (!sessionIdOpt.isPresent()) {
 			return ServerResponse.badRequest().bodyValue(new McpError("Session ID missing in message endpoint"));
 		}
 

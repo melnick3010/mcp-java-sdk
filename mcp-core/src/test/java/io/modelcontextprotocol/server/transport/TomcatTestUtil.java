@@ -8,8 +8,9 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 
-import jakarta.servlet.Filter;
-import jakarta.servlet.Servlet;
+import javax.servlet.Filter;
+import javax.servlet.Servlet;
+
 import org.apache.catalina.Context;
 import org.apache.catalina.startup.Tomcat;
 import org.apache.tomcat.util.descriptor.web.FilterDef;
@@ -28,7 +29,7 @@ public class TomcatTestUtil {
 	public static Tomcat createTomcatServer(String contextPath, int port, Servlet servlet,
 			Filter... additionalFilters) {
 
-		var tomcat = new Tomcat();
+		Tomcat tomcat = new Tomcat();
 		tomcat.setPort(port);
 
 		String baseDir = System.getProperty("java.io.tmpdir");
@@ -45,19 +46,19 @@ public class TomcatTestUtil {
 		context.addChild(wrapper);
 		context.addServletMappingDecoded("/*", "mcpServlet");
 
-		for (var filter : additionalFilters) {
-			var filterDef = new FilterDef();
+		for (Filter filter : additionalFilters) {
+			FilterDef filterDef = new FilterDef();
 			filterDef.setFilter(filter);
 			filterDef.setFilterName(McpTestRequestRecordingServletFilter.class.getSimpleName());
 			context.addFilterDef(filterDef);
 
-			var filterMap = new FilterMap();
+			FilterMap filterMap = new FilterMap();
 			filterMap.setFilterName(McpTestRequestRecordingServletFilter.class.getSimpleName());
 			filterMap.addURLPattern("/*");
 			context.addFilterMap(filterMap);
 		}
 
-		var connector = tomcat.getConnector();
+		org.apache.catalina.connector.Connector connector = tomcat.getConnector();
 		connector.setAsyncTimeout(3000);
 
 		return tomcat;

@@ -7,6 +7,7 @@ package io.modelcontextprotocol.client.transport;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -298,7 +299,7 @@ public class StdioClientTransport implements McpClientTransport {
 						// embedded newlines.
 						jsonMessage = jsonMessage.replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "\\n");
 
-						var os = this.process.getOutputStream();
+						OutputStream os = this.process.getOutputStream();
 						synchronized (os) {
 							os.write(jsonMessage.getBytes(StandardCharsets.UTF_8));
 							os.write("\n".getBytes(StandardCharsets.UTF_8));
@@ -337,45 +338,67 @@ public class StdioClientTransport implements McpClientTransport {
 		return Mono.fromRunnable(() -> {
 			isClosing = true;
 			logger.debug("Initiating graceful shutdown");
-		}).then(Mono.<Void>defer(() -> {
-			// First complete all sinks to stop accepting new messages
-			inboundSink.tryEmitComplete();
-			outboundSink.tryEmitComplete();
-			errorSink.tryEmitComplete();
-
-			// Give a short time for any pending messages to be processed
-			return Mono.delay(Duration.ofMillis(100)).then();
-		})).then(Mono.defer(() -> {
-			logger.debug("Sending TERM to process");
-			if (this.process != null) {
-				this.process.destroy();
-				return Mono.fromFuture(process.onExit());
-			}
-			else {
-				logger.warn("Process not started");
-				return Mono.<Process>empty();
-			}
-		})).doOnNext(process -> {
-			if (process.exitValue() != 0) {
-				logger.warn("Process terminated with code {}", process.exitValue());
-			}
-			else {
-				logger.info("MCP server process stopped");
-			}
-		}).then(Mono.fromRunnable(() -> {
-			try {
-				// The Threads are blocked on readLine so disposeGracefully would not
-				// interrupt them, therefore we issue an async hard dispose.
-				inboundScheduler.dispose();
-				errorScheduler.dispose();
-				outboundScheduler.dispose();
-
-				logger.debug("Graceful shutdown completed");
-			}
-			catch (Exception e) {
-				logger.error("Error during graceful shutdown", e);
-			}
-		})).then().subscribeOn(Schedulers.boundedElastic());
+		})
+			// step 1: chiudi i sinks per non accettare nuovi messaggi
+			.then(Mono.defer(() -> {
+				inboundSink.tryEmitComplete();
+				outboundSink.tryEmitComplete();
+				errorSink.tryEmitComplete();
+				// breve attesa per drenare code/pending
+				return Mono.delay(Duration.ofMillis(100)).then();
+			}))
+			// step 2: invia TERM e attende la terminazione del processo (Java 8: no
+			// onExit)
+			.then(Mono.defer(() -> {
+				logger.debug("Sending TERM to process");
+				if (this.process != null) {
+					// distruggi e attendi in modo non bloccante per il thread Reactor
+					return Mono.fromCallable(() -> {
+						this.process.destroy();
+						// attende la terminazione; se vuoi un timeout, vedi variante
+						// sotto
+						this.process.waitFor();
+						return this.process;
+					}).subscribeOn(Schedulers.boundedElastic());
+				}
+				else {
+					logger.warn("Process not started");
+					// nessun processo: completa subito
+					return Mono.<Process>empty();
+				}
+			}))
+			// step 3: logga il codice di uscita (se c’è un process)
+			.doOnNext(p -> {
+				try {
+					int exit = p.exitValue();
+					if (exit != 0) {
+						logger.warn("Process terminated with code {}", exit);
+					}
+					else {
+						logger.info("MCP server process stopped");
+					}
+				}
+				catch (IllegalThreadStateException e) {
+					// exitValue può lanciare se il processo non è ancora terminato,
+					// ma qui non dovrebbe accadere perché abbiamo waitFor() sopra
+					logger.warn("Process has not terminated yet", e);
+				}
+			})
+			// step 4: dispose degli scheduler
+			.then(Mono.fromRunnable(() -> {
+				try {
+					// i Threads sono bloccati su readLine: serve dispose "hard"
+					inboundScheduler.dispose();
+					errorScheduler.dispose();
+					outboundScheduler.dispose();
+					logger.debug("Graceful shutdown completed");
+				}
+				catch (Exception e) {
+					logger.error("Error during graceful shutdown", e);
+				}
+			}))
+			.then()
+			.subscribeOn(Schedulers.boundedElastic());
 	}
 
 	public Sinks.Many<String> getErrorSink() {

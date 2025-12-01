@@ -1,10 +1,13 @@
 package io.modelcontextprotocol.spec.json.gson;
 
 import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.json.TypeRef;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -13,38 +16,72 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
-class GsonMcpJsonMapperTests {
+public class GsonMcpJsonMapperTests {
 
-	record Person(String name, int age) {
+	// Sostituisce il record con una classe POJO immutabile
+	public static final class Person {
+
+		private final String name;
+
+		private final int age;
+
+		public Person(String name, int age) {
+			this.name = name;
+			this.age = age;
+		}
+
+		public String getName() {
+			return name;
+		}
+
+		public int getAge() {
+			return age;
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o)
+				return true;
+			if (!(o instanceof Person))
+				return false;
+			Person other = (Person) o;
+			return age == other.age && name.equals(other.name);
+		}
+
+		@Override
+		public int hashCode() {
+			return name.hashCode() * 31 + age;
+		}
+
 	}
 
 	@Test
-	void roundTripSimplePojo() throws IOException {
-		var mapper = new GsonMcpJsonMapper();
+	public void roundTripSimplePojo() throws IOException {
+		GsonMcpJsonMapper mapper = new GsonMcpJsonMapper();
 
-		var input = new Person("Alice", 30);
+		Person input = new Person("Alice", 30);
 		String json = mapper.writeValueAsString(input);
 		assertNotNull(json);
 		assertTrue(json.contains("\"Alice\""));
 		assertTrue(json.contains("\"age\""));
 
-		var decoded = mapper.readValue(json, Person.class);
+		Person decoded = mapper.readValue(json, Person.class);
 		assertEquals(input, decoded);
 
 		byte[] bytes = mapper.writeValueAsBytes(input);
 		assertNotNull(bytes);
-		var decodedFromBytes = mapper.readValue(bytes, Person.class);
+		Person decodedFromBytes = mapper.readValue(bytes, Person.class);
 		assertEquals(input, decodedFromBytes);
 	}
 
 	@Test
-	void readWriteParameterizedTypeWithTypeRef() throws IOException {
-		var mapper = new GsonMcpJsonMapper();
+	public void readWriteParameterizedTypeWithTypeRef() throws IOException {
+		GsonMcpJsonMapper mapper = new GsonMcpJsonMapper();
 		String json = "[\"a\", \"b\", \"c\"]";
 
 		List<String> list = mapper.readValue(json, new TypeRef<List<String>>() {
 		});
-		assertEquals(List.of("a", "b", "c"), list);
+		assertEquals(Arrays.asList("a", "b", "c"), list); // sostituisce List.of
 
 		String encoded = mapper.writeValueAsString(list);
 		assertTrue(encoded.startsWith("["));
@@ -52,11 +89,13 @@ class GsonMcpJsonMapperTests {
 	}
 
 	@Test
-	void convertValueMapToRecordAndParameterized() {
-		var mapper = new GsonMcpJsonMapper();
-		Map<String, Object> src = Map.of("name", "Bob", "age", 42);
+	public void convertValueMapToPojoAndParameterized() {
+		GsonMcpJsonMapper mapper = new GsonMcpJsonMapper();
+		Map<String, Object> src = new HashMap<>();
+		src.put("name", "Bob");
+		src.put("age", 42);
 
-		// Convert to simple record
+		// Convert to simple POJO
 		Person person = mapper.convertValue(src, Person.class);
 		assertEquals(new Person("Bob", 42), person);
 
@@ -65,70 +104,69 @@ class GsonMcpJsonMapperTests {
 		});
 		assertEquals("Bob", toMap.get("name"));
 		assertEquals(42.0, ((Number) toMap.get("age")).doubleValue(), 0.0); // Gson may
-		// emit double
-		// for
-		// primitives
+																			// emit double
+																			// for
+																			// primitives
 	}
 
 	@Test
 	void deserializeJsonRpcMessageRequestUsingCustomMapper() throws IOException {
-		var mapper = new GsonMcpJsonMapper();
 
-		String json = """
-				{
-				  "jsonrpc": "2.0",
-				  "id": 1,
-				  "method": "ping",
-				  "params": { "x": 1, "y": "z" }
-				}
-				""";
+		GsonMcpJsonMapper mapper = new GsonMcpJsonMapper();
 
-		var msg = McpSchema.deserializeJsonRpcMessage(mapper, json);
+		String json = "{\n" + "  \"jsonrpc\": \"2.0\",\n" + "  \"id\": 1,\n" + "  \"method\": \"ping\",\n"
+				+ "  \"params\": { \"x\": 1, \"y\": \"z\" }\n" + "}";
+
+		McpSchema.JSONRPCMessage msg = McpSchema.deserializeJsonRpcMessage(mapper, json);
 		assertTrue(msg instanceof McpSchema.JSONRPCRequest);
 
-		var req = (McpSchema.JSONRPCRequest) msg;
+		McpSchema.JSONRPCRequest req = (McpSchema.JSONRPCRequest) msg;
 		assertEquals("2.0", req.jsonrpc());
 		assertEquals("ping", req.method());
 		assertNotNull(req.id());
 		assertEquals("1", req.id().toString());
 
 		assertNotNull(req.params());
-		assertInstanceOf(Map.class, req.params());
+		assertTrue(req.params() instanceof Map); // sostituisce assertInstanceOf
+
 		@SuppressWarnings("unchecked")
-		var params = (Map<String, Object>) req.params();
+		Map<String, Object> params = (Map<String, Object>) req.params();
+
 		assertEquals(1.0, ((Number) params.get("x")).doubleValue(), 0.0);
 		assertEquals("z", params.get("y"));
 	}
 
 	@Test
 	void integrateWithMcpSchemaStaticMapperForStringParsing() {
-		var gsonMapper = new GsonMcpJsonMapper();
+
+		GsonMcpJsonMapper gsonMapper = new GsonMcpJsonMapper();
 
 		// Tool builder parsing of input/output schema strings
-		var tool = McpSchema.Tool.builder().name("echo").description("Echo tool").inputSchema(gsonMapper, """
-				{
-				  "type": "object",
-				  "properties": { "x": { "type": "integer" } },
-				  "required": ["x"]
-				}
-				""").outputSchema(gsonMapper, """
-				{
-				  "type": "object",
-				  "properties": { "y": { "type": "string" } }
-				}
-				""").build();
+		McpSchema.Tool tool = McpSchema.Tool.builder()
+			.name("echo")
+			.description("Echo tool")
+			.inputSchema(gsonMapper,
+					"{\n" + "  \"type\": \"object\",\n" + "  \"properties\": { \"x\": { \"type\": \"integer\" } },\n"
+							+ "  \"required\": [\"x\"]\n" + "}")
+			.outputSchema(gsonMapper,
+					"{\n" + "  \"type\": \"object\",\n" + "  \"properties\": { \"y\": { \"type\": \"string\" } }\n"
+							+ "}")
+			.build();
 
-		assertNotNull(tool.inputSchema());
-		assertNotNull(tool.outputSchema());
-		assertTrue(tool.outputSchema().containsKey("properties"));
+		assertNotNull(tool.getInputSchema());
+		assertNotNull(tool.getOutputSchema());
+		assertTrue(tool.getOutputSchema().containsKey("properties"));
 
 		// CallToolRequest builder parsing of JSON arguments string
-		var call = McpSchema.CallToolRequest.builder().name("echo").arguments(gsonMapper, "{\"x\": 123}").build();
+		CallToolRequest call = McpSchema.CallToolRequest.builder()
+			.name("echo")
+			.arguments(gsonMapper, "{\"x\": 123}")
+			.build();
 
-		assertEquals("echo", call.name());
-		assertNotNull(call.arguments());
-		assertTrue(call.arguments().get("x") instanceof Number);
-		assertEquals(123.0, ((Number) call.arguments().get("x")).doubleValue(), 0.0);
+		assertEquals("echo", call.getName());
+		assertNotNull(call.getArguments());
+		assertTrue(call.getArguments().get("x") instanceof Number);
+		assertEquals(123.0, ((Number) call.getArguments().get("x")).doubleValue(), 0.0);
 
 	}
 

@@ -5,8 +5,11 @@
 package io.modelcontextprotocol.server;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Stream;
+
+import javax.servlet.http.HttpServletRequest;
 
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
@@ -15,7 +18,6 @@ import io.modelcontextprotocol.server.McpServer.AsyncSpecification;
 import io.modelcontextprotocol.server.McpServer.SyncSpecification;
 import io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider;
 import io.modelcontextprotocol.server.transport.TomcatTestUtil;
-import jakarta.servlet.http.HttpServletRequest;
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.LifecycleState;
 import org.apache.catalina.startup.Tomcat;
@@ -99,6 +101,6 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 	}
 
 	static McpTransportContextExtractor<HttpServletRequest> TEST_CONTEXT_EXTRACTOR = (r) -> McpTransportContext
-		.create(Map.of("important", "value"));
+		.create(Collections.singletonMap("important", "value"));
 
 }

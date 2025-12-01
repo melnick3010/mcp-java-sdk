@@ -4,6 +4,7 @@
 
 package io.modelcontextprotocol.server;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -12,6 +13,7 @@ import java.util.function.BiFunction;
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.LifecycleState;
 import org.apache.catalina.startup.Tomcat;
+import org.assertj.core.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.AfterEach;
@@ -20,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
 import io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider;
 import io.modelcontextprotocol.server.transport.TomcatTestUtil;
@@ -94,12 +97,13 @@ class McpCompletionTests {
 		AtomicReference<CompleteRequest> receivedRequest = new AtomicReference<>();
 		BiFunction<McpSyncServerExchange, CompleteRequest, CompleteResult> completionHandler = (exchange, request) -> {
 			receivedRequest.set(request);
-			return new CompleteResult(new CompleteResult.CompleteCompletion(List.of("test-completion"), 1, false));
+			return new CompleteResult(
+					new CompleteResult.CompleteCompletion(Collections.singletonList("test-completion"), 1, false));
 		};
 
 		ResourceReference resourceRef = new ResourceReference(ResourceReference.TYPE, "test://resource/{param}");
 
-		var resource = Resource.builder()
+		Resource resource = Resource.builder()
 			.uri("test://resource/{param}")
 			.name("Test Resource")
 			.description("A resource for testing")
@@ -107,14 +111,15 @@ class McpCompletionTests {
 			.size(123L)
 			.build();
 
-		var mcpServer = McpServer.sync(mcpServerTransportProvider)
+		McpSyncServer mcpServer = McpServer.sync(mcpServerTransportProvider)
 			.capabilities(ServerCapabilities.builder().completions().build())
 			.resources(new McpServerFeatures.SyncResourceSpecification(resource,
-					(exchange, req) -> new ReadResourceResult(List.of())))
+					(exchange, req) -> new ReadResourceResult(Collections.emptyList())))
 			.completions(new McpServerFeatures.SyncCompletionSpecification(resourceRef, completionHandler))
 			.build();
 
-		try (var mcpClient = clientBuilder.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
+		try (McpSyncClient mcpClient = clientBuilder
+			.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
 			.build();) {
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
@@ -122,14 +127,14 @@ class McpCompletionTests {
 			// Test with context
 			CompleteRequest request = new CompleteRequest(resourceRef,
 					new CompleteRequest.CompleteArgument("param", "test"), null,
-					new CompleteRequest.CompleteContext(Map.of("previous", "value")));
+					new CompleteRequest.CompleteContext(Collections.singletonMap("previous", "value")));
 
 			CompleteResult result = mcpClient.completeCompletion(request);
 
 			// Verify handler received the context
-			assertThat(receivedRequest.get().context()).isNotNull();
-			assertThat(receivedRequest.get().context().arguments()).containsEntry("previous", "value");
-			assertThat(result.completion().values()).containsExactly("test-completion");
+			assertThat(receivedRequest.get().getContext()).isNotNull();
+			assertThat(receivedRequest.get().getContext().getArguments()).containsEntry("previous", "value");
+			assertThat(result.getCompletion().getValues()).containsExactly("test-completion");
 		}
 
 		mcpServer.close();
@@ -139,15 +144,15 @@ class McpCompletionTests {
 	void testCompletionBackwardCompatibility() {
 		AtomicReference<Boolean> contextWasNull = new AtomicReference<>(false);
 		BiFunction<McpSyncServerExchange, CompleteRequest, CompleteResult> completionHandler = (exchange, request) -> {
-			contextWasNull.set(request.context() == null);
-			return new CompleteResult(
-					new CompleteResult.CompleteCompletion(List.of("no-context-completion"), 1, false));
+			contextWasNull.set(request.getContext() == null);
+			return new CompleteResult(new CompleteResult.CompleteCompletion(
+					Collections.singletonList("no-context-completion"), 1, false));
 		};
 
 		McpSchema.Prompt prompt = new Prompt("test-prompt", "this is a test prompt",
-				List.of(new PromptArgument("arg", "string", false)));
+				Collections.singletonList(new PromptArgument("arg", "string", false)));
 
-		var mcpServer = McpServer.sync(mcpServerTransportProvider)
+		McpSyncServer mcpServer = McpServer.sync(mcpServerTransportProvider)
 			.capabilities(ServerCapabilities.builder().completions().build())
 			.prompts(new McpServerFeatures.SyncPromptSpecification(prompt,
 					(mcpSyncServerExchange, getPromptRequest) -> null))
@@ -155,7 +160,8 @@ class McpCompletionTests {
 					new PromptReference(PromptReference.TYPE, "test-prompt"), completionHandler))
 			.build();
 
-		try (var mcpClient = clientBuilder.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
+		try (McpSyncClient mcpClient = clientBuilder
+			.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
 			.build();) {
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
@@ -168,7 +174,7 @@ class McpCompletionTests {
 
 			// Verify context was null
 			assertThat(contextWasNull.get()).isTrue();
-			assertThat(result.completion().values()).containsExactly("no-context-completion");
+			assertThat(result.getCompletion().getValues()).containsExactly("no-context-completion");
 		}
 
 		mcpServer.close();
@@ -178,30 +184,31 @@ class McpCompletionTests {
 	void testDependentCompletionScenario() {
 		BiFunction<McpSyncServerExchange, CompleteRequest, CompleteResult> completionHandler = (exchange, request) -> {
 			// Simulate database/table completion scenario
-			if (request.ref() instanceof ResourceReference resourceRef) {
-				if ("db://{database}/{table}".equals(resourceRef.uri())) {
-					if ("database".equals(request.argument().name())) {
+			if (request.getRef() instanceof ResourceReference) {
+				ResourceReference resourceRef = (ResourceReference) request.getRef();
+				if ("db://{database}/{table}".equals(resourceRef.getUri())) {
+					if ("database".equals(request.getArgument().getName())) {
 						// Complete database names
 						return new CompleteResult(new CompleteResult.CompleteCompletion(
-								List.of("users_db", "products_db", "analytics_db"), 3, false));
+								java.util.Arrays.asList("users_db", "products_db", "analytics_db"), 3, false));
 					}
-					else if ("table".equals(request.argument().name())) {
+					else if ("table".equals(request.getArgument().getName())) {
 						// Complete table names based on selected database
-						if (request.context() != null && request.context().arguments() != null) {
-							String db = request.context().arguments().get("database");
+						if (request.getContext() != null && request.getContext().getArguments() != null) {
+							String db = request.getContext().getArguments().get("database");
 							if ("users_db".equals(db)) {
 								return new CompleteResult(new CompleteResult.CompleteCompletion(
-										List.of("users", "sessions", "permissions"), 3, false));
+										java.util.Arrays.asList("users", "sessions", "permissions"), 3, false));
 							}
 							else if ("products_db".equals(db)) {
 								return new CompleteResult(new CompleteResult.CompleteCompletion(
-										List.of("products", "categories", "inventory"), 3, false));
+										java.util.Arrays.asList("products", "categories", "inventory"), 3, false));
 							}
 						}
 					}
 				}
 			}
-			return new CompleteResult(new CompleteResult.CompleteCompletion(List.of(), 0, false));
+			return new CompleteResult(new CompleteResult.CompleteCompletion(Collections.emptyList(), 0, false));
 		};
 
 		McpSchema.Resource resource = Resource.builder()
@@ -212,15 +219,16 @@ class McpCompletionTests {
 			.size(456L)
 			.build();
 
-		var mcpServer = McpServer.sync(mcpServerTransportProvider)
+		McpSyncServer mcpServer = McpServer.sync(mcpServerTransportProvider)
 			.capabilities(ServerCapabilities.builder().completions().build())
 			.resources(new McpServerFeatures.SyncResourceSpecification(resource,
-					(exchange, req) -> new ReadResourceResult(List.of())))
+					(exchange, req) -> new ReadResourceResult(Collections.emptyList())))
 			.completions(new McpServerFeatures.SyncCompletionSpecification(
 					new ResourceReference(ResourceReference.TYPE, "db://{database}/{table}"), completionHandler))
 			.build();
 
-		try (var mcpClient = clientBuilder.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
+		try (McpSyncClient mcpClient = clientBuilder
+			.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
 			.build();) {
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
@@ -231,25 +239,25 @@ class McpCompletionTests {
 					new CompleteRequest.CompleteArgument("database", ""));
 
 			CompleteResult dbResult = mcpClient.completeCompletion(dbRequest);
-			assertThat(dbResult.completion().values()).contains("users_db", "products_db");
+			assertThat(dbResult.getCompletion().getValues()).contains("users_db", "products_db");
 
 			// Then complete table with database context
 			CompleteRequest tableRequest = new CompleteRequest(
 					new ResourceReference(ResourceReference.TYPE, "db://{database}/{table}"),
 					new CompleteRequest.CompleteArgument("table", ""),
-					new CompleteRequest.CompleteContext(Map.of("database", "users_db")));
+					new CompleteRequest.CompleteContext(Collections.singletonMap("database", "users_db")));
 
 			CompleteResult tableResult = mcpClient.completeCompletion(tableRequest);
-			assertThat(tableResult.completion().values()).containsExactly("users", "sessions", "permissions");
+			assertThat(tableResult.getCompletion().getValues()).containsExactly("users", "sessions", "permissions");
 
 			// Different database gives different tables
 			CompleteRequest tableRequest2 = new CompleteRequest(
 					new ResourceReference(ResourceReference.TYPE, "db://{database}/{table}"),
 					new CompleteRequest.CompleteArgument("table", ""),
-					new CompleteRequest.CompleteContext(Map.of("database", "products_db")));
+					new CompleteRequest.CompleteContext(Collections.singletonMap("database", "products_db")));
 
 			CompleteResult tableResult2 = mcpClient.completeCompletion(tableRequest2);
-			assertThat(tableResult2.completion().values()).containsExactly("products", "categories", "inventory");
+			assertThat(tableResult2.getCompletion().getValues()).containsExactly("products", "categories", "inventory");
 		}
 
 		mcpServer.close();
@@ -258,27 +266,28 @@ class McpCompletionTests {
 	@Test
 	void testCompletionErrorOnMissingContext() {
 		BiFunction<McpSyncServerExchange, CompleteRequest, CompleteResult> completionHandler = (exchange, request) -> {
-			if (request.ref() instanceof ResourceReference resourceRef) {
-				if ("db://{database}/{table}".equals(resourceRef.uri())) {
-					if ("table".equals(request.argument().name())) {
+			if (request.getRef() instanceof ResourceReference) {
+				ResourceReference resourceRef = (ResourceReference) request.getRef();
+				if ("db://{database}/{table}".equals(resourceRef.getUri())) {
+					if ("table".equals(request.getArgument().getName())) {
 						// Check if database context is provided
-						if (request.context() == null || request.context().arguments() == null
-								|| !request.context().arguments().containsKey("database")) {
+						if (request.getContext() == null || request.getContext().getArguments() == null
+								|| !request.getContext().getArguments().containsKey("database")) {
 
 							throw McpError.builder(ErrorCodes.INVALID_REQUEST)
 								.message("Please select a database first to see available tables")
 								.build();
 						}
 						// Normal completion if context is provided
-						String db = request.context().arguments().get("database");
+						String db = request.getContext().getArguments().get("database");
 						if ("test_db".equals(db)) {
 							return new CompleteResult(new CompleteResult.CompleteCompletion(
-									List.of("users", "orders", "products"), 3, false));
+									java.util.Arrays.asList("users", "orders", "products"), 3, false));
 						}
 					}
 				}
 			}
-			return new CompleteResult(new CompleteResult.CompleteCompletion(List.of(), 0, false));
+			return new CompleteResult(new CompleteResult.CompleteCompletion(Collections.emptyList(), 0, false));
 		};
 
 		McpSchema.Resource resource = Resource.builder()
@@ -289,15 +298,16 @@ class McpCompletionTests {
 			.size(456L)
 			.build();
 
-		var mcpServer = McpServer.sync(mcpServerTransportProvider)
+		McpSyncServer mcpServer = McpServer.sync(mcpServerTransportProvider)
 			.capabilities(ServerCapabilities.builder().completions().build())
 			.resources(new McpServerFeatures.SyncResourceSpecification(resource,
-					(exchange, req) -> new ReadResourceResult(List.of())))
+					(exchange, req) -> new ReadResourceResult(Collections.emptyList())))
 			.completions(new McpServerFeatures.SyncCompletionSpecification(
 					new ResourceReference(ResourceReference.TYPE, "db://{database}/{table}"), completionHandler))
 			.build();
 
-		try (var mcpClient = clientBuilder.clientInfo(new McpSchema.Implementation("Sample" + "client", "0.0.0"))
+		try (McpSyncClient mcpClient = clientBuilder
+			.clientInfo(new McpSchema.Implementation("Sample" + "client", "0.0.0"))
 			.build();) {
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
@@ -315,10 +325,10 @@ class McpCompletionTests {
 			CompleteRequest requestWithContext = new CompleteRequest(
 					new ResourceReference(ResourceReference.TYPE, "db://{database}/{table}"),
 					new CompleteRequest.CompleteArgument("table", ""),
-					new CompleteRequest.CompleteContext(Map.of("database", "test_db")));
+					new CompleteRequest.CompleteContext(Collections.singletonMap("database", "test_db")));
 
 			CompleteResult resultWithContext = mcpClient.completeCompletion(requestWithContext);
-			assertThat(resultWithContext.completion().values()).containsExactly("users", "orders", "products");
+			assertThat(resultWithContext.getCompletion().getValues()).containsExactly("users", "orders", "products");
 		}
 
 		mcpServer.close();

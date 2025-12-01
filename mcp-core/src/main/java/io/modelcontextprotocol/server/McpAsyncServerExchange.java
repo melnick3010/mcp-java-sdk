@@ -37,16 +37,16 @@ public class McpAsyncServerExchange {
 
 	private final McpTransportContext transportContext;
 
-	private static final TypeRef<McpSchema.CreateMessageResult> CREATE_MESSAGE_RESULT_TYPE_REF = new TypeRef<>() {
+	private static final TypeRef<McpSchema.CreateMessageResult> CREATE_MESSAGE_RESULT_TYPE_REF = new TypeRef<McpSchema.CreateMessageResult>() {
 	};
 
-	private static final TypeRef<McpSchema.ListRootsResult> LIST_ROOTS_RESULT_TYPE_REF = new TypeRef<>() {
+	private static final TypeRef<McpSchema.ListRootsResult> LIST_ROOTS_RESULT_TYPE_REF = new TypeRef<McpSchema.ListRootsResult>() {
 	};
 
-	private static final TypeRef<McpSchema.ElicitResult> ELICITATION_RESULT_TYPE_REF = new TypeRef<>() {
+	private static final TypeRef<McpSchema.ElicitResult> ELICITATION_RESULT_TYPE_REF = new TypeRef<McpSchema.ElicitResult>() {
 	};
 
-	public static final TypeRef<Object> OBJECT_TYPE_REF = new TypeRef<>() {
+	public static final TypeRef<Object> OBJECT_TYPE_REF = new TypeRef<Object>() {
 	};
 
 	/**
@@ -184,15 +184,15 @@ public class McpAsyncServerExchange {
 
 		// @formatter:off
 		return this.listRoots(McpSchema.FIRST_PAGE)
-			.expand(result -> (result.nextCursor() != null) ?
-					this.listRoots(result.nextCursor()) : Mono.empty())
+			.expand(result -> (result.getNextCursor() != null) ?
+					this.listRoots(result.getNextCursor()) : Mono.empty())
 			.reduce(new McpSchema.ListRootsResult(new ArrayList<>(), null),
 				(allRootsResult, result) -> {
-					allRootsResult.roots().addAll(result.roots());
+					allRootsResult.getRoots().addAll(result.getRoots());
 					return allRootsResult;
 				})
-			.map(result -> new McpSchema.ListRootsResult(Collections.unmodifiableList(result.roots()),
-					result.nextCursor()));
+			.map(result -> new McpSchema.ListRootsResult(Collections.unmodifiableList(result.getRoots()),
+					result.getNextCursor()));
 		// @formatter:on
 	}
 
@@ -219,7 +219,7 @@ public class McpAsyncServerExchange {
 		}
 
 		return Mono.defer(() -> {
-			if (this.session.isNotificationForLevelAllowed(loggingMessageNotification.level())) {
+			if (this.session.isNotificationForLevelAllowed(loggingMessageNotification.getLevel())) {
 				return this.session.sendNotification(McpSchema.METHOD_NOTIFICATION_MESSAGE, loggingMessageNotification);
 			}
 			return Mono.empty();

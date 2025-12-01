@@ -4,6 +4,8 @@
 
 package io.modelcontextprotocol.spec;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import io.modelcontextprotocol.server.McpStatelessServerHandler;
@@ -29,7 +31,7 @@ public interface McpStatelessServerTransport {
 	Mono<Void> closeGracefully();
 
 	default List<String> protocolVersions() {
-		return List.of(ProtocolVersions.MCP_2025_03_26, ProtocolVersions.MCP_2025_06_18);
+		return Arrays.asList(ProtocolVersions.MCP_2025_03_26, ProtocolVersions.MCP_2025_06_18);
 	}
 
 }

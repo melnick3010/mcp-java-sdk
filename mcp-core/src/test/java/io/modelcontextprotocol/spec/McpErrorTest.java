@@ -2,6 +2,7 @@ package io.modelcontextprotocol.spec;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -16,7 +17,7 @@ class McpErrorTest {
 		assertNotNull(mcpError.getJsonRpcError());
 		assertEquals(-32002, mcpError.getJsonRpcError().code());
 		assertEquals("Resource not found", mcpError.getJsonRpcError().message());
-		assertEquals(Map.of("uri", uri), mcpError.getJsonRpcError().data());
+		assertEquals(Collections.singletonMap("uri", uri), mcpError.getJsonRpcError().data());
 	}
 
 }

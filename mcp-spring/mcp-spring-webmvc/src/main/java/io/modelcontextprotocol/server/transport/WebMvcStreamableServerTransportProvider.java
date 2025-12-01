@@ -6,6 +6,7 @@ package io.modelcontextprotocol.server.transport;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
@@ -143,7 +144,7 @@ public class WebMvcStreamableServerTransportProvider implements McpStreamableSer
 
 	@Override
 	public List<String> protocolVersions() {
-		return List.of(ProtocolVersions.MCP_2024_11_05, ProtocolVersions.MCP_2025_03_26,
+		return Arrays.asList(ProtocolVersions.MCP_2024_11_05, ProtocolVersions.MCP_2025_03_26,
 				ProtocolVersions.MCP_2025_06_18);
 	}
 
@@ -329,27 +330,34 @@ public class WebMvcStreamableServerTransportProvider implements McpStreamableSer
 			McpSchema.JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(jsonMapper, body);
 
 			// Handle initialization request
-			if (message instanceof McpSchema.JSONRPCRequest jsonrpcRequest
-					&& jsonrpcRequest.method().equals(McpSchema.METHOD_INITIALIZE)) {
-				McpSchema.InitializeRequest initializeRequest = jsonMapper.convertValue(jsonrpcRequest.params(),
-						new TypeRef<McpSchema.InitializeRequest>() {
-						});
-				McpStreamableServerSession.McpStreamableServerSessionInit init = this.sessionFactory
-					.startSession(initializeRequest);
-				this.sessions.put(init.session().getId(), init.session());
+			if (message instanceof McpSchema.JSONRPCRequest) {
+				McpSchema.JSONRPCRequest jsonrpcRequest = (McpSchema.JSONRPCRequest) message;
 
-				try {
-					McpSchema.InitializeResult initResult = init.initResult().block();
+				if (McpSchema.METHOD_INITIALIZE.equals(jsonrpcRequest.method())) {
+					// In Java 8 serve il tipo esplicito sulla classe anonima TypeRef
+					McpSchema.InitializeRequest initializeRequest = jsonMapper.convertValue(jsonrpcRequest.params(),
+							new TypeRef<McpSchema.InitializeRequest>() {
+							});
 
-					return ServerResponse.ok()
-						.contentType(MediaType.APPLICATION_JSON)
-						.header(HttpHeaders.MCP_SESSION_ID, init.session().getId())
-						.body(new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, jsonrpcRequest.id(), initResult,
-								null));
-				}
-				catch (Exception e) {
-					logger.error("Failed to initialize session: {}", e.getMessage());
-					return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new McpError(e.getMessage()));
+					McpStreamableServerSession.McpStreamableServerSessionInit init = this.sessionFactory
+						.startSession(initializeRequest);
+
+					this.sessions.put(init.session().getId(), init.session());
+
+					try {
+						McpSchema.InitializeResult initResult = init.initResult().block();
+
+						return ServerResponse.ok()
+							.contentType(MediaType.APPLICATION_JSON)
+							.header(HttpHeaders.MCP_SESSION_ID, init.session().getId())
+							.body(new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, jsonrpcRequest.id(),
+									initResult, null));
+					}
+					catch (Exception e) {
+						logger.error("Failed to initialize session: {}", e.getMessage());
+						return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
+							.body(new McpError(e.getMessage()));
+					}
 				}
 			}
 
@@ -366,20 +374,30 @@ public class WebMvcStreamableServerTransportProvider implements McpStreamableSer
 					.body(new McpError("Session not found: " + sessionId));
 			}
 
-			if (message instanceof McpSchema.JSONRPCResponse jsonrpcResponse) {
+			if (message instanceof McpSchema.JSONRPCResponse) {
+				McpSchema.JSONRPCResponse jsonrpcResponse = (McpSchema.JSONRPCResponse) message;
+
 				session.accept(jsonrpcResponse)
 					.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
 					.block();
+
 				return ServerResponse.accepted().build();
+
 			}
-			else if (message instanceof McpSchema.JSONRPCNotification jsonrpcNotification) {
+			else if (message instanceof McpSchema.JSONRPCNotification) {
+				McpSchema.JSONRPCNotification jsonrpcNotification = (McpSchema.JSONRPCNotification) message;
+
 				session.accept(jsonrpcNotification)
 					.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
 					.block();
+
 				return ServerResponse.accepted().build();
+
 			}
-			else if (message instanceof McpSchema.JSONRPCRequest jsonrpcRequest) {
-				// For streaming responses, we need to return SSE
+			else if (message instanceof McpSchema.JSONRPCRequest) {
+				McpSchema.JSONRPCRequest jsonrpcRequest = (McpSchema.JSONRPCRequest) message;
+
+				// Per risposte streaming, ritorna SSE
 				return ServerResponse.sse(sseBuilder -> {
 					sseBuilder.onComplete(() -> {
 						logger.debug("Request response stream completed for session: {}", sessionId);
@@ -401,11 +419,13 @@ public class WebMvcStreamableServerTransportProvider implements McpStreamableSer
 						sseBuilder.error(e);
 					}
 				}, Duration.ZERO);
+
 			}
 			else {
 				return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
 					.body(new McpError("Unknown message type"));
 			}
+
 		}
 		catch (IllegalArgumentException | IOException e) {
 			logger.error("Failed to deserialize message: {}", e.getMessage());

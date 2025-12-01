@@ -5,6 +5,7 @@
 package io.modelcontextprotocol.spec;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -37,7 +38,7 @@ class McpClientSessionTests {
 
 	private static final String ECHO_METHOD = "echo";
 
-	TypeRef<String> responseType = new TypeRef<>() {
+	TypeRef<String> responseType = new TypeRef<String>() {
 	};
 
 	@Test
@@ -45,9 +46,10 @@ class McpClientSessionTests {
 		String testParam = "test parameter";
 		String responseData = "test response";
 
-		var transport = new MockMcpClientTransport();
-		var session = new McpClientSession(TIMEOUT, transport, Map.of(),
-				Map.of(TEST_NOTIFICATION, params -> Mono.fromRunnable(() -> logger.info("Status update: {}", params))),
+		MockMcpClientTransport transport = new MockMcpClientTransport();
+		McpClientSession session = new McpClientSession(TIMEOUT, transport, Collections.emptyMap(),
+				Collections.singletonMap(TEST_NOTIFICATION,
+						params -> Mono.fromRunnable(() -> logger.info("Status update: {}", params))),
 				Function.identity());
 
 		// Create a Mono that will emit the response after the request is sent
@@ -72,9 +74,10 @@ class McpClientSessionTests {
 
 	@Test
 	void testSendRequestWithError() {
-		var transport = new MockMcpClientTransport();
-		var session = new McpClientSession(TIMEOUT, transport, Map.of(),
-				Map.of(TEST_NOTIFICATION, params -> Mono.fromRunnable(() -> logger.info("Status update: {}", params))),
+		MockMcpClientTransport transport = new MockMcpClientTransport();
+		McpClientSession session = new McpClientSession(TIMEOUT, transport, Collections.emptyMap(),
+				Collections.singletonMap(TEST_NOTIFICATION,
+						params -> Mono.fromRunnable(() -> logger.info("Status update: {}", params))),
 				Function.identity());
 
 		Mono<String> responseMono = session.sendRequest(TEST_METHOD, "test", responseType);
@@ -94,9 +97,10 @@ class McpClientSessionTests {
 
 	@Test
 	void testRequestTimeout() {
-		var transport = new MockMcpClientTransport();
-		var session = new McpClientSession(TIMEOUT, transport, Map.of(),
-				Map.of(TEST_NOTIFICATION, params -> Mono.fromRunnable(() -> logger.info("Status update: {}", params))),
+		MockMcpClientTransport transport = new MockMcpClientTransport();
+		McpClientSession session = new McpClientSession(TIMEOUT, transport, Collections.emptyMap(),
+				Collections.singletonMap(TEST_NOTIFICATION,
+						params -> Mono.fromRunnable(() -> logger.info("Status update: {}", params))),
 				Function.identity());
 
 		Mono<String> responseMono = session.sendRequest(TEST_METHOD, "test", responseType);
@@ -111,12 +115,13 @@ class McpClientSessionTests {
 
 	@Test
 	void testSendNotification() {
-		var transport = new MockMcpClientTransport();
-		var session = new McpClientSession(TIMEOUT, transport, Map.of(),
-				Map.of(TEST_NOTIFICATION, params -> Mono.fromRunnable(() -> logger.info("Status update: {}", params))),
+		MockMcpClientTransport transport = new MockMcpClientTransport();
+		McpClientSession session = new McpClientSession(TIMEOUT, transport, Collections.emptyMap(),
+				Collections.singletonMap(TEST_NOTIFICATION,
+						params -> Mono.fromRunnable(() -> logger.info("Status update: {}", params))),
 				Function.identity());
 
-		Map<String, Object> params = Map.of("key", "value");
+		Map<String, Object> params = Collections.singletonMap("key", "value");
 		Mono<Void> notificationMono = session.sendNotification(TEST_NOTIFICATION, params);
 
 		// Verify notification was sent
@@ -134,10 +139,11 @@ class McpClientSessionTests {
 	@Test
 	void testRequestHandling() {
 		String echoMessage = "Hello MCP!";
-		Map<String, McpClientSession.RequestHandler<?>> requestHandlers = Map.of(ECHO_METHOD,
+		Map<String, McpClientSession.RequestHandler<?>> requestHandlers = Collections.singletonMap(ECHO_METHOD,
 				params -> Mono.just(params));
-		var transport = new MockMcpClientTransport();
-		var session = new McpClientSession(TIMEOUT, transport, requestHandlers, Map.of(), Function.identity());
+		MockMcpClientTransport transport = new MockMcpClientTransport();
+		McpClientSession session = new McpClientSession(TIMEOUT, transport, requestHandlers, Collections.emptyMap(),
+				Function.identity());
 
 		// Simulate incoming request
 		McpSchema.JSONRPCRequest request = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, ECHO_METHOD,
@@ -158,13 +164,13 @@ class McpClientSessionTests {
 	void testNotificationHandling() {
 		Sinks.One<Object> receivedParams = Sinks.one();
 
-		var transport = new MockMcpClientTransport();
-		var session = new McpClientSession(TIMEOUT, transport, Map.of(),
-				Map.of(TEST_NOTIFICATION, params -> Mono.fromRunnable(() -> receivedParams.tryEmitValue(params))),
+		MockMcpClientTransport transport = new MockMcpClientTransport();
+		McpClientSession session = new McpClientSession(TIMEOUT, transport, Collections.emptyMap(), Collections
+			.singletonMap(TEST_NOTIFICATION, params -> Mono.fromRunnable(() -> receivedParams.tryEmitValue(params))),
 				Function.identity());
 
 		// Simulate incoming notification from the server
-		Map<String, Object> notificationParams = Map.of("status", "ready");
+		Map<String, Object> notificationParams = Collections.singletonMap("status", "ready");
 
 		McpSchema.JSONRPCNotification notification = new McpSchema.JSONRPCNotification(McpSchema.JSONRPC_VERSION,
 				TEST_NOTIFICATION, notificationParams);
@@ -180,9 +186,10 @@ class McpClientSessionTests {
 	@Test
 	void testUnknownMethodHandling() {
 
-		var transport = new MockMcpClientTransport();
-		var session = new McpClientSession(TIMEOUT, transport, Map.of(),
-				Map.of(TEST_NOTIFICATION, params -> Mono.fromRunnable(() -> logger.info("Status update: {}", params))),
+		MockMcpClientTransport transport = new MockMcpClientTransport();
+		McpClientSession session = new McpClientSession(TIMEOUT, transport, Collections.emptyMap(),
+				Collections.singletonMap(TEST_NOTIFICATION,
+						params -> Mono.fromRunnable(() -> logger.info("Status update: {}", params))),
 				Function.identity());
 
 		// Simulate incoming request for unknown method
@@ -205,13 +212,13 @@ class McpClientSessionTests {
 		// Setup: Create a request handler that throws McpError with custom error code and
 		// data
 		String testMethod = "test.customError";
-		Map<String, Object> errorData = Map.of("customField", "customValue");
+		Map<String, Object> errorData = Collections.singletonMap("customField", "customValue");
 		McpClientSession.RequestHandler<?> failingHandler = params -> Mono
 			.error(McpError.builder(123).message("Custom error message").data(errorData).build());
 
-		var transport = new MockMcpClientTransport();
-		var session = new McpClientSession(TIMEOUT, transport, Map.of(testMethod, failingHandler), Map.of(),
-				Function.identity());
+		MockMcpClientTransport transport = new MockMcpClientTransport();
+		McpClientSession session = new McpClientSession(TIMEOUT, transport,
+				Collections.singletonMap(testMethod, failingHandler), Collections.emptyMap(), Function.identity());
 
 		// Simulate incoming request that will trigger the error
 		McpSchema.JSONRPCRequest request = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, testMethod,
@@ -237,9 +244,9 @@ class McpClientSessionTests {
 		RuntimeException exception = new RuntimeException("Something went wrong");
 		McpClientSession.RequestHandler<?> failingHandler = params -> Mono.error(exception);
 
-		var transport = new MockMcpClientTransport();
-		var session = new McpClientSession(TIMEOUT, transport, Map.of(testMethod, failingHandler), Map.of(),
-				Function.identity());
+		MockMcpClientTransport transport = new MockMcpClientTransport();
+		McpClientSession session = new McpClientSession(TIMEOUT, transport,
+				Collections.singletonMap(testMethod, failingHandler), Collections.emptyMap(), Function.identity());
 
 		// Simulate incoming request that will trigger the error
 		McpSchema.JSONRPCRequest request = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, testMethod,
@@ -271,9 +278,9 @@ class McpClientSessionTests {
 		RuntimeException topException = new RuntimeException("Top level message", middleCause);
 		McpClientSession.RequestHandler<?> failingHandler = params -> Mono.error(topException);
 
-		var transport = new MockMcpClientTransport();
-		var session = new McpClientSession(TIMEOUT, transport, Map.of(testMethod, failingHandler), Map.of(),
-				Function.identity());
+		MockMcpClientTransport transport = new MockMcpClientTransport();
+		McpClientSession session = new McpClientSession(TIMEOUT, transport,
+				Collections.singletonMap(testMethod, failingHandler), Collections.emptyMap(), Function.identity());
 
 		// Simulate incoming request that will trigger the error
 		McpSchema.JSONRPCRequest request = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, testMethod,
@@ -302,9 +309,10 @@ class McpClientSessionTests {
 
 	@Test
 	void testGracefulShutdown() {
-		var transport = new MockMcpClientTransport();
-		var session = new McpClientSession(TIMEOUT, transport, Map.of(),
-				Map.of(TEST_NOTIFICATION, params -> Mono.fromRunnable(() -> logger.info("Status update: {}", params))),
+		MockMcpClientTransport transport = new MockMcpClientTransport();
+		McpClientSession session = new McpClientSession(TIMEOUT, transport, Collections.emptyMap(),
+				Collections.singletonMap(TEST_NOTIFICATION,
+						params -> Mono.fromRunnable(() -> logger.info("Status update: {}", params))),
 				Function.identity());
 
 		StepVerifier.create(session.closeGracefully()).verifyComplete();

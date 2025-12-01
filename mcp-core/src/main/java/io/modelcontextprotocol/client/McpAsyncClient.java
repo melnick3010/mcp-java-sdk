@@ -14,10 +14,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import io.modelcontextprotocol.client.LifecycleInitializer.Initialization;
 import io.modelcontextprotocol.json.TypeRef;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
+import io.modelcontextprotocol.json.schema.JsonSchemaValidator.ValidationResponse;
 import io.modelcontextprotocol.spec.McpClientSession;
 import io.modelcontextprotocol.spec.McpClientSession.NotificationHandler;
 import io.modelcontextprotocol.spec.McpClientSession.RequestHandler;
@@ -35,6 +37,7 @@ import io.modelcontextprotocol.spec.McpSchema.LoggingLevel;
 import io.modelcontextprotocol.spec.McpSchema.LoggingMessageNotification;
 import io.modelcontextprotocol.spec.McpSchema.PaginatedRequest;
 import io.modelcontextprotocol.spec.McpSchema.Root;
+import io.modelcontextprotocol.spec.McpSchema.SetLevelRequest;
 import io.modelcontextprotocol.util.Assert;
 import io.modelcontextprotocol.util.Utils;
 import org.slf4j.Logger;
@@ -85,25 +88,25 @@ public class McpAsyncClient {
 
 	private static final Logger logger = LoggerFactory.getLogger(McpAsyncClient.class);
 
-	private static final TypeRef<Void> VOID_TYPE_REFERENCE = new TypeRef<>() {
+	private static final TypeRef<Void> VOID_TYPE_REFERENCE = new TypeRef<Void>() {
 	};
 
-	public static final TypeRef<Object> OBJECT_TYPE_REF = new TypeRef<>() {
+	public static final TypeRef<Object> OBJECT_TYPE_REF = new TypeRef<Object>() {
 	};
 
-	public static final TypeRef<PaginatedRequest> PAGINATED_REQUEST_TYPE_REF = new TypeRef<>() {
+	public static final TypeRef<PaginatedRequest> PAGINATED_REQUEST_TYPE_REF = new TypeRef<PaginatedRequest>() {
 	};
 
-	public static final TypeRef<McpSchema.InitializeResult> INITIALIZE_RESULT_TYPE_REF = new TypeRef<>() {
+	public static final TypeRef<McpSchema.InitializeResult> INITIALIZE_RESULT_TYPE_REF = new TypeRef<McpSchema.InitializeResult>() {
 	};
 
-	public static final TypeRef<CreateMessageRequest> CREATE_MESSAGE_REQUEST_TYPE_REF = new TypeRef<>() {
+	public static final TypeRef<CreateMessageRequest> CREATE_MESSAGE_REQUEST_TYPE_REF = new TypeRef<CreateMessageRequest>() {
 	};
 
-	public static final TypeRef<LoggingMessageNotification> LOGGING_MESSAGE_NOTIFICATION_TYPE_REF = new TypeRef<>() {
+	public static final TypeRef<LoggingMessageNotification> LOGGING_MESSAGE_NOTIFICATION_TYPE_REF = new TypeRef<LoggingMessageNotification>() {
 	};
 
-	public static final TypeRef<McpSchema.ProgressNotification> PROGRESS_NOTIFICATION_TYPE_REF = new TypeRef<>() {
+	public static final TypeRef<McpSchema.ProgressNotification> PROGRESS_NOTIFICATION_TYPE_REF = new TypeRef<McpSchema.ProgressNotification>() {
 	};
 
 	public static final String NEGOTIATED_PROTOCOL_VERSION = "io.modelcontextprotocol.client.negotiated-protocol-version";
@@ -187,13 +190,13 @@ public class McpAsyncClient {
 		Assert.notNull(requestTimeout, "Request timeout must not be null");
 		Assert.notNull(initializationTimeout, "Initialization timeout must not be null");
 
-		this.clientInfo = features.clientInfo();
-		this.clientCapabilities = features.clientCapabilities();
+		this.clientInfo = features.getClientInfo();
+		this.clientCapabilities = features.getClientCapabilities();
 		this.transport = transport;
-		this.roots = new ConcurrentHashMap<>(features.roots());
+		this.roots = new ConcurrentHashMap<>(features.getRoots());
 		this.jsonSchemaValidator = jsonSchemaValidator;
 		this.toolsOutputSchemaCache = new ConcurrentHashMap<>();
-		this.enableCallToolSchemaCaching = features.enableCallToolSchemaCaching();
+		this.enableCallToolSchemaCaching = features.getEnableCallToolSchemaCaching();
 
 		// Request Handlers
 		Map<String, RequestHandler<?>> requestHandlers = new HashMap<>();
@@ -201,7 +204,7 @@ public class McpAsyncClient {
 		// Ping MUST respond with an empty data, but not NULL response.
 		requestHandlers.put(McpSchema.METHOD_PING, params -> {
 			logger.debug("Received ping: {}", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-			return Mono.just(Map.of());
+			return Mono.just(Collections.emptyMap());
 		});
 
 		// Roots List Request Handler
@@ -211,21 +214,21 @@ public class McpAsyncClient {
 
 		// Sampling Handler
 		if (this.clientCapabilities.sampling() != null) {
-			if (features.samplingHandler() == null) {
+			if (features.getSamplingHandler() == null) {
 				throw new IllegalArgumentException(
 						"Sampling handler must not be null when client capabilities include sampling");
 			}
-			this.samplingHandler = features.samplingHandler();
+			this.samplingHandler = features.getSamplingHandler();
 			requestHandlers.put(McpSchema.METHOD_SAMPLING_CREATE_MESSAGE, samplingCreateMessageHandler());
 		}
 
 		// Elicitation Handler
 		if (this.clientCapabilities.elicitation() != null) {
-			if (features.elicitationHandler() == null) {
+			if (features.getElicitationHandler() == null) {
 				throw new IllegalArgumentException(
 						"Elicitation handler must not be null when client capabilities include elicitation");
 			}
-			this.elicitationHandler = features.elicitationHandler();
+			this.elicitationHandler = features.getElicitationHandler();
 			requestHandlers.put(McpSchema.METHOD_ELICITATION_CREATE, elicitationCreateHandler());
 		}
 
@@ -237,8 +240,8 @@ public class McpAsyncClient {
 		toolsChangeConsumersFinal
 			.add((notification) -> Mono.fromRunnable(() -> logger.debug("Tools changed: {}", notification)));
 
-		if (!Utils.isEmpty(features.toolsChangeConsumers())) {
-			toolsChangeConsumersFinal.addAll(features.toolsChangeConsumers());
+		if (!Utils.isEmpty(features.getToolsChangeConsumers())) {
+			toolsChangeConsumersFinal.addAll(features.getToolsChangeConsumers());
 		}
 		notificationHandlers.put(McpSchema.METHOD_NOTIFICATION_TOOLS_LIST_CHANGED,
 				asyncToolsChangeNotificationHandler(toolsChangeConsumersFinal));
@@ -248,8 +251,8 @@ public class McpAsyncClient {
 		resourcesChangeConsumersFinal
 			.add((notification) -> Mono.fromRunnable(() -> logger.debug("Resources changed: {}", notification)));
 
-		if (!Utils.isEmpty(features.resourcesChangeConsumers())) {
-			resourcesChangeConsumersFinal.addAll(features.resourcesChangeConsumers());
+		if (!Utils.isEmpty(features.getResourcesChangeConsumers())) {
+			resourcesChangeConsumersFinal.addAll(features.getResourcesChangeConsumers());
 		}
 
 		notificationHandlers.put(McpSchema.METHOD_NOTIFICATION_RESOURCES_LIST_CHANGED,
@@ -260,8 +263,8 @@ public class McpAsyncClient {
 		resourcesUpdateConsumersFinal
 			.add((notification) -> Mono.fromRunnable(() -> logger.debug("Resources updated: {}", notification)));
 
-		if (!Utils.isEmpty(features.resourcesUpdateConsumers())) {
-			resourcesUpdateConsumersFinal.addAll(features.resourcesUpdateConsumers());
+		if (!Utils.isEmpty(features.getResourcesUpdateConsumers())) {
+			resourcesUpdateConsumersFinal.addAll(features.getResourcesUpdateConsumers());
 		}
 
 		notificationHandlers.put(McpSchema.METHOD_NOTIFICATION_RESOURCES_UPDATED,
@@ -271,8 +274,8 @@ public class McpAsyncClient {
 		List<Function<List<McpSchema.Prompt>, Mono<Void>>> promptsChangeConsumersFinal = new ArrayList<>();
 		promptsChangeConsumersFinal
 			.add((notification) -> Mono.fromRunnable(() -> logger.debug("Prompts changed: {}", notification)));
-		if (!Utils.isEmpty(features.promptsChangeConsumers())) {
-			promptsChangeConsumersFinal.addAll(features.promptsChangeConsumers());
+		if (!Utils.isEmpty(features.getPromptsChangeConsumers())) {
+			promptsChangeConsumersFinal.addAll(features.getPromptsChangeConsumers());
 		}
 		notificationHandlers.put(McpSchema.METHOD_NOTIFICATION_PROMPTS_LIST_CHANGED,
 				asyncPromptsChangeNotificationHandler(promptsChangeConsumersFinal));
@@ -280,8 +283,8 @@ public class McpAsyncClient {
 		// Utility Logging Notification
 		List<Function<LoggingMessageNotification, Mono<Void>>> loggingConsumersFinal = new ArrayList<>();
 		loggingConsumersFinal.add((notification) -> Mono.fromRunnable(() -> logger.debug("Logging: {}", notification)));
-		if (!Utils.isEmpty(features.loggingConsumers())) {
-			loggingConsumersFinal.addAll(features.loggingConsumers());
+		if (!Utils.isEmpty(features.getLoggingConsumers())) {
+			loggingConsumersFinal.addAll(features.getLoggingConsumers());
 		}
 		notificationHandlers.put(McpSchema.METHOD_NOTIFICATION_MESSAGE,
 				asyncLoggingNotificationHandler(loggingConsumersFinal));
@@ -290,8 +293,8 @@ public class McpAsyncClient {
 		List<Function<McpSchema.ProgressNotification, Mono<Void>>> progressConsumersFinal = new ArrayList<>();
 		progressConsumersFinal
 			.add((notification) -> Mono.fromRunnable(() -> logger.debug("Progress: {}", notification)));
-		if (!Utils.isEmpty(features.progressConsumers())) {
-			progressConsumersFinal.addAll(features.progressConsumers());
+		if (!Utils.isEmpty(features.getProgressConsumers())) {
+			progressConsumersFinal.addAll(features.getProgressConsumers());
 		}
 		notificationHandlers.put(McpSchema.METHOD_NOTIFICATION_PROGRESS,
 				asyncProgressNotificationHandler(progressConsumersFinal));
@@ -303,21 +306,22 @@ public class McpAsyncClient {
 			}
 
 			return this.listToolsInternal(init, McpSchema.FIRST_PAGE).doOnNext(listToolsResult -> {
-				listToolsResult.tools()
-					.forEach(tool -> logger.debug("Tool {} schema: {}", tool.name(), tool.outputSchema()));
-				if (enableCallToolSchemaCaching && listToolsResult.tools() != null) {
+				listToolsResult.getTools()
+					.forEach(tool -> logger.debug("Tool {} schema: {}", tool.getName(), tool.getOutputSchema()));
+				if (enableCallToolSchemaCaching && listToolsResult.getTools() != null) {
 					// Cache tools output schema
-					listToolsResult.tools()
+					listToolsResult.getTools()
 						.stream()
-						.filter(tool -> tool.outputSchema() != null)
-						.forEach(tool -> this.toolsOutputSchemaCache.put(tool.name(), tool.outputSchema()));
+						.filter(tool -> tool.getOutputSchema() != null)
+						.forEach(tool -> this.toolsOutputSchemaCache.put(tool.getName(), tool.getOutputSchema()));
 				}
 			}).then();
 		};
 
 		this.initializer = new LifecycleInitializer(clientCapabilities, clientInfo, transport.protocolVersions(),
-				initializationTimeout, ctx -> new McpClientSession(requestTimeout, transport, requestHandlers,
-						notificationHandlers, con -> con.contextWrite(ctx)),
+				initializationTimeout,
+				ctx -> new McpClientSession(requestTimeout, transport, requestHandlers, notificationHandlers,
+						con -> Mono.from(con).contextWrite(reactor.util.context.Context.of(ctx))),
 				postInitializationHook);
 
 		this.transport.setExceptionHandler(this.initializer::handleException);
@@ -467,11 +471,11 @@ public class McpAsyncClient {
 			return Mono.error(new IllegalStateException("Client must be configured with roots capabilities"));
 		}
 
-		if (this.roots.containsKey(root.uri())) {
-			return Mono.error(new IllegalStateException("Root with uri '" + root.uri() + "' already exists"));
+		if (this.roots.containsKey(root.getUri())) {
+			return Mono.error(new IllegalStateException("Root with uri '" + root.getUri() + "' already exists"));
 		}
 
-		this.roots.put(root.uri(), root);
+		this.roots.put(root.getUri(), root);
 
 		logger.debug("Added root: {}", root);
 
@@ -535,7 +539,7 @@ public class McpAsyncClient {
 			@SuppressWarnings("unused")
 			McpSchema.PaginatedRequest request = transport.unmarshalFrom(params, PAGINATED_REQUEST_TYPE_REF);
 
-			List<Root> roots = this.roots.values().stream().toList();
+			List<Root> roots = this.roots.values().stream().collect(Collectors.toList());
 
 			return Mono.just(new McpSchema.ListRootsResult(roots));
 		};
@@ -557,7 +561,7 @@ public class McpAsyncClient {
 	// --------------------------
 	private RequestHandler<ElicitResult> elicitationCreateHandler() {
 		return params -> {
-			ElicitRequest request = transport.unmarshalFrom(params, new TypeRef<>() {
+			ElicitRequest request = transport.unmarshalFrom(params, new TypeRef<ElicitRequest>() {
 			});
 
 			return this.elicitationHandler.apply(request);
@@ -567,10 +571,10 @@ public class McpAsyncClient {
 	// --------------------------
 	// Tools
 	// --------------------------
-	private static final TypeRef<McpSchema.CallToolResult> CALL_TOOL_RESULT_TYPE_REF = new TypeRef<>() {
+	private static final TypeRef<McpSchema.CallToolResult> CALL_TOOL_RESULT_TYPE_REF = new TypeRef<McpSchema.CallToolResult>() {
 	};
 
-	private static final TypeRef<McpSchema.ListToolsResult> LIST_TOOLS_RESULT_TYPE_REF = new TypeRef<>() {
+	private static final TypeRef<McpSchema.ListToolsResult> LIST_TOOLS_RESULT_TYPE_REF = new TypeRef<McpSchema.ListToolsResult>() {
 	};
 
 	/**
@@ -592,13 +596,13 @@ public class McpAsyncClient {
 
 			return init.mcpSession()
 				.sendRequest(McpSchema.METHOD_TOOLS_CALL, callToolRequest, CALL_TOOL_RESULT_TYPE_REF)
-				.flatMap(result -> Mono.just(validateToolResult(callToolRequest.name(), result)));
+				.flatMap(result -> Mono.just(validateToolResult(callToolRequest.getName(), result)));
 		});
 	}
 
 	private McpSchema.CallToolResult validateToolResult(String toolName, McpSchema.CallToolResult result) {
 
-		if (!this.enableCallToolSchemaCaching || result == null || result.isError() == Boolean.TRUE) {
+		if (!this.enableCallToolSchemaCaching || result == null || result.getIsError() == Boolean.TRUE) {
 			// if tool schema caching is disabled or tool call resulted in an error - skip
 			// validation and return the result as it is
 			return result;
@@ -609,16 +613,17 @@ public class McpAsyncClient {
 		if (optOutputSchema == null) {
 			logger.warn(
 					"Calling a tool with no outputSchema is not expected to return result with structured content, but got: {}",
-					result.structuredContent());
+					result.getStructuredContent());
 			return result;
 		}
 
 		// Validate the tool output against the cached output schema
-		var validation = this.jsonSchemaValidator.validate(optOutputSchema, result.structuredContent());
+		ValidationResponse validation = this.jsonSchemaValidator.validate(optOutputSchema,
+				result.getStructuredContent());
 
-		if (!validation.valid()) {
-			logger.warn("Tool call result validation failed: {}", validation.errorMessage());
-			throw new IllegalArgumentException("Tool call result validation failed: " + validation.errorMessage());
+		if (!validation.isValid()) {
+			logger.warn("Tool call result validation failed: {}", validation.getErrorMessage());
+			throw new IllegalArgumentException("Tool call result validation failed: " + validation.getErrorMessage());
 		}
 
 		return result;
@@ -630,12 +635,12 @@ public class McpAsyncClient {
 	 */
 	public Mono<McpSchema.ListToolsResult> listTools() {
 		return this.listTools(McpSchema.FIRST_PAGE).expand(result -> {
-			String next = result.nextCursor();
+			String next = result.getNextCursor();
 			return (next != null && !next.isEmpty()) ? this.listTools(next) : Mono.empty();
 		}).reduce(new McpSchema.ListToolsResult(new ArrayList<>(), null), (allToolsResult, result) -> {
-			allToolsResult.tools().addAll(result.tools());
+			allToolsResult.getTools().addAll(result.getTools());
 			return allToolsResult;
-		}).map(result -> new McpSchema.ListToolsResult(Collections.unmodifiableList(result.tools()), null));
+		}).map(result -> new McpSchema.ListToolsResult(Collections.unmodifiableList(result.getTools()), null));
 	}
 
 	/**
@@ -656,12 +661,12 @@ public class McpAsyncClient {
 			.sendRequest(McpSchema.METHOD_TOOLS_LIST, new McpSchema.PaginatedRequest(cursor),
 					LIST_TOOLS_RESULT_TYPE_REF)
 			.doOnNext(result -> {
-				if (this.enableCallToolSchemaCaching && result.tools() != null) {
+				if (this.enableCallToolSchemaCaching && result.getTools() != null) {
 					// Cache tools output schema
-					result.tools()
+					result.getTools()
 						.stream()
-						.filter(tool -> tool.outputSchema() != null)
-						.forEach(tool -> this.toolsOutputSchemaCache.put(tool.name(), tool.outputSchema()));
+						.filter(tool -> tool.getOutputSchema() != null)
+						.forEach(tool -> this.toolsOutputSchemaCache.put(tool.getName(), tool.getOutputSchema()));
 				}
 			});
 	}
@@ -671,7 +676,7 @@ public class McpAsyncClient {
 		// TODO: params are not used yet
 		return params -> this.listTools()
 			.flatMap(listToolsResult -> Flux.fromIterable(toolsChangeConsumers)
-				.flatMap(consumer -> consumer.apply(listToolsResult.tools()))
+				.flatMap(consumer -> consumer.apply(listToolsResult.getTools()))
 				.onErrorResume(error -> {
 					logger.error("Error handling tools list change notification", error);
 					return Mono.empty();
@@ -683,13 +688,13 @@ public class McpAsyncClient {
 	// Resources
 	// --------------------------
 
-	private static final TypeRef<McpSchema.ListResourcesResult> LIST_RESOURCES_RESULT_TYPE_REF = new TypeRef<>() {
+	private static final TypeRef<McpSchema.ListResourcesResult> LIST_RESOURCES_RESULT_TYPE_REF = new TypeRef<McpSchema.ListResourcesResult>() {
 	};
 
-	private static final TypeRef<McpSchema.ReadResourceResult> READ_RESOURCE_RESULT_TYPE_REF = new TypeRef<>() {
+	private static final TypeRef<McpSchema.ReadResourceResult> READ_RESOURCE_RESULT_TYPE_REF = new TypeRef<McpSchema.ReadResourceResult>() {
 	};
 
-	private static final TypeRef<McpSchema.ListResourceTemplatesResult> LIST_RESOURCE_TEMPLATES_RESULT_TYPE_REF = new TypeRef<>() {
+	private static final TypeRef<McpSchema.ListResourceTemplatesResult> LIST_RESOURCE_TEMPLATES_RESULT_TYPE_REF = new TypeRef<McpSchema.ListResourceTemplatesResult>() {
 	};
 
 	/**
@@ -770,15 +775,15 @@ public class McpAsyncClient {
 	 */
 	public Mono<McpSchema.ListResourceTemplatesResult> listResourceTemplates() {
 		return this.listResourceTemplates(McpSchema.FIRST_PAGE)
-			.expand(result -> (result.nextCursor() != null) ? this.listResourceTemplates(result.nextCursor())
+			.expand(result -> (result.getNextCursor() != null) ? this.listResourceTemplates(result.getNextCursor())
 					: Mono.empty())
 			.reduce(new McpSchema.ListResourceTemplatesResult(new ArrayList<>(), null),
 					(allResourceTemplatesResult, result) -> {
-						allResourceTemplatesResult.resourceTemplates().addAll(result.resourceTemplates());
+						allResourceTemplatesResult.getResourceTemplates().addAll(result.getResourceTemplates());
 						return allResourceTemplatesResult;
 					})
 			.map(result -> new McpSchema.ListResourceTemplatesResult(
-					Collections.unmodifiableList(result.resourceTemplates()), null));
+					Collections.unmodifiableList(result.getResourceTemplates()), null));
 	}
 
 	/**
@@ -843,12 +848,12 @@ public class McpAsyncClient {
 			List<Function<List<McpSchema.ResourceContents>, Mono<Void>>> resourcesUpdateConsumers) {
 		return params -> {
 			McpSchema.ResourcesUpdatedNotification resourcesUpdatedNotification = transport.unmarshalFrom(params,
-					new TypeRef<>() {
+					new TypeRef<McpSchema.ResourcesUpdatedNotification>() {
 					});
 
-			return readResource(new McpSchema.ReadResourceRequest(resourcesUpdatedNotification.uri()))
+			return readResource(new McpSchema.ReadResourceRequest(resourcesUpdatedNotification.getUri()))
 				.flatMap(readResourceResult -> Flux.fromIterable(resourcesUpdateConsumers)
-					.flatMap(consumer -> consumer.apply(readResourceResult.contents()))
+					.flatMap(consumer -> consumer.apply(readResourceResult.getContents()))
 					.onErrorResume(error -> {
 						logger.error("Error handling resource update notification", error);
 						return Mono.empty();
@@ -860,10 +865,10 @@ public class McpAsyncClient {
 	// --------------------------
 	// Prompts
 	// --------------------------
-	private static final TypeRef<McpSchema.ListPromptsResult> LIST_PROMPTS_RESULT_TYPE_REF = new TypeRef<>() {
+	private static final TypeRef<McpSchema.ListPromptsResult> LIST_PROMPTS_RESULT_TYPE_REF = new TypeRef<McpSchema.ListPromptsResult>() {
 	};
 
-	private static final TypeRef<McpSchema.GetPromptResult> GET_PROMPT_RESULT_TYPE_REF = new TypeRef<>() {
+	private static final TypeRef<McpSchema.GetPromptResult> GET_PROMPT_RESULT_TYPE_REF = new TypeRef<McpSchema.GetPromptResult>() {
 	};
 
 	/**
@@ -874,12 +879,13 @@ public class McpAsyncClient {
 	 */
 	public Mono<ListPromptsResult> listPrompts() {
 		return this.listPrompts(McpSchema.FIRST_PAGE)
-			.expand(result -> (result.nextCursor() != null) ? this.listPrompts(result.nextCursor()) : Mono.empty())
+			.expand(result -> (result.getNextCursor() != null) ? this.listPrompts(result.getNextCursor())
+					: Mono.empty())
 			.reduce(new ListPromptsResult(new ArrayList<>(), null), (allPromptsResult, result) -> {
-				allPromptsResult.prompts().addAll(result.prompts());
+				allPromptsResult.getPrompts().addAll(result.getPrompts());
 				return allPromptsResult;
 			})
-			.map(result -> new McpSchema.ListPromptsResult(Collections.unmodifiableList(result.prompts()), null));
+			.map(result -> new McpSchema.ListPromptsResult(Collections.unmodifiableList(result.getPrompts()), null));
 	}
 
 	/**
@@ -911,7 +917,7 @@ public class McpAsyncClient {
 	private NotificationHandler asyncPromptsChangeNotificationHandler(
 			List<Function<List<McpSchema.Prompt>, Mono<Void>>> promptsChangeConsumers) {
 		return params -> listPrompts().flatMap(listPromptsResult -> Flux.fromIterable(promptsChangeConsumers)
-			.flatMap(consumer -> consumer.apply(listPromptsResult.prompts()))
+			.flatMap(consumer -> consumer.apply(listPromptsResult.getPrompts()))
 			.onErrorResume(error -> {
 				logger.error("Error handling prompts list change notification", error);
 				return Mono.empty();
@@ -951,7 +957,7 @@ public class McpAsyncClient {
 			if (init.initializeResult().capabilities().logging() == null) {
 				return Mono.error(new IllegalStateException("Server's Logging capabilities are not enabled!"));
 			}
-			var params = new McpSchema.SetLevelRequest(loggingLevel);
+			SetLevelRequest params = new McpSchema.SetLevelRequest(loggingLevel);
 			return init.mcpSession().sendRequest(McpSchema.METHOD_LOGGING_SET_LEVEL, params, OBJECT_TYPE_REF).then();
 		});
 	}
@@ -981,7 +987,7 @@ public class McpAsyncClient {
 	// --------------------------
 	// Completions
 	// --------------------------
-	private static final TypeRef<McpSchema.CompleteResult> COMPLETION_COMPLETE_RESULT_TYPE_REF = new TypeRef<>() {
+	private static final TypeRef<McpSchema.CompleteResult> COMPLETION_COMPLETE_RESULT_TYPE_REF = new TypeRef<McpSchema.CompleteResult>() {
 	};
 
 	/**

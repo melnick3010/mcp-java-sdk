@@ -5,6 +5,7 @@
 package io.modelcontextprotocol;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -46,7 +47,7 @@ public class MockMcpClientTransport implements McpClientTransport {
 
 	@Override
 	public List<String> protocolVersions() {
-		return List.of(protocolVersion);
+		return Collections.singletonList(protocolVersion);
 	}
 
 	public void simulateIncomingMessage(McpSchema.JSONRPCMessage message) {

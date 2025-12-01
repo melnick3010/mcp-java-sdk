@@ -5,6 +5,9 @@
 package io.modelcontextprotocol.spec;
 
 import org.junit.jupiter.api.Test;
+
+import io.modelcontextprotocol.spec.McpSchema.JSONRPCRequest;
+
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -20,7 +23,7 @@ public class JSONRPCRequestMcpValidationTest {
 	@Test
 	public void testValidStringId() {
 		assertDoesNotThrow(() -> {
-			var request = new McpSchema.JSONRPCRequest("2.0", "test/method", "string-id", null);
+			JSONRPCRequest request = new McpSchema.JSONRPCRequest("2.0", "test/method", "string-id", null);
 			assertEquals("string-id", request.id());
 		});
 	}
@@ -28,7 +31,7 @@ public class JSONRPCRequestMcpValidationTest {
 	@Test
 	public void testValidIntegerId() {
 		assertDoesNotThrow(() -> {
-			var request = new McpSchema.JSONRPCRequest("2.0", "test/method", 123, null);
+			JSONRPCRequest request = new McpSchema.JSONRPCRequest("2.0", "test/method", 123, null);
 			assertEquals(123, request.id());
 		});
 	}
@@ -36,7 +39,7 @@ public class JSONRPCRequestMcpValidationTest {
 	@Test
 	public void testValidLongId() {
 		assertDoesNotThrow(() -> {
-			var request = new McpSchema.JSONRPCRequest("2.0", "test/method", 123L, null);
+			JSONRPCRequest request = new McpSchema.JSONRPCRequest("2.0", "test/method", 123L, null);
 			assertEquals(123L, request.id());
 		});
 	}
