@@ -44,8 +44,6 @@
 	<properties>
 		<!-- Java/Compiler -->
 		<java.version>8</java.version>
-		<maven.compiler.source>1.8</maven.compiler.source>
-		<maven.compiler.target>1.8</maven.compiler.target>
 		<!-- Spring Framework per Java 8 -->
 		<springframework.version>5.3.31</springframework.version>
 		<!-- Testing compatibili Java 8 -->
