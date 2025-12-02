@@ -5,6 +5,7 @@
 package io.modelcontextprotocol.server.transport;
 
 import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.json.McpJsonMapper;
@@ -50,8 +51,8 @@ class WebMvcSseServerTransportProviderTests {
 		tomcatServer = TomcatTestUtil.createTomcatServer(CUSTOM_CONTEXT_PATH, PORT, TestConfig.class);
 
 		try {
-			tomcatServer.tomcat().start();
-			assertThat(tomcatServer.tomcat().getServer().getState()).isEqualTo(LifecycleState.STARTED);
+			tomcatServer.getTomcat().start();
+			assertThat(tomcatServer.getTomcat().getServer().getState()).isEqualTo(LifecycleState.STARTED);
 		}
 		catch (Exception e) {
 			throw new RuntimeException("Failed to start Tomcat", e);
@@ -62,13 +63,13 @@ class WebMvcSseServerTransportProviderTests {
 			.build();
 
 		clientBuilder = McpClient.sync(transport);
-		mcpServerTransportProvider = tomcatServer.appContext().getBean(WebMvcSseServerTransportProvider.class);
+		mcpServerTransportProvider = tomcatServer.getAppContext().getBean(WebMvcSseServerTransportProvider.class);
 	}
 
 	@Test
 	void validBaseUrl() {
 		McpServer.async(mcpServerTransportProvider).serverInfo("test-server", "1.0.0").build();
-		try (var client = clientBuilder.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
+		try (McpSyncClient client = clientBuilder.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
 			.build()) {
 			assertThat(client.initialize()).isNotNull();
 		}
@@ -79,13 +80,13 @@ class WebMvcSseServerTransportProviderTests {
 		if (mcpServerTransportProvider != null) {
 			mcpServerTransportProvider.closeGracefully().block();
 		}
-		if (tomcatServer.appContext() != null) {
-			tomcatServer.appContext().close();
+		if (tomcatServer.getAppContext() != null) {
+			tomcatServer.getAppContext().close();
 		}
-		if (tomcatServer.tomcat() != null) {
+		if (tomcatServer.getTomcat() != null) {
 			try {
-				tomcatServer.tomcat().stop();
-				tomcatServer.tomcat().destroy();
+				tomcatServer.getTomcat().stop();
+				tomcatServer.getTomcat().destroy();
 			}
 			catch (LifecycleException e) {
 				throw new RuntimeException("Failed to stop Tomcat", e);

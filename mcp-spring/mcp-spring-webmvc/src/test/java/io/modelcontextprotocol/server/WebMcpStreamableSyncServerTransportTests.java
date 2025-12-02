@@ -6,6 +6,7 @@ package io.modelcontextprotocol.server;
 
 import org.apache.catalina.Context;
 import org.apache.catalina.LifecycleException;
+import org.apache.catalina.Wrapper;
 import org.apache.catalina.startup.Tomcat;
 import org.junit.jupiter.api.Timeout;
 import org.springframework.context.annotation.Bean;
@@ -82,7 +83,7 @@ class WebMcpStreamableSyncServerTransportTests extends AbstractMcpSyncServerTest
 		DispatcherServlet dispatcherServlet = new DispatcherServlet(appContext);
 
 		// Add servlet to Tomcat and get the wrapper
-		var wrapper = Tomcat.addServlet(context, "dispatcherServlet", dispatcherServlet);
+		Wrapper wrapper = Tomcat.addServlet(context, "dispatcherServlet", dispatcherServlet);
 		wrapper.setLoadOnStartup(1);
 		context.addServletMappingDecoded("/*", "dispatcherServlet");
 

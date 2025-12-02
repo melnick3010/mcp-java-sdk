@@ -4,6 +4,7 @@
 package io.modelcontextprotocol.server;
 
 import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
 import io.modelcontextprotocol.server.transport.WebMvcSseServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -41,20 +42,20 @@ class WebMvcSseCustomContextPathTests {
 		tomcatServer = TomcatTestUtil.createTomcatServer(CUSTOM_CONTEXT_PATH, PORT, TestConfig.class);
 
 		try {
-			tomcatServer.tomcat().start();
-			assertThat(tomcatServer.tomcat().getServer().getState()).isEqualTo(LifecycleState.STARTED);
+			tomcatServer.getTomcat().start();
+			assertThat(tomcatServer.getTomcat().getServer().getState()).isEqualTo(LifecycleState.STARTED);
 		}
 		catch (Exception e) {
 			throw new RuntimeException("Failed to start Tomcat", e);
 		}
 
-		var clientTransport = HttpClientSseClientTransport.builder("http://localhost:" + PORT)
+		HttpClientSseClientTransport clientTransport = HttpClientSseClientTransport.builder("http://localhost:" + PORT)
 			.sseEndpoint(CUSTOM_CONTEXT_PATH + WebMvcSseServerTransportProvider.DEFAULT_SSE_ENDPOINT)
 			.build();
 
 		clientBuilder = McpClient.sync(clientTransport);
 
-		mcpServerTransportProvider = tomcatServer.appContext().getBean(WebMvcSseServerTransportProvider.class);
+		mcpServerTransportProvider = tomcatServer.getAppContext().getBean(WebMvcSseServerTransportProvider.class);
 	}
 
 	@AfterEach
@@ -62,13 +63,13 @@ class WebMvcSseCustomContextPathTests {
 		if (mcpServerTransportProvider != null) {
 			mcpServerTransportProvider.closeGracefully().block();
 		}
-		if (tomcatServer.appContext() != null) {
-			tomcatServer.appContext().close();
+		if (tomcatServer.getAppContext() != null) {
+			tomcatServer.getAppContext().close();
 		}
-		if (tomcatServer.tomcat() != null) {
+		if (tomcatServer.getTomcat() != null) {
 			try {
-				tomcatServer.tomcat().stop();
-				tomcatServer.tomcat().destroy();
+				tomcatServer.getTomcat().stop();
+				tomcatServer.getTomcat().destroy();
 			}
 			catch (LifecycleException e) {
 				throw new RuntimeException("Failed to stop Tomcat", e);
@@ -79,7 +80,7 @@ class WebMvcSseCustomContextPathTests {
 	@Test
 	void testCustomContextPath() {
 		McpServer.async(mcpServerTransportProvider).serverInfo("test-server", "1.0.0").build();
-		var client = clientBuilder.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0")).build();
+		McpSyncClient client = clientBuilder.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0")).build();
 		assertThat(client.initialize()).isNotNull();
 	}
 

@@ -96,8 +96,8 @@ class WebMvcStatelessIntegrationTests extends AbstractStatelessIntegrationTests 
 		tomcatServer = TomcatTestUtil.createTomcatServer("", PORT, TestConfig.class);
 
 		try {
-			tomcatServer.tomcat().start();
-			assertThat(tomcatServer.tomcat().getServer().getState()).isEqualTo(LifecycleState.STARTED);
+			tomcatServer.getTomcat().start();
+			assertThat(tomcatServer.getTomcat().getServer().getState()).isEqualTo(LifecycleState.STARTED);
 		}
 		catch (Exception e) {
 			throw new RuntimeException("Failed to start Tomcat", e);
@@ -106,7 +106,7 @@ class WebMvcStatelessIntegrationTests extends AbstractStatelessIntegrationTests 
 		prepareClients(PORT, MESSAGE_ENDPOINT);
 
 		// Get the transport from Spring context
-		this.mcpServerTransport = tomcatServer.appContext().getBean(WebMvcStatelessServerTransport.class);
+		this.mcpServerTransport = tomcatServer.getAppContext().getBean(WebMvcStatelessServerTransport.class);
 
 	}
 
@@ -117,13 +117,13 @@ class WebMvcStatelessIntegrationTests extends AbstractStatelessIntegrationTests 
 			this.mcpServerTransport.closeGracefully().block();
 		}
 		Schedulers.shutdownNow();
-		if (tomcatServer.appContext() != null) {
-			tomcatServer.appContext().close();
+		if (tomcatServer.getAppContext() != null) {
+			tomcatServer.getAppContext().close();
 		}
-		if (tomcatServer.tomcat() != null) {
+		if (tomcatServer.getTomcat() != null) {
 			try {
-				tomcatServer.tomcat().stop();
-				tomcatServer.tomcat().destroy();
+				tomcatServer.getTomcat().stop();
+				tomcatServer.getTomcat().destroy();
 			}
 			catch (LifecycleException e) {
 				throw new RuntimeException("Failed to stop Tomcat", e);

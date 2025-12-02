@@ -7,7 +7,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
 import java.util.Collections;
-import java.util.Map;
 import java.util.stream.Stream;
 
 import org.apache.catalina.LifecycleException;
@@ -90,8 +89,8 @@ class WebMvcSseIntegrationTests extends AbstractMcpClientServerIntegrationTests 
 		tomcatServer = TomcatTestUtil.createTomcatServer("", PORT, TestConfig.class);
 
 		try {
-			tomcatServer.tomcat().start();
-			assertThat(tomcatServer.tomcat().getServer().getState()).isEqualTo(LifecycleState.STARTED);
+			tomcatServer.getTomcat().start();
+			assertThat(tomcatServer.getTomcat().getServer().getState()).isEqualTo(LifecycleState.STARTED);
 		}
 		catch (Exception e) {
 			throw new RuntimeException("Failed to start Tomcat", e);
@@ -100,7 +99,7 @@ class WebMvcSseIntegrationTests extends AbstractMcpClientServerIntegrationTests 
 		prepareClients(PORT, MESSAGE_ENDPOINT);
 
 		// Get the transport from Spring context
-		mcpServerTransportProvider = tomcatServer.appContext().getBean(WebMvcSseServerTransportProvider.class);
+		mcpServerTransportProvider = tomcatServer.getAppContext().getBean(WebMvcSseServerTransportProvider.class);
 
 	}
 
@@ -111,13 +110,13 @@ class WebMvcSseIntegrationTests extends AbstractMcpClientServerIntegrationTests 
 			mcpServerTransportProvider.closeGracefully().block();
 		}
 		Schedulers.shutdownNow();
-		if (tomcatServer.appContext() != null) {
-			tomcatServer.appContext().close();
+		if (tomcatServer.getAppContext() != null) {
+			tomcatServer.getAppContext().close();
 		}
-		if (tomcatServer.tomcat() != null) {
+		if (tomcatServer.getTomcat() != null) {
 			try {
-				tomcatServer.tomcat().stop();
-				tomcatServer.tomcat().destroy();
+				tomcatServer.getTomcat().stop();
+				tomcatServer.getTomcat().destroy();
 			}
 			catch (LifecycleException e) {
 				throw new RuntimeException("Failed to stop Tomcat", e);
