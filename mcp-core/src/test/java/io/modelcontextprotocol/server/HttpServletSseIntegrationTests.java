@@ -45,33 +45,37 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		return Stream.of(Arguments.of("httpclient"));
 	}
 
-	@BeforeEach
-	public void before() {
-		// Create and configure the transport provider
-		mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
-			.contextExtractor(TEST_CONTEXT_EXTRACTOR)
-			.messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
-			.sseEndpoint(CUSTOM_SSE_ENDPOINT)
-			.build();
 
-		tomcat = TomcatTestUtil.createTomcatServer("", PORT, mcpServerTransportProvider);
-		try {
-			tomcat.start();
-		
-			TomcatTestUtil.awaitServer(tomcat);
+@BeforeEach
+public void before() {
+    // Create and configure the transport provider
+    mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
+        .contextExtractor(TEST_CONTEXT_EXTRACTOR)
+        .messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
+        .sseEndpoint(CUSTOM_SSE_ENDPOINT)
+        .build();
 
-			assertThat(tomcat.getServer().getState()).isEqualTo(LifecycleState.STARTED);
-		}
-		catch (Exception e) {
-			throw new RuntimeException("Failed to start Tomcat", e);
-		}
+    tomcat = TomcatTestUtil.createTomcatServer("", PORT, mcpServerTransportProvider);
+    try {
+        tomcat.start();
 
-		clientBuilders
-			.put("httpclient",
-					McpClient.sync(HttpClientSseClientTransport.builder("http://localhost:" + PORT)
-						.sseEndpoint(CUSTOM_SSE_ENDPOINT)
-						.build()).requestTimeout(Duration.ofHours(10)));
-	}
+        // Attendi che il connettore sia attivo senza bloccare il thread principale
+        while (tomcat.getConnector().getState() != LifecycleState.STARTED) {
+            Thread.sleep(100);
+        }
+
+        assertThat(tomcat.getServer().getState()).isEqualTo(LifecycleState.STARTED);
+    }
+    catch (Exception e) {
+        throw new RuntimeException("Failed to start Tomcat", e);
+    }
+
+    clientBuilders.put("httpclient",
+        McpClient.sync(HttpClientSseClientTransport.builder("http://localhost:" + PORT)
+            .sseEndpoint(CUSTOM_SSE_ENDPOINT)
+            .build()).requestTimeout(Duration.ofHours(10)));
+}
+
 
 	@Override
 	protected AsyncSpecification<?> prepareAsyncServerBuilder() {
