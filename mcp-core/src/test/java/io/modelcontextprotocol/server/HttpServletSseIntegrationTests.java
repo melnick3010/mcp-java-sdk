@@ -65,12 +65,6 @@ public void before() {
 
     tomcat = TomcatTestUtil.createTomcatServer("msgServlet", PORT, mcpServerTransportProvider);
 
-    // Context “vuoto”, ma sufficiente per mappare le servlet
-    Context ctx = tomcat.addContext("", null);
-
-    // Registra health servlet
-    Tomcat.addServlet(ctx, "healthServlet", new TomcatTestUtil.HealthServlet());
-    ctx.addServletMappingDecoded("/health", "healthServlet");
 
     // Registra gli endpoint reali del test (SSE / messages)
     // Questi metodi dipendono dal tuo codice: usa le tue servlet o helper
@@ -87,10 +81,6 @@ public void before() {
         System.out.println("Tomcat server state after start(): " + tomcat.getServer().getState());
         System.out.println("Connector state after start(): " + tomcat.getConnector().getState());
 
-        // Attendi che /health risponda 200 (readiness del context + servlet)
-        waitForEndpointReady(PORT, "/health", 5000);
-        int rc = httpGet(PORT, "/health");
-        System.out.println("Readiness check /health: " + rc);
 
         // Ora avvia il client, che troverà gli endpoint già pronti
         clientBuilders.put("httpclient",
