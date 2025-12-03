@@ -130,6 +130,7 @@ private static void waitForEndpointReady(int port, String path, int timeoutMs) t
 
 	@AfterEach
 	public void after() {
+	    System.out.println("sono in after");
 		if (mcpServerTransportProvider != null) {
 			mcpServerTransportProvider.closeGracefully().block();
 		}
@@ -142,6 +143,7 @@ private static void waitForEndpointReady(int port, String path, int timeoutMs) t
 				throw new RuntimeException("Failed to stop Tomcat", e);
 			}
 		}
+		System.out.println("sono alla fine di after");
 	}
 
 	@Override
