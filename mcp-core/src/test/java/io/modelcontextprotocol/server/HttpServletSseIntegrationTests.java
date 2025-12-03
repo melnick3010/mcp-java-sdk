@@ -4,6 +4,9 @@
 
 package io.modelcontextprotocol.server;
 
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
@@ -46,9 +49,9 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 	}
 
 
+
 @BeforeEach
 public void before() {
-    // Create and configure the transport provider
     mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
         .contextExtractor(TEST_CONTEXT_EXTRACTOR)
         .messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
@@ -59,9 +62,27 @@ public void before() {
     try {
         tomcat.start();
 
-        // Attendi che il connettore sia attivo senza bloccare il thread principale
-        while (tomcat.getConnector().getState() != LifecycleState.STARTED) {
+        // Log dello stato iniziale
+        System.out.println("Tomcat server state after start(): " + tomcat.getServer().getState());
+        System.out.println("Connector state after start(): " + tomcat.getConnector().getState());
+
+        // Polling con timeout per assicurarsi che il connettore sia pronto
+        int retries = 50;
+        while (retries-- > 0 && tomcat.getConnector().getState() != LifecycleState.STARTED) {
             Thread.sleep(100);
+        }
+        if (tomcat.getConnector().getState() != LifecycleState.STARTED) {
+            throw new IllegalStateException("Tomcat did not reach STARTED state");
+        }
+
+        // Health check HTTP
+        try {
+            HttpURLConnection connection = (HttpURLConnection) new URL("http://localhost:" + PORT + "/").openConnection();
+            connection.setRequestMethod("GET");
+            int responseCode = connection.getResponseCode();
+            System.out.println("Health check response code: " + responseCode);
+        } catch (IOException e) {
+            System.err.println("Health check failed: " + e.getMessage());
         }
 
         assertThat(tomcat.getServer().getState()).isEqualTo(LifecycleState.STARTED);
