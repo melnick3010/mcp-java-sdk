@@ -63,7 +63,7 @@ public void before() {
         .sseEndpoint(CUSTOM_SSE_ENDPOINT)         // es: "/sse"
         .build();
 
-    tomcat = TomcatTestUtil.createTomcatServer("", PORT, mcpServerTransportProvider);
+    tomcat = TomcatTestUtil.createTomcatServer("msgServlet", PORT, mcpServerTransportProvider);
 
     // Context “vuoto”, ma sufficiente per mappare le servlet
     Context ctx = tomcat.addContext("", null);
