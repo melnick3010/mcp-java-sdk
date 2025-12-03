@@ -176,6 +176,11 @@
 					<reportFormat>plain</reportFormat>
 					<!-- Output test execution times in the logs -->
 					<redirectTestOutputToFile>false</redirectTestOutputToFile>
+					<argLine>
+      --add-opens=java.base/java.io=ALL-UNNAMED
+      --add-opens=java.base/java.lang=ALL-UNNAMED
+      --add-opens=java.rmi/sun.rmi.transport=ALL-UNNAMED
+    </argLine>
 				</configuration>
 			</plugin>
 			<plugin>
