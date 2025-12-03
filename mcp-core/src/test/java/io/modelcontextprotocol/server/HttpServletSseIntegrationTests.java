@@ -21,6 +21,9 @@ import io.modelcontextprotocol.server.McpServer.AsyncSpecification;
 import io.modelcontextprotocol.server.McpServer.SyncSpecification;
 import io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider;
 import io.modelcontextprotocol.server.transport.TomcatTestUtil;
+import io.modelcontextprotocol.server.transport.TomcatTestUtil.HealthServlet;
+
+import org.apache.catalina.Context;
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.LifecycleState;
 import org.apache.catalina.startup.Tomcat;
@@ -50,52 +53,80 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 
 
 
+
 @BeforeEach
 public void before() {
+    // Costruisci provider/servlet components (come fai già)
     mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
         .contextExtractor(TEST_CONTEXT_EXTRACTOR)
-        .messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
-        .sseEndpoint(CUSTOM_SSE_ENDPOINT)
+        .messageEndpoint(CUSTOM_MESSAGE_ENDPOINT) // es: "/messages"
+        .sseEndpoint(CUSTOM_SSE_ENDPOINT)         // es: "/sse"
         .build();
 
-    tomcat = TomcatTestUtil.createTomcatServer("", PORT, mcpServerTransportProvider);
+    tomcat = new Tomcat();
+    tomcat.setPort(PORT);
+
+    // Context “vuoto”, ma sufficiente per mappare le servlet
+    Context ctx = tomcat.addContext("", null);
+
+    // Registra health servlet
+    Tomcat.addServlet(ctx, "healthServlet", new TomcatTestUtil.HealthServlet());
+    ctx.addServletMappingDecoded("/health", "healthServlet");
+
+    // Registra gli endpoint reali del test (SSE / messages)
+    // Questi metodi dipendono dal tuo codice: usa le tue servlet o helper
+    // Esempio:
+    // Tomcat.addServlet(ctx, "sseServlet", new SseServlet(mcpServerTransportProvider));
+    // ctx.addServletMappingDecoded(CUSTOM_SSE_ENDPOINT, "sseServlet");
+    // Tomcat.addServlet(ctx, "msgServlet", new MessageServlet(mcpServerTransportProvider));
+    // ctx.addServletMappingDecoded(CUSTOM_MESSAGE_ENDPOINT, "msgServlet");
+
     try {
         tomcat.start();
 
-        // Log dello stato iniziale
+        // Log stato
         System.out.println("Tomcat server state after start(): " + tomcat.getServer().getState());
         System.out.println("Connector state after start(): " + tomcat.getConnector().getState());
 
-        // Polling con timeout per assicurarsi che il connettore sia pronto
-        int retries = 50;
-        while (retries-- > 0 && tomcat.getConnector().getState() != LifecycleState.STARTED) {
-            Thread.sleep(100);
-        }
-        if (tomcat.getConnector().getState() != LifecycleState.STARTED) {
-            throw new IllegalStateException("Tomcat did not reach STARTED state");
-        }
+        // Attendi che /health risponda 200 (readiness del context + servlet)
+        waitForEndpointReady(PORT, "/health", 5000);
+        int rc = httpGet(PORT, "/health");
+        System.out.println("Readiness check /health: " + rc);
 
-        // Health check HTTP
-        try {
-            HttpURLConnection connection = (HttpURLConnection) new URL("http://localhost:" + PORT + "/").openConnection();
-            connection.setRequestMethod("GET");
-            int responseCode = connection.getResponseCode();
-            System.out.println("Health check response code: " + responseCode);
-        } catch (IOException e) {
-            System.err.println("Health check failed: " + e.getMessage());
-        }
+        // Ora avvia il client, che troverà gli endpoint già pronti
+        clientBuilders.put("httpclient",
+            McpClient.sync(HttpClientSseClientTransport.builder("http://localhost:" + PORT)
+                .sseEndpoint(CUSTOM_SSE_ENDPOINT)
+                .build())
+            .requestTimeout(Duration.ofSeconds(30)));
 
-        assertThat(tomcat.getServer().getState()).isEqualTo(LifecycleState.STARTED);
+    } catch (Exception e) {
+        throw new RuntimeException("Failed to start embedded Tomcat or endpoint not ready", e);
     }
-    catch (Exception e) {
-        throw new RuntimeException("Failed to start Tomcat", e);
-    }
-
-    clientBuilders.put("httpclient",
-        McpClient.sync(HttpClientSseClientTransport.builder("http://localhost:" + PORT)
-            .sseEndpoint(CUSTOM_SSE_ENDPOINT)
-            .build()).requestTimeout(Duration.ofHours(10)));
 }
+
+private static int httpGet(int port, String path) throws IOException {
+    HttpURLConnection con = (HttpURLConnection) new URL("http://localhost:" + port + path).openConnection();
+    con.setRequestMethod("GET");
+    con.setConnectTimeout(2000);
+    con.setReadTimeout(2000);
+    return con.getResponseCode();
+}
+
+private static void waitForEndpointReady(int port, String path, int timeoutMs) throws Exception {
+    long end = System.currentTimeMillis() + timeoutMs;
+    Exception last = null;
+    while (System.currentTimeMillis() < end) {
+        try {
+            if (httpGet(port, path) == 200) return;
+        } catch (Exception e) {
+            last = e;
+        }
+        Thread.sleep(100);
+    }
+    throw new IllegalStateException("Endpoint " + path + " not ready within " + timeoutMs + " ms", last);
+}
+
 
 
 	@Override

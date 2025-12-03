@@ -10,6 +10,9 @@ import java.net.ServerSocket;
 
 import javax.servlet.Filter;
 import javax.servlet.Servlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import org.apache.catalina.Context;
 import org.apache.catalina.startup.Tomcat;
@@ -82,5 +85,16 @@ public class TomcatTestUtil {
 	public static void awaitServer(Tomcat tomcat) {
 	    tomcat.getServer().await();
 	}
+	
+
+public static class HealthServlet extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        resp.setStatus(HttpServletResponse.SC_OK);
+        resp.setContentType("text/plain");
+        resp.getWriter().write("OK");
+    }
+}
+
 
 }
