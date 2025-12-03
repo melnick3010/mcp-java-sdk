@@ -62,26 +62,31 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to start embedded Tomcat", e);
 		}
-
+		System.out.println("avvio mcp server");
 		// **Avvia il MCP server PRIMA del client**
 		McpAsyncServer asyncServer = McpServer.async(mcpServerTransportProvider).serverInfo("test-server", "1.0.0")
 				.requestTimeout(Duration.ofSeconds(30)).build();
 
+		System.out.println("preparo client transport");
 		// Ora prepara il client transport
 		transport = HttpClientSseClientTransport.builder("http://localhost:" + PORT).sseEndpoint(CUSTOM_SSE_ENDPOINT)
 				.build();
 
+		System.out.println("connetto sse");
 		// Connetti SSE
 		transport.connect(msgMono -> Mono.empty()).block();
 
+		System.out.println("attendo che messageendpoint sia pronto");
 		// Attendi che il messageEndpoint sia pronto
 		await().atMost(5, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS)
 				.until(this::isMessageEndpointAvailable);
 
+		System.out.println("preparo client mcp");
 		// Prepara il client MCP
 		clientBuilders.put("httpclient",
 				McpClient.sync(transport).clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
 						.requestTimeout(Duration.ofSeconds(30)));
+		System.out.println("fine before");
 	}
 
 	@Test
