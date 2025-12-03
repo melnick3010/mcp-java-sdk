@@ -63,7 +63,7 @@ public void before() {
         .sseEndpoint(CUSTOM_SSE_ENDPOINT)         // es: "/sse"
         .build();
 
-    tomcat = TomcatTestUtil.createTomcatServer("msgServlet", PORT, mcpServerTransportProvider);
+    tomcat = TomcatTestUtil.createTomcatServer("/msgServlet", PORT, mcpServerTransportProvider);
 
 
     // Registra gli endpoint reali del test (SSE / messages)
