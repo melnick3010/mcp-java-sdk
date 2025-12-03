@@ -1,156 +1,141 @@
-/*
- * Copyright 2024 - 2024 the original author or authors.
- */
 
 package io.modelcontextprotocol.server;
 
-import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+
+import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import javax.servlet.http.HttpServletRequest;
 
 import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.server.McpServer.AsyncSpecification;
 import io.modelcontextprotocol.server.McpServer.SyncSpecification;
 import io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider;
 import io.modelcontextprotocol.server.transport.TomcatTestUtil;
-import io.modelcontextprotocol.server.transport.TomcatTestUtil.HealthServlet;
+import io.modelcontextprotocol.spec.McpSchema;
 
-import org.apache.catalina.Context;
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.LifecycleState;
 import org.apache.catalina.startup.Tomcat;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.api.*;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.params.provider.Arguments;
+import reactor.core.publisher.Mono;
 
 @Timeout(15)
 class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationTests {
 
-	private static final int PORT = TomcatTestUtil.findAvailablePort();
+    private static final int PORT = TomcatTestUtil.findAvailablePort();
+    private static final String CUSTOM_SSE_ENDPOINT = "/somePath/sse";
+    private static final String CUSTOM_MESSAGE_ENDPOINT = "/otherPath/mcp/message";
 
-	private static final String CUSTOM_SSE_ENDPOINT = "/somePath/sse";
+    private HttpServletSseServerTransportProvider mcpServerTransportProvider;
+    private Tomcat tomcat;
+    private HttpClientSseClientTransport transport;
+    private McpSyncClient client;
 
-	private static final String CUSTOM_MESSAGE_ENDPOINT = "/otherPath/mcp/message";
+    static Stream<Arguments> clientsForTesting() {
+        return Stream.of(Arguments.of("httpclient"));
+    }
 
-	private HttpServletSseServerTransportProvider mcpServerTransportProvider;
-
-	private Tomcat tomcat;
-
-	static Stream<Arguments> clientsForTesting() {
-		return Stream.of(Arguments.of("httpclient"));
-	}
-
-
-
-
-@BeforeEach
-public void before() {
-    // Costruisci provider/servlet components (come fai già)
-    mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
-        .contextExtractor(TEST_CONTEXT_EXTRACTOR)
-        .messageEndpoint(CUSTOM_MESSAGE_ENDPOINT) // es: "/messages"
-        .sseEndpoint(CUSTOM_SSE_ENDPOINT)         // es: "/sse"
-        .build();
-
-    tomcat = TomcatTestUtil.createTomcatServer("/msgServlet", PORT, mcpServerTransportProvider);
-
-
-    // Registra gli endpoint reali del test (SSE / messages)
-    // Questi metodi dipendono dal tuo codice: usa le tue servlet o helper
-    // Esempio:
-    // Tomcat.addServlet(ctx, "sseServlet", new SseServlet(mcpServerTransportProvider));
-    // ctx.addServletMappingDecoded(CUSTOM_SSE_ENDPOINT, "sseServlet");
-    // Tomcat.addServlet(ctx, "msgServlet", new MessageServlet(mcpServerTransportProvider));
-    // ctx.addServletMappingDecoded(CUSTOM_MESSAGE_ENDPOINT, "msgServlet");
-
-    try {
-        tomcat.start();
-
-        // Log stato
-        System.out.println("Tomcat server state after start(): " + tomcat.getServer().getState());
-        System.out.println("Connector state after start(): " + tomcat.getConnector().getState());
-
-
-        // Ora avvia il client, che troverà gli endpoint già pronti
-        clientBuilders.put("httpclient",
-            McpClient.sync(HttpClientSseClientTransport.builder("http://localhost:" + PORT)
+    @BeforeEach
+    public void before() {
+        // Configura il provider con endpoints custom
+        mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
+                .contextExtractor(TEST_CONTEXT_EXTRACTOR)
+                .messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
                 .sseEndpoint(CUSTOM_SSE_ENDPOINT)
-                .build())
-            .requestTimeout(Duration.ofSeconds(30)));
+                .build();
 
-    } catch (Exception e) {
-        throw new RuntimeException("Failed to start embedded Tomcat or endpoint not ready", e);
-    }
-}
+        tomcat = TomcatTestUtil.createTomcatServer("", PORT, mcpServerTransportProvider);
 
-private static int httpGet(int port, String path) throws IOException {
-    HttpURLConnection con = (HttpURLConnection) new URL("http://localhost:" + port + path).openConnection();
-    con.setRequestMethod("GET");
-    con.setConnectTimeout(2000);
-    con.setReadTimeout(2000);
-    return con.getResponseCode();
-}
-
-private static void waitForEndpointReady(int port, String path, int timeoutMs) throws Exception {
-    long end = System.currentTimeMillis() + timeoutMs;
-    Exception last = null;
-    while (System.currentTimeMillis() < end) {
         try {
-            if (httpGet(port, path) == 200) return;
+            tomcat.start();
+            assertThat(tomcat.getServer().getState()).isEqualTo(LifecycleState.STARTED);
+            System.out.println("Tomcat avviato su porta " + PORT);
         } catch (Exception e) {
-            last = e;
+            throw new RuntimeException("Failed to start embedded Tomcat", e);
         }
-        Thread.sleep(100);
+
+        // Costruisci il transport SSE e connetti
+        transport = HttpClientSseClientTransport.builder("http://localhost:" + PORT)
+                .sseEndpoint(CUSTOM_SSE_ENDPOINT)
+                .build();
+
+        transport.connect(msgMono -> Mono.empty()).block();
+
+        // Attendi che il messageEndpoint venga scoperto via SSE
+        await().atMost(5, TimeUnit.SECONDS)
+               .pollInterval(100, TimeUnit.MILLISECONDS)
+               .until(this::isMessageEndpointAvailable);
+
+        // Ora prepara il client MCP
+        clientBuilders.put("httpclient",
+                McpClient.sync(transport)
+                        .clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
+                        .requestTimeout(Duration.ofSeconds(30)));
     }
-    throw new IllegalStateException("Endpoint " + path + " not ready within " + timeoutMs + " ms", last);
-}
 
+    @Test
+    void testInitializeHandshake() {
+        client = clientBuilders.get("httpclient").build();
+        McpSchema.InitializeResult result = client.initialize();
+        assertThat(result).isNotNull();
+        System.out.println("Initialize completato: " + result.protocolVersion());
+    }
 
+    @AfterEach
+    public void after() {
+        System.out.println("Chiusura risorse...");
+        try {
+            if (client != null) client.close();
+            if (mcpServerTransportProvider != null) mcpServerTransportProvider.closeGracefully().block();
+            if (tomcat != null) {
+                tomcat.stop();
+                tomcat.destroy();
+            }
+        } catch (LifecycleException e) {
+            throw new RuntimeException("Failed to stop Tomcat", e);
+        }
+        System.out.println("Risorse chiuse.");
+    }
 
-	@Override
-	protected AsyncSpecification<?> prepareAsyncServerBuilder() {
-		return McpServer.async(this.mcpServerTransportProvider);
-	}
+    @Override
+    protected AsyncSpecification<?> prepareAsyncServerBuilder() {
+        return McpServer.async(this.mcpServerTransportProvider);
+    }
 
-	@Override
-	protected SyncSpecification<?> prepareSyncServerBuilder() {
-		return McpServer.sync(this.mcpServerTransportProvider);
-	}
+    @Override
+    protected SyncSpecification<?> prepareSyncServerBuilder() {
+        return McpServer.sync(this.mcpServerTransportProvider);
+    }
 
-	@AfterEach
-	public void after() {
-	    System.out.println("sono in after");
-		if (mcpServerTransportProvider != null) {
-			mcpServerTransportProvider.closeGracefully().block();
-		}
-		if (tomcat != null) {
-			try {
-				tomcat.stop();
-				tomcat.destroy();
-			}
-			catch (LifecycleException e) {
-				throw new RuntimeException("Failed to stop Tomcat", e);
-			}
-		}
-		System.out.println("sono alla fine di after");
-	}
+    @Override
+    protected void prepareClients(int port, String mcpEndpoint) {
+        // Non usato: la logica è nel @BeforeEach
+    }
 
-	@Override
-	protected void prepareClients(int port, String mcpEndpoint) {
-	}
+    private boolean isMessageEndpointAvailable() {
+        try {
+            Field f = transport.getClass().getDeclaredField("messageEndpoint");
+            f.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            AtomicReference<String> ref = (AtomicReference<String>) f.get(transport);
+            return ref.get() != null;
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
-	static McpTransportContextExtractor<HttpServletRequest> TEST_CONTEXT_EXTRACTOR = (r) -> McpTransportContext
-		.create(Collections.singletonMap("important", "value"));
-
+    static McpTransportContextExtractor<HttpServletRequest> TEST_CONTEXT_EXTRACTOR =
+            (r) -> McpTransportContext.create(Collections.singletonMap("important", "value"));
 }
