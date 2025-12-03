@@ -78,5 +78,9 @@ public class TomcatTestUtil {
 			throw new IllegalStateException("Cannot bind to an available port!", e);
 		}
 	}
+	
+	public static void awaitServer(Tomcat tomcat) {
+	    tomcat.getServer().await();
+	}
 
 }

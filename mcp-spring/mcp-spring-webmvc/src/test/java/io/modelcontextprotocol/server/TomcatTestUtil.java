@@ -81,5 +81,11 @@ public class TomcatTestUtil {
 
 		return new TomcatServer(tomcat, appContext);
 	}
+	
+
+public static void awaitServer(Tomcat tomcat) {
+    tomcat.getServer().await();
+}
+
 
 }

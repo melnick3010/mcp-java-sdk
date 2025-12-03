@@ -57,6 +57,9 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		tomcat = TomcatTestUtil.createTomcatServer("", PORT, mcpServerTransportProvider);
 		try {
 			tomcat.start();
+		
+			TomcatTestUtil.awaitServer(tomcat);
+
 			assertThat(tomcat.getServer().getState()).isEqualTo(LifecycleState.STARTED);
 		}
 		catch (Exception e) {
