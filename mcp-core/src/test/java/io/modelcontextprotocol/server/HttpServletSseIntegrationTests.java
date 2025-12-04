@@ -84,7 +84,11 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 
 		System.out.println("connetto sse");
 		// Connetti SSE
-		transport.connect(msgMono -> Mono.empty()).block();
+		//transport.connect(msgMono -> Mono.empty()).block();
+
+		// Avvia la SSE in modo asincrono: non bloccare il thread di test
+		reactor.core.Disposable sse = transport.connect(msgMono -> Mono.empty()).subscribe();
+
 
 		System.out.println("attendo che messageendpoint sia pronto");
 		// Attendi che il messageEndpoint sia pronto
