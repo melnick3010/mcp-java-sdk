@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 
 import javax.servlet.http.HttpServletRequest;
 
+import io.modelcontextprotocol.client.McpAsyncClient;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
@@ -50,46 +51,59 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		return Stream.of(Arguments.of("httpclient"));
 	}
 
-	@BeforeEach
-	public void before() {
-		// 1) Provider + Tomcat
-		mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
-				.contextExtractor(TEST_CONTEXT_EXTRACTOR).messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
-				.sseEndpoint(CUSTOM_SSE_ENDPOINT).build();
 
-		tomcat = TomcatTestUtil.createTomcatServer("", PORT, mcpServerTransportProvider);
-		try {
-			tomcat.start();
-			assertThat(tomcat.getServer().getState()).isEqualTo(LifecycleState.STARTED);
-			System.out.println("Tomcat avviato su porta " + PORT);
-		} catch (Exception e) {
-			throw new RuntimeException("Failed to start embedded Tomcat", e);
-		}
 
-		// 2) Avvio MCP server (imposta sessionFactory nel provider)
-		System.out.println("avvio mcp server");
-		McpAsyncServer asyncServer = McpServer.async(mcpServerTransportProvider).serverInfo("test-server", "1.0.0")
-				.requestTimeout(Duration.ofSeconds(30)).build();
 
-		// 3) Transport (NON connettere qui)
-		System.out.println("preparo client transport");
-		transport = HttpClientSseClientTransport.builder("http://localhost:" + PORT).sseEndpoint(CUSTOM_SSE_ENDPOINT)
-				.build();
+@BeforeEach
+public void before() {
+    // 1) Avvio server + Tomcat
+    mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
+            .contextExtractor(TEST_CONTEXT_EXTRACTOR)
+            .messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
+            .sseEndpoint(CUSTOM_SSE_ENDPOINT)
+            .build();
 
-		// 4) Costruisci il client: lui si occuperà di connettere la SSE con il suo
-		// handler
-		System.out.println("preparo client mcp");
-		client = McpClient.sync(transport).clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
-				.requestTimeout(Duration.ofSeconds(30)).build();
+    tomcat = TomcatTestUtil.createTomcatServer("", PORT, mcpServerTransportProvider);
+    try {
+        tomcat.start();
+        assertThat(tomcat.getServer().getState()).isEqualTo(LifecycleState.STARTED);
+        System.out.println("Tomcat avviato su porta " + PORT);
+    } catch (Exception e) {
+        throw new RuntimeException("Failed to start embedded Tomcat", e);
+    }
 
-		// 5) Attendi la discovery del message endpoint (verrà dal primo evento SSE)
-		System.out.println("attendo che messageendpoint sia pronto");
-		await().atMost(7, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS)
-				.until(this::isMessageEndpointAvailable);
+    // 2) Avvio MCP server
+    System.out.println("avvio mcp server");
+    McpAsyncServer asyncServer = McpServer.async(mcpServerTransportProvider)
+            .serverInfo("test-server", "1.0.0")
+            .requestTimeout(Duration.ofSeconds(30))
+            .build();
 
-		System.out.println("messageEndpoint = " + readMessageEndpoint(transport));
-		System.out.println("fine before");
-	}
+    // 3) Transport (senza connect manuale)
+    System.out.println("preparo client transport");
+    transport = HttpClientSseClientTransport.builder("http://localhost:" + PORT)
+            .sseEndpoint(CUSTOM_SSE_ENDPOINT)
+            .build();
+
+    // 4) Client sync (wrappa l’async interno)
+    System.out.println("preparo client mcp (sync)");
+    client = McpClient.sync(transport)
+            .clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
+            .requestTimeout(Duration.ofSeconds(30))
+            .build();
+
+    // 5) **Inizializza subito**: l’initializer aprirà la SSE e negozierà tutto
+    System.out.println("inizializzo client");
+    McpSchema.InitializeResult init = client.initialize(); // blocking
+    System.out.println("initialized: protocol=" + init.protocolVersion());
+
+    // 6) (Opzionale) Leggi/mostra l’endpoint a fini diagnostici
+    System.out.println("messageEndpoint = " + readMessageEndpoint(transport));
+    System.out.println("fine before");
+}
+
+
+
 
 	@Test
 	void testInitializeHandshake() {
