@@ -4,6 +4,7 @@ package io.modelcontextprotocol.server;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.Collections;
@@ -71,6 +72,15 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		// Ora prepara il client transport
 		transport = HttpClientSseClientTransport.builder("http://localhost:" + PORT).sseEndpoint(CUSTOM_SSE_ENDPOINT)
 				.build();
+
+		try {
+			System.out.println("probe SSE GET...");
+			int code = httpGet(PORT, CUSTOM_SSE_ENDPOINT);
+			System.out.println("SSE GET status = " + code);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
 		System.out.println("connetto sse");
 		// Connetti SSE
@@ -144,4 +154,14 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 
 	static McpTransportContextExtractor<HttpServletRequest> TEST_CONTEXT_EXTRACTOR = (r) -> McpTransportContext
 			.create(Collections.singletonMap("important", "value"));
+
+	private static int httpGet(int port, String path) throws IOException {
+		java.net.HttpURLConnection con = (java.net.HttpURLConnection) new java.net.URL(
+				"http://localhost:" + port + path).openConnection();
+		con.setRequestMethod("GET");
+		con.setConnectTimeout(2000);
+		con.setReadTimeout(2000);
+		return con.getResponseCode();
+	}
+
 }
