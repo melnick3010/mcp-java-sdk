@@ -44,6 +44,8 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 	private HttpClientSseClientTransport transport;
 	private McpSyncClient client;
 
+	private reactor.core.Disposable sseSubscription; // campo della classe
+
 	static Stream<Arguments> clientsForTesting() {
 		return Stream.of(Arguments.of("httpclient"));
 	}
@@ -63,44 +65,42 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to start embedded Tomcat", e);
 		}
-		System.out.println("avvio mcp server");
+		// System.out.println("avvio mcp server");
 		// **Avvia il MCP server PRIMA del client**
 		McpAsyncServer asyncServer = McpServer.async(mcpServerTransportProvider).serverInfo("test-server", "1.0.0")
 				.requestTimeout(Duration.ofSeconds(30)).build();
 
-		System.out.println("preparo client transport");
+		// System.out.println("preparo client transport");
 		// Ora prepara il client transport
 		transport = HttpClientSseClientTransport.builder("http://localhost:" + PORT).sseEndpoint(CUSTOM_SSE_ENDPOINT)
 				.build();
 
-		try {
-			System.out.println("probe SSE GET...");
-			int code = httpGet(PORT, CUSTOM_SSE_ENDPOINT);
-			System.out.println("SSE GET status = " + code);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		/*
+		 * try { System.out.println("probe SSE GET..."); int code = httpGet(PORT,
+		 * CUSTOM_SSE_ENDPOINT); System.out.println("SSE GET status = " + code); } catch
+		 * (IOException e) { // TODO Auto-generated catch block e.printStackTrace(); }
+		 */
 
 		System.out.println("connetto sse");
-		// Connetti SSE
-		//transport.connect(msgMono -> Mono.empty()).block();
-
-		// Avvia la SSE in modo asincrono: non bloccare il thread di test
-		reactor.core.Disposable sse = transport.connect(msgMono -> Mono.empty()).subscribe();
-
+// Avvio SSE in asincrono (non bloccare il test)
+		// reactor.core.Disposable sse = transport.connect(msgMono ->
+		// Mono.empty()).subscribe();
+		sseSubscription = transport.connect(msgMono -> Mono.empty()).subscribe();
 
 		System.out.println("attendo che messageendpoint sia pronto");
-		// Attendi che il messageEndpoint sia pronto
-		await().atMost(5, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS)
+// Attendi che il messageEndpoint sia pronto
+		await().atMost(7, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS)
 				.until(this::isMessageEndpointAvailable);
 
+		System.out.println("messageEndpoint = " + readMessageEndpoint(transport));
+
 		System.out.println("preparo client mcp");
-		// Prepara il client MCP
+// Prepara il client MCP
 		clientBuilders.put("httpclient",
 				McpClient.sync(transport).clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
 						.requestTimeout(Duration.ofSeconds(30)));
 		System.out.println("fine before");
+
 	}
 
 	@Test
@@ -115,10 +115,27 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 	public void after() {
 		System.out.println("Chiusura risorse...");
 		try {
-			if (client != null)
+			// 1) chiudi il client MCP
+			if (client != null) {
 				client.close();
-			if (mcpServerTransportProvider != null)
+			}
+
+			// 2) interrompi la sottoscrizione SSE (ferma la lettura)
+			if (sseSubscription != null && !sseSubscription.isDisposed()) {
+				sseSubscription.dispose();
+			}
+
+			// 3) chiudi gentilmente il trasporto SSE (set isClosing=true)
+			if (transport != null) {
+				transport.closeGracefully().block();
+			}
+
+			// 4) chiudi il provider/server
+			if (mcpServerTransportProvider != null) {
 				mcpServerTransportProvider.closeGracefully().block();
+			}
+
+			// 5) stop/destroy Tomcat
 			if (tomcat != null) {
 				tomcat.stop();
 				tomcat.destroy();
@@ -144,17 +161,15 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		// Non usato: la logica è nel @BeforeEach
 	}
 
-	private boolean isMessageEndpointAvailable() {
-		try {
-			Field f = transport.getClass().getDeclaredField("messageEndpoint");
-			f.setAccessible(true);
-			@SuppressWarnings("unchecked")
-			AtomicReference<String> ref = (AtomicReference<String>) f.get(transport);
-			return ref.get() != null;
-		} catch (Exception e) {
-			return false;
-		}
-	}
+	/*
+	 * private boolean isMessageEndpointAvailable() { try { Field f =
+	 * transport.getClass().getDeclaredField("messageEndpoint");
+	 * f.setAccessible(true);
+	 * 
+	 * @SuppressWarnings("unchecked") AtomicReference<String> ref =
+	 * (AtomicReference<String>) f.get(transport); return ref.get() != null; } catch
+	 * (Exception e) { return false; } }
+	 */
 
 	static McpTransportContextExtractor<HttpServletRequest> TEST_CONTEXT_EXTRACTOR = (r) -> McpTransportContext
 			.create(Collections.singletonMap("important", "value"));
@@ -166,6 +181,23 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		con.setConnectTimeout(2000);
 		con.setReadTimeout(2000);
 		return con.getResponseCode();
+	}
+
+	@SuppressWarnings("unchecked")
+	private String readMessageEndpoint(HttpClientSseClientTransport transport) {
+		try {
+			java.lang.reflect.Field f = transport.getClass().getDeclaredField("messageEndpoint");
+			f.setAccessible(true);
+			java.util.concurrent.atomic.AtomicReference<String> ref = (java.util.concurrent.atomic.AtomicReference<String>) f
+					.get(transport);
+			return ref.get();
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	private boolean isMessageEndpointAvailable() {
+		return readMessageEndpoint(transport) != null;
 	}
 
 }
