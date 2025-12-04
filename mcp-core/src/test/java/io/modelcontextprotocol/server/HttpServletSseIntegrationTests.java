@@ -94,7 +94,12 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 	@Test
 	void testInitializeHandshake() {
 		client = clientBuilders.get("httpclient").build();
+		// McpSchema.InitializeResult result = client.initialize();
+
+		System.out.println("About to initialize, endpoint=" + readMessageEndpoint(transport));
 		McpSchema.InitializeResult result = client.initialize();
+		System.out.println("Initialize OK, protocol=" + result.protocolVersion());
+
 		assertThat(result).isNotNull();
 		System.out.println("Initialize completato: " + result.protocolVersion());
 	}
