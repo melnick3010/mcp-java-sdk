@@ -52,7 +52,7 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 
 	@BeforeEach
 	public void before() {
-		// Configura il provider
+		// 1) Provider + Tomcat
 		mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
 				.contextExtractor(TEST_CONTEXT_EXTRACTOR).messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
 				.sseEndpoint(CUSTOM_SSE_ENDPOINT).build();
@@ -65,42 +65,30 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to start embedded Tomcat", e);
 		}
-		// System.out.println("avvio mcp server");
-		// **Avvia il MCP server PRIMA del client**
+
+		// 2) Avvio MCP server (imposta sessionFactory nel provider)
+		System.out.println("avvio mcp server");
 		McpAsyncServer asyncServer = McpServer.async(mcpServerTransportProvider).serverInfo("test-server", "1.0.0")
 				.requestTimeout(Duration.ofSeconds(30)).build();
 
-		// System.out.println("preparo client transport");
-		// Ora prepara il client transport
+		// 3) Transport (NON connettere qui)
+		System.out.println("preparo client transport");
 		transport = HttpClientSseClientTransport.builder("http://localhost:" + PORT).sseEndpoint(CUSTOM_SSE_ENDPOINT)
 				.build();
 
-		/*
-		 * try { System.out.println("probe SSE GET..."); int code = httpGet(PORT,
-		 * CUSTOM_SSE_ENDPOINT); System.out.println("SSE GET status = " + code); } catch
-		 * (IOException e) { // TODO Auto-generated catch block e.printStackTrace(); }
-		 */
+		// 4) Costruisci il client: lui si occuperà di connettere la SSE con il suo
+		// handler
+		System.out.println("preparo client mcp");
+		client = McpClient.sync(transport).clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
+				.requestTimeout(Duration.ofSeconds(30)).build();
 
-		System.out.println("connetto sse");
-// Avvio SSE in asincrono (non bloccare il test)
-		// reactor.core.Disposable sse = transport.connect(msgMono ->
-		// Mono.empty()).subscribe();
-		sseSubscription = transport.connect(msgMono -> Mono.empty()).subscribe();
-
+		// 5) Attendi la discovery del message endpoint (verrà dal primo evento SSE)
 		System.out.println("attendo che messageendpoint sia pronto");
-// Attendi che il messageEndpoint sia pronto
 		await().atMost(7, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS)
 				.until(this::isMessageEndpointAvailable);
 
 		System.out.println("messageEndpoint = " + readMessageEndpoint(transport));
-
-		System.out.println("preparo client mcp");
-// Prepara il client MCP
-		clientBuilders.put("httpclient",
-				McpClient.sync(transport).clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
-						.requestTimeout(Duration.ofSeconds(30)));
 		System.out.println("fine before");
-
 	}
 
 	@Test
@@ -115,27 +103,21 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 	public void after() {
 		System.out.println("Chiusura risorse...");
 		try {
-			// 1) chiudi il client MCP
+			// Chiudi la sessione client MCP
 			if (client != null) {
 				client.close();
 			}
 
-			// 2) interrompi la sottoscrizione SSE (ferma la lettura)
-			if (sseSubscription != null && !sseSubscription.isDisposed()) {
-				sseSubscription.dispose();
-			}
-
-			// 3) chiudi gentilmente il trasporto SSE (set isClosing=true)
+			// Chiudi gentilmente la SSE client-side
 			if (transport != null) {
 				transport.closeGracefully().block();
 			}
 
-			// 4) chiudi il provider/server
+			// Chiudi lato server
 			if (mcpServerTransportProvider != null) {
 				mcpServerTransportProvider.closeGracefully().block();
 			}
 
-			// 5) stop/destroy Tomcat
 			if (tomcat != null) {
 				tomcat.stop();
 				tomcat.destroy();
