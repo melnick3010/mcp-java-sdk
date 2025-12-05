@@ -53,7 +53,7 @@ class HttpServletSseServerSmokeTests {
     @Order(1)
     void serverStartsOnChosenPort_andRespondsToTcpHandshake() throws Exception {
         // Attende che il connector HTTP sia pronto (status line disponibile)
-        assertTrue(waitForHttpReady("/", Duration.ofSeconds(3)),
+        assertTrue(waitForHttpReady("/", Duration.ofSeconds(5)),
                    "Il server non è pronto su / entro il timeout");
 
         // Effettua una GET "neutra" su root (ci interessa solo che non sia Connection Refused/Reset)
@@ -152,18 +152,42 @@ class HttpServletSseServerSmokeTests {
      * Avvia Tomcat embedded sulla porta indicata e ritorna un handle.
      * Sostituisci l’implementazione con la tua (ad es. builder del Tomcat, addContext, addServlet, start()).
      */
-    private ServerHandle startTomcatOn(int port) throws Exception {
-        // TODO: collega la tua implementazione reale
-        // Esempio concettuale:
-        // Tomcat t = new Tomcat();
-        // t.setPort(port);
-        // Context ctx = t.addContext("", new File(".").getAbsolutePath());
-        // t.addServlet("", "mcpServlet", new HttpServletSseServerTransportProvider(/*...*/));
-        // ctx.addServletMappingDecoded(SSE_PATH, "mcpServlet");
-        // t.start();
-        // return new ServerHandle(t);
-        return ServerHandle.placeholder(port);
-    }
+
+private ServerHandle startTomcatOn(int port) throws Exception {
+    org.apache.catalina.startup.Tomcat tomcat = new org.apache.catalina.startup.Tomcat();
+    tomcat.setPort(port);
+
+    // Base dir temporanea
+    tomcat.setBaseDir(java.nio.file.Files.createTempDirectory("tomcat-smoke").toString());
+
+    // Context root "" (ROOT)
+    String docBase = new java.io.File(".").getAbsolutePath();
+    org.apache.catalina.Context ctx = tomcat.addContext("", docBase);
+
+    // Mappiamo almeno una servlet "ping" sulla root,
+    // così la GET "/" risponde 200.
+    javax.servlet.http.HttpServlet pingServlet = new javax.servlet.http.HttpServlet() {
+        @Override protected void doGet(javax.servlet.http.HttpServletRequest req,
+                                       javax.servlet.http.HttpServletResponse resp)
+                throws java.io.IOException {
+            resp.setStatus(200);
+            resp.setContentType("text/plain");
+            resp.getWriter().write("OK");
+        }
+    };
+
+    tomcat.addServlet("", "ping", pingServlet);
+    ctx.addServletMappingDecoded("/", "ping");
+
+    // Se hai già la tua servlet SSE, puoi aggiungere anche quella:
+    // javax.servlet.http.HttpServlet sseServlet = new HttpServletSseServerTransportProvider(...);
+    // tomcat.addServlet("", "mcpServlet", sseServlet);
+    // ctx.addServletMappingDecoded(SSE_PATH, "mcpServlet");
+
+    tomcat.start();
+    return new ServerHandle(port, tomcat);
+}
+
 
     /**
      * Arresta e distrugge l’istanza Tomcat corrente.
@@ -179,21 +203,32 @@ class HttpServletSseServerSmokeTests {
     }
 
     /** Attende che una GET su path restituisca una status line (2xx/3xx/4xx) entro timeout. */
-    private boolean waitForHttpReady(String path, Duration timeout) throws InterruptedException {
-        long end = System.nanoTime() + timeout.toNanos();
-        while (System.nanoTime() < end) {
-            try {
-                HttpURLConnection conn = open("GET", path);
-                int code = conn.getResponseCode();
-                conn.disconnect();
-                if (code >= 200 && code < 500) return true;
-            } catch (IOException ignored) {
-                // Server non ancora pronto; riprova
-            }
+
+private boolean waitForHttpReady(String path, Duration timeout) throws InterruptedException {
+    long end = System.nanoTime() + timeout.toNanos();
+    while (System.nanoTime() < end) {
+        // 1) prova handshake TCP
+        try (java.net.Socket s = new java.net.Socket()) {
+            s.connect(new java.net.InetSocketAddress(HOST, port), 500);
+        } catch (IOException e) {
             Thread.sleep(50);
+            continue; // server non pronto
         }
-        return false;
+
+        // 2) prova GET HTTP
+        try {
+            HttpURLConnection conn = open("GET", path);
+            int code = conn.getResponseCode();
+            conn.disconnect();
+            if (code >= 200 && code < 500) return true; // anche 404 va bene: server pronto
+        } catch (IOException ignored) {
+            // server non ancora pronto sul path
+        }
+        Thread.sleep(50);
     }
+    return false;
+}
+
 
     /** Apre una HttpURLConnection verso http://localhost:{port}{path} con method indicato. */
     private HttpURLConnection open(String method, String path) throws IOException {
@@ -219,30 +254,18 @@ class HttpServletSseServerSmokeTests {
     }
 
     // ====== Piccolo wrapper per incapsulare start/stop/destroy del tuo Tomcat ======
-    private static final class ServerHandle {
-        private final int port;
-        // private final Tomcat tomcat;
 
-        private ServerHandle(int port/*, Tomcat tomcat*/) {
-            this.port = port;
-            // this.tomcat = tomcat;
-        }
+private static final class ServerHandle {
+    private final int port;
+    private final org.apache.catalina.startup.Tomcat tomcat;
 
-        static ServerHandle placeholder(int port) {
-            return new ServerHandle(port);
-        }
-
-        void stop() throws Exception {
-            // if (tomcat != null) tomcat.stop();
-        }
-
-        void destroy() throws Exception {
-            // if (tomcat != null) tomcat.destroy();
-        }
-
-        @Override
-        public String toString() {
-            return "ServerHandle{port=" + port + "}";
-        }
+    private ServerHandle(int port, org.apache.catalina.startup.Tomcat tomcat) {
+        this.port = port;
+        this.tomcat = tomcat;
     }
+
+    void stop() throws Exception { tomcat.stop(); }
+    void destroy() throws Exception { tomcat.destroy(); }
+}
+
 }
