@@ -170,12 +170,12 @@
 						<org.apache.catalina.level>FINE</org.apache.catalina.level>
 						<org.apache.coyote.level>FINE</org.apache.coyote.level>
 					</systemPropertyVariables>
-					<useFile>false</useFile>
+					<!-- Salva stdout/stderr dei test in file separati -->
+					<redirectTestOutputToFile>true</redirectTestOutputToFile>
+					<!-- Mantieni stacktrace completo -->
 					<trimStackTrace>false</trimStackTrace>
-					<!-- Show test timing information -->
+					<!-- Formato report -->
 					<reportFormat>plain</reportFormat>
-					<!-- Output test execution times in the logs -->
-					<redirectTestOutputToFile>false</redirectTestOutputToFile>
 					<argLine>
       --add-opens=java.base/java.io=ALL-UNNAMED
       --add-opens=java.base/java.lang=ALL-UNNAMED

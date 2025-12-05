@@ -81,20 +81,20 @@ public class TomcatTestUtil {
 			throw new IllegalStateException("Cannot bind to an available port!", e);
 		}
 	}
-	
+
 	public static void awaitServer(Tomcat tomcat) {
-	    tomcat.getServer().await();
+		tomcat.getServer().await();
 	}
-	
 
-public static class HealthServlet extends HttpServlet {
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        resp.setStatus(HttpServletResponse.SC_OK);
-        resp.setContentType("text/plain");
-        resp.getWriter().write("OK");
-    }
-}
+	public static class HealthServlet extends HttpServlet {
 
+		@Override
+		protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+			resp.setStatus(HttpServletResponse.SC_OK);
+			resp.setContentType("text/plain");
+			resp.getWriter().write("OK");
+		}
+
+	}
 
 }

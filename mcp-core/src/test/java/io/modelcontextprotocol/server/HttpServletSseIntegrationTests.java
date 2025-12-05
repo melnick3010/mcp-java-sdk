@@ -37,12 +37,17 @@ import reactor.core.publisher.Mono;
 class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationTests {
 
 	private static final int PORT = TomcatTestUtil.findAvailablePort();
+
 	private static final String CUSTOM_SSE_ENDPOINT = "/somePath/sse";
+
 	private static final String CUSTOM_MESSAGE_ENDPOINT = "/otherPath/mcp/message";
 
 	private HttpServletSseServerTransportProvider mcpServerTransportProvider;
+
 	private Tomcat tomcat;
+
 	private HttpClientSseClientTransport transport;
+
 	private McpSyncClient client;
 
 	private reactor.core.Disposable sseSubscription; // campo della classe
@@ -51,59 +56,54 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		return Stream.of(Arguments.of("httpclient"));
 	}
 
+	@BeforeEach
+	public void before() {
+		// 1) Avvio server + Tomcat
+		mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
+			.contextExtractor(TEST_CONTEXT_EXTRACTOR)
+			.messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
+			.sseEndpoint(CUSTOM_SSE_ENDPOINT)
+			.build();
 
+		tomcat = TomcatTestUtil.createTomcatServer("", PORT, mcpServerTransportProvider);
+		try {
+			tomcat.start();
+			assertThat(tomcat.getServer().getState()).isEqualTo(LifecycleState.STARTED);
+			System.out.println("Tomcat avviato su porta " + PORT);
+		}
+		catch (Exception e) {
+			throw new RuntimeException("Failed to start embedded Tomcat", e);
+		}
 
+		// 2) Avvio MCP server
+		System.out.println("avvio mcp server");
+		McpAsyncServer asyncServer = McpServer.async(mcpServerTransportProvider)
+			.serverInfo("test-server", "1.0.0")
+			.requestTimeout(Duration.ofSeconds(30))
+			.build();
 
-@BeforeEach
-public void before() {
-    // 1) Avvio server + Tomcat
-    mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
-            .contextExtractor(TEST_CONTEXT_EXTRACTOR)
-            .messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
-            .sseEndpoint(CUSTOM_SSE_ENDPOINT)
-            .build();
+		// 3) Transport (senza connect manuale)
+		System.out.println("preparo client transport");
+		transport = HttpClientSseClientTransport.builder("http://localhost:" + PORT)
+			.sseEndpoint(CUSTOM_SSE_ENDPOINT)
+			.build();
 
-    tomcat = TomcatTestUtil.createTomcatServer("", PORT, mcpServerTransportProvider);
-    try {
-        tomcat.start();
-        assertThat(tomcat.getServer().getState()).isEqualTo(LifecycleState.STARTED);
-        System.out.println("Tomcat avviato su porta " + PORT);
-    } catch (Exception e) {
-        throw new RuntimeException("Failed to start embedded Tomcat", e);
-    }
+		// 4) Client sync (wrappa l’async interno)
+		System.out.println("preparo client mcp (sync)");
+		client = McpClient.sync(transport)
+			.clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
+			.requestTimeout(Duration.ofSeconds(30))
+			.build();
 
-    // 2) Avvio MCP server
-    System.out.println("avvio mcp server");
-    McpAsyncServer asyncServer = McpServer.async(mcpServerTransportProvider)
-            .serverInfo("test-server", "1.0.0")
-            .requestTimeout(Duration.ofSeconds(30))
-            .build();
+		// 5) **Inizializza subito**: l’initializer aprirà la SSE e negozierà tutto
+		System.out.println("inizializzo client");
+		McpSchema.InitializeResult init = client.initialize(); // blocking
+		System.out.println("initialized: protocol=" + init.protocolVersion());
 
-    // 3) Transport (senza connect manuale)
-    System.out.println("preparo client transport");
-    transport = HttpClientSseClientTransport.builder("http://localhost:" + PORT)
-            .sseEndpoint(CUSTOM_SSE_ENDPOINT)
-            .build();
-
-    // 4) Client sync (wrappa l’async interno)
-    System.out.println("preparo client mcp (sync)");
-    client = McpClient.sync(transport)
-            .clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
-            .requestTimeout(Duration.ofSeconds(30))
-            .build();
-
-    // 5) **Inizializza subito**: l’initializer aprirà la SSE e negozierà tutto
-    System.out.println("inizializzo client");
-    McpSchema.InitializeResult init = client.initialize(); // blocking
-    System.out.println("initialized: protocol=" + init.protocolVersion());
-
-    // 6) (Opzionale) Leggi/mostra l’endpoint a fini diagnostici
-    System.out.println("messageEndpoint = " + readMessageEndpoint(transport));
-    System.out.println("fine before");
-}
-
-
-
+		// 6) (Opzionale) Leggi/mostra l’endpoint a fini diagnostici
+		System.out.println("messageEndpoint = " + readMessageEndpoint(transport));
+		System.out.println("fine before");
+	}
 
 	@Test
 	void testInitializeHandshake() {
@@ -141,7 +141,8 @@ public void before() {
 				tomcat.stop();
 				tomcat.destroy();
 			}
-		} catch (LifecycleException e) {
+		}
+		catch (LifecycleException e) {
 			throw new RuntimeException("Failed to stop Tomcat", e);
 		}
 		System.out.println("Risorse chiuse.");
@@ -164,20 +165,20 @@ public void before() {
 
 	/*
 	 * private boolean isMessageEndpointAvailable() { try { Field f =
-	 * transport.getClass().getDeclaredField("messageEndpoint");
-	 * f.setAccessible(true);
-	 * 
+	 * transport.getClass().getDeclaredField("messageEndpoint"); f.setAccessible(true);
+	 *
 	 * @SuppressWarnings("unchecked") AtomicReference<String> ref =
 	 * (AtomicReference<String>) f.get(transport); return ref.get() != null; } catch
 	 * (Exception e) { return false; } }
 	 */
 
 	static McpTransportContextExtractor<HttpServletRequest> TEST_CONTEXT_EXTRACTOR = (r) -> McpTransportContext
-			.create(Collections.singletonMap("important", "value"));
+		.create(Collections.singletonMap("important", "value"));
 
 	private static int httpGet(int port, String path) throws IOException {
 		java.net.HttpURLConnection con = (java.net.HttpURLConnection) new java.net.URL(
-				"http://localhost:" + port + path).openConnection();
+				"http://localhost:" + port + path)
+			.openConnection();
 		con.setRequestMethod("GET");
 		con.setConnectTimeout(2000);
 		con.setReadTimeout(2000);
@@ -190,9 +191,10 @@ public void before() {
 			java.lang.reflect.Field f = transport.getClass().getDeclaredField("messageEndpoint");
 			f.setAccessible(true);
 			java.util.concurrent.atomic.AtomicReference<String> ref = (java.util.concurrent.atomic.AtomicReference<String>) f
-					.get(transport);
+				.get(transport);
 			return ref.get();
-		} catch (Exception e) {
+		}
+		catch (Exception e) {
 			return null;
 		}
 	}
