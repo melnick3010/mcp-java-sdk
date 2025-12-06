@@ -80,8 +80,18 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 
 		// 3) 🔴 Popola i builder per i test parametrizzati
 		prepareClients(port, CUSTOM_MESSAGE_ENDPOINT);
+		
+		// 4) Transport & client per la parte “non parametrizzata” del test di handshake
+				System.out.println("preparo client transport");
+				transport = HttpClientSseClientTransport.builder("http://localhost:" + port).sseEndpoint(CUSTOM_SSE_ENDPOINT)
+						.build();
 
-		// 4) Readiness SSE prima di lasciare il test al base class
+				System.out.println("preparo client mcp (sync)");
+				client = McpClient.sync(transport).clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
+						.requestTimeout(Duration.ofSeconds(30)).build();
+
+
+		// 5) Readiness SSE prima di lasciare il test al base class
 		assertTrue(waitForHttpReady(CUSTOM_SSE_ENDPOINT, Duration.ofSeconds(6)),
 				"SSE non pronta, impossibile inizializzare il client parametrizzato");
 	}
