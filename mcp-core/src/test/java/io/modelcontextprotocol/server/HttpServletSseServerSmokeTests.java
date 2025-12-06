@@ -36,6 +36,7 @@ class HttpServletSseServerSmokeTests {
     // ====== Lifecycle per-test con porta dedicata ======
     @BeforeEach
     void setUp() throws Exception {
+    	System.out.println("sono in before each");
         port = findAvailablePort();
         server = startTomcatOn(port);
         assertNotNull(server, "Start Tomcat deve restituire un handle non nullo");
