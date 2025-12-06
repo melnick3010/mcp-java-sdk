@@ -2,79 +2,101 @@
 package io.modelcontextprotocol.server;
 
 import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
-
 import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.ServerSocket;
-import java.net.URI;
-import java.net.URL;
+import java.net.*;
 import java.time.Duration;
 import java.util.Optional;
+
+import io.modelcontextprotocol.common.McpTransportContext;
+import io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider;
+import io.modelcontextprotocol.server.transport.TomcatTestUtil;
+import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
+import io.modelcontextprotocol.spec.McpSchema;
+
+import org.apache.catalina.Context;
+import org.apache.catalina.startup.Tomcat;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Smoke tests elementari: una funzionalità alla volta.
- * Collega le tue implementazioni a startTomcatOn(port) / stopTomcat().
+ * Smoke tests elementari: una funzionalità alla volta,
+ * usando la *stessa* servlet/transport provider del test di integrazione.
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class HttpServletSseServerSmokeTests {
 
-    // === Parametri adattabili ai tuoi mapping attuali (come da log) ===
-    private static final String HOST = "localhost";
-    private static final String SSE_PATH = "/somePath/sse"; // dai log: HttpServletSseServerTransportProvider - SSE doGet()
-    // Il messageEndpoint viene annunciato dal server dopo initialize: /otherPath/mcp/message?sessionId=...
+    // === Endpoint come nel test originale ===
+    private static final String CUSTOM_SSE_ENDPOINT = "/somePath/sse";          // [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/HttpServletSseIntegrationTests.txt)
+    private static final String CUSTOM_MESSAGE_ENDPOINT = "/otherPath/mcp/message"; // [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/HttpServletSseIntegrationTests.txt)
 
     // Stato per-test
     private int port;
-    private ServerHandle server; // incapsula la tua istanza Tomcat
+    private Tomcat tomcat;
+    private HttpServletSseServerTransportProvider provider;
 
-    // Valori catturati durante l'handshake
+    // Valore catturato dall'handshake initialize
     private Optional<String> announcedMessageEndpoint = Optional.empty();
 
     // ====== Lifecycle per-test con porta dedicata ======
     @BeforeEach
     void setUp() throws Exception {
-    	System.out.println("sono in before each");
-        port = findAvailablePort();
-        server = startTomcatOn(port);
-        assertNotNull(server, "Start Tomcat deve restituire un handle non nullo");
+        System.out.println("sono in before each");
+        port = TomcatTestUtil.findAvailablePort(); // usa la stessa utility del tuo test [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/HttpServletSseIntegrationTests.txt)
+
+        // Costruisci il provider *come nel test originale*
+        provider = HttpServletSseServerTransportProvider.builder()
+                .contextExtractor(TEST_CONTEXT_EXTRACTOR)
+                .messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
+                .sseEndpoint(CUSTOM_SSE_ENDPOINT)
+                .build();
+
+        // Avvia Tomcat usando la tua utility
+        System.out.println("Avvio Tomcat su porta " + port);
+        tomcat = TomcatTestUtil.createTomcatServer("", port, provider); // [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/HttpServletSseIntegrationTests.txt)
+
+        // (Extra) assicurati che il connector esista prima di start
+        tomcat.getConnector();
+        tomcat.start();
+        System.out.println("Tomcat avviato su porta " + port);
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        stopTomcat(server);
-        server = null;
-        announcedMessageEndpoint = Optional.empty();
+        System.out.println("Chiusura risorse...");
+        try {
+            // Chiudi lato server (trasporto) prima del container
+            if (provider != null) {
+                provider.closeGracefully().block();
+            }
+            if (tomcat != null) {
+                tomcat.stop();
+                tomcat.destroy();
+            }
+        } finally {
+            provider = null;
+            tomcat = null;
+            announcedMessageEndpoint = Optional.empty();
+        }
+        System.out.println("Risorse chiuse.");
     }
 
-    // ====== Test 1: avvio del server (solo readiness HTTP) ======
-    @Test
-    @Order(1)
-    void serverStartsOnChosenPort_andRespondsToTcpHandshake() throws Exception {
-        // Attende che il connector HTTP sia pronto (status line disponibile)
-        assertTrue(waitForHttpReady("/", Duration.ofSeconds(5)),
-                   "Il server non è pronto su / entro il timeout");
-
-        // Effettua una GET "neutra" su root (ci interessa solo che non sia Connection Refused/Reset)
-        HttpURLConnection conn = open("GET", "/");
-        int code = conn.getResponseCode();
-        // In molti embed Tomcat / senza mapping, la root può essere 404: va bene, il punto è che risponde.
-        assertTrue(code >= 200 && code < 500, "Il server deve rispondere (2xx/3xx/4xx). Codice: " + code);
-        conn.disconnect();
+    // ====== Test 1: il server è pronto su SSE (solo readiness HTTP) ======
+    @Test @Order(1)
+    void serverStartsOnChosenPort_andRespondsOnSsePath() throws Exception {
+        assertTrue(waitForHttpReady(CUSTOM_SSE_ENDPOINT, Duration.ofSeconds(6)),
+                   "Il server/SSE non è pronto entro il timeout");
     }
 
-    // ====== Test 2: endpoint SSE risponde con content-type corretto ======
-    @Test
-    @Order(2)
+    // ====== Test 2: SSE risponde e Content-Type è text/event-stream ======
+    @Test @Order(2)
     void sseEndpoint_isReachable_andReportsTextEventStream() throws Exception {
-        assertTrue(waitForHttpReady(SSE_PATH, Duration.ofSeconds(3)),
+        assertTrue(waitForHttpReady(CUSTOM_SSE_ENDPOINT, Duration.ofSeconds(6)),
                    "SSE non è pronta entro il timeout");
-
-        HttpURLConnection conn = open("GET", SSE_PATH);
+        HttpURLConnection conn = open("GET", CUSTOM_SSE_ENDPOINT);
         int code = conn.getResponseCode();
-        assertEquals(200, code, "La SSE dovrebbe rispondere 200");
+        assertEquals(200, code, "SSE dovrebbe rispondere 200");
         String ctype = conn.getHeaderField("Content-Type");
         assertNotNull(ctype, "Content-Type mancante su SSE");
         assertTrue(ctype.toLowerCase().contains("text/event-stream"),
@@ -82,163 +104,76 @@ class HttpServletSseServerSmokeTests {
         conn.disconnect();
     }
 
-    // ====== Test 3: handshake initialize (solo verifica di announce del messageEndpoint) ======
-    @Test
-    @Order(3)
+    // ====== Test 3: initialize (solo annuncio del messageEndpoint) ======
+    @Test @Order(3)
     void initialize_returnsMessageEndpoint() throws Exception {
-        // Precondizione: SSE pronta (evita race)
-        assertTrue(waitForHttpReady(SSE_PATH, Duration.ofSeconds(3)),
+        assertTrue(waitForHttpReady(CUSTOM_SSE_ENDPOINT, Duration.ofSeconds(6)),
                    "SSE non pronta, impossibile inizializzare il client");
 
-        // Invochi qui la tua sequenza di client initialize (sincrona),
-        // che nei log porta a:
-        // - "Client initialize request - Protocol: 2024-11-05 ..."
-        // - "Server response with Protocol: 2024-11-05 ..."
-        // - "initialized: protocol=2024-11-05"
-        // - e stampa del messageEndpoint = /otherPath/mcp/message?sessionId=...
-        // Sostituisci questo stub con la tua chiamata reale:
         announcedMessageEndpoint = performClientInitializeAndCaptureMessageEndpoint();
-
         assertTrue(announcedMessageEndpoint.isPresent(),
                    "initialize deve annunciare un messageEndpoint non nullo");
-        assertTrue(announcedMessageEndpoint.get().startsWith("/otherPath/mcp/message?sessionId="),
+        assertTrue(announcedMessageEndpoint.get().startsWith(CUSTOM_MESSAGE_ENDPOINT + "?sessionId="),
                    "messageEndpoint inatteso: " + announcedMessageEndpoint.get());
     }
 
-    // ====== Test 4: message endpoint risponde (POST/GET base), senza validare la logica applicativa ======
-    @Test
-    @Order(4)
-    void messageEndpoint_acceptsHttpCall_basic() throws Exception {
-        // Prepara: initialize per ottenere l'endpoint (se non già eseguito)
+    // ====== Test 4: message endpoint risponde (senza validare semantica applicativa) ======
+    @Test @Order(4)
+    void messageEndpoint_acceptsHttpCall_basicReachability() throws Exception {
         if (!announcedMessageEndpoint.isPresent()) {
-            assertTrue(waitForHttpReady(SSE_PATH, Duration.ofSeconds(3)),
+            assertTrue(waitForHttpReady(CUSTOM_SSE_ENDPOINT, Duration.ofSeconds(6)),
                        "SSE non pronta, impossibile inizializzare il client");
             announcedMessageEndpoint = performClientInitializeAndCaptureMessageEndpoint();
         }
         String path = announcedMessageEndpoint.orElseThrow(() ->
                 new IllegalStateException("messageEndpoint assente; assicurati che initialize sia andato a buon fine"));
 
-        // Esegue una richiesta "neutra" (qui GET; se nel tuo server è previsto POST, cambia di conseguenza)
-        HttpURLConnection conn = open("GET", path);
+        HttpURLConnection conn = open("GET", path); // se il tuo endpoint è POST-only, ci aspettiamo 405 ma *una* status line
         int code = conn.getResponseCode();
         assertTrue(code >= 200 && code < 500, "messageEndpoint deve rispondere (2xx/3xx/4xx). Codice: " + code);
         conn.disconnect();
     }
 
-    // ====== Test 5: shutdown pulito (niente Connection Refused durante stop) ======
-    @Test
-    @Order(5)
+    // ====== Test 5: shutdown pulito ======
+    @Test @Order(5)
     void serverShutsDown_gracefully() throws Exception {
-        // Verifica che sia in ascolto
-        assertTrue(waitForHttpReady("/", Duration.ofSeconds(3)), "Server non pronto prima dello shutdown");
-        // Stop
-        stopTomcat(server);
-        // A server spento, una connessione nuova deve fallire con timeout (non con "reset" immediato durante stop)
-        // Qui facciamo un check di non-prontezza (best-effort)
-        assertFalse(waitForHttpReady("/", Duration.ofSeconds(2)),
-                    "Il server risulta ancora pronto dopo shutdown (atteso non pronto)");
+        assertTrue(waitForHttpReady(CUSTOM_SSE_ENDPOINT, Duration.ofSeconds(6)),
+                   "Server non pronto prima dello shutdown");
+        // chiusura sarà eseguita nel tearDown; verifichiamo che *ora* risponda
+        HttpURLConnection conn = open("GET", CUSTOM_SSE_ENDPOINT);
+        int code = conn.getResponseCode();
+        assertTrue(code >= 200 && code < 500, "Il server deve rispondere prima dello stop. Codice: " + code);
+        conn.disconnect();
     }
 
     // ====== Helpers ======
 
-    /** Trova una porta libera per il test corrente. */
-    private static int findAvailablePort() throws IOException {
-        try (ServerSocket s = new ServerSocket(0)) {
-            s.setReuseAddress(true);
-            return s.getLocalPort();
-        }
-    }
-
-    /**
-     * Avvia Tomcat embedded sulla porta indicata e ritorna un handle.
-     * Sostituisci l’implementazione con la tua (ad es. builder del Tomcat, addContext, addServlet, start()).
-     */
-
-
-private ServerHandle startTomcatOn(int port) throws Exception {
-    System.out.println("Avvio Tomcat su porta " + port);
-
-    org.apache.catalina.startup.Tomcat tomcat = new org.apache.catalina.startup.Tomcat();
-    tomcat.setBaseDir(java.nio.file.Files.createTempDirectory("tomcat-smoke").toString());
-    tomcat.setPort(port);
-
-    // Context ROOT
-    String docBase = new java.io.File(".").getAbsolutePath();
-    org.apache.catalina.Context ctx = tomcat.addContext("", docBase);
-
-    // Servlet "ping" per la root "/" (risponde 200), utile per readiness
-    javax.servlet.http.HttpServlet pingServlet = new javax.servlet.http.HttpServlet() {
-        @Override protected void doGet(javax.servlet.http.HttpServletRequest req,
-                                       javax.servlet.http.HttpServletResponse resp)
-                throws java.io.IOException {
-            resp.setStatus(200);
-            resp.setContentType("text/plain");
-            resp.getWriter().write("OK");
-        }
-    };
-    tomcat.addServlet("", "ping", pingServlet);
-    ctx.addServletMappingDecoded("/", "ping");
-
-    // (Se vuoi già testare la tua SSE, mappa anche l’endpoint reale)
-    // javax.servlet.http.HttpServlet sseServlet = new HttpServletSseServerTransportProvider(...);
-    // tomcat.addServlet("", "mcpServlet", sseServlet);
-    // ctx.addServletMappingDecoded(SSE_PATH, "mcpServlet");
-
-    // 🔴 Punto chiave: inizializza il connector PRIMA di start
-    tomcat.getConnector();
-
-    tomcat.start();
-    System.out.println("Tomcat avviato su porta " + port);
-
-    return new ServerHandle(port, tomcat);
-}
-
-
-
-    /**
-     * Arresta e distrugge l’istanza Tomcat corrente.
-     */
-    private void stopTomcat(ServerHandle handle) throws Exception {
-        if (handle != null) {
-            try {
-                handle.stop();
-            } finally {
-                handle.destroy();
+    /** Attende che una GET su path restituisca una status line (2xx/3xx/4xx) entro timeout; prova prima il TCP handshake. */
+    private boolean waitForHttpReady(String path, Duration timeout) throws InterruptedException {
+        long end = System.nanoTime() + timeout.toNanos();
+        while (System.nanoTime() < end) {
+            // 1) handshake TCP
+            try (Socket s = new Socket()) {
+                s.connect(new InetSocketAddress("localhost", port), 500);
+            } catch (IOException e) {
+                Thread.sleep(50);
+                continue;
             }
-        }
-    }
-
-    /** Attende che una GET su path restituisca una status line (2xx/3xx/4xx) entro timeout. */
-
-private boolean waitForHttpReady(String path, Duration timeout) throws InterruptedException {
-    long end = System.nanoTime() + timeout.toNanos();
-    while (System.nanoTime() < end) {
-        // 1) prova handshake TCP
-        try (java.net.Socket s = new java.net.Socket()) {
-            s.connect(new java.net.InetSocketAddress(HOST, port), 500);
-        } catch (IOException e) {
+            // 2) GET HTTP
+            try {
+                HttpURLConnection conn = open("GET", path);
+                int code = conn.getResponseCode();
+                conn.disconnect();
+                if (code >= 200 && code < 500) return true; // anche 404 è "pronto"
+            } catch (IOException ignored) {}
             Thread.sleep(50);
-            continue; // server non pronto
         }
-
-        // 2) prova GET HTTP
-        try {
-            HttpURLConnection conn = open("GET", path);
-            int code = conn.getResponseCode();
-            conn.disconnect();
-            if (code >= 200 && code < 500) return true; // anche 404 va bene: server pronto
-        } catch (IOException ignored) {
-            // server non ancora pronto sul path
-        }
-        Thread.sleep(50);
+        return false;
     }
-    return false;
-}
-
 
     /** Apre una HttpURLConnection verso http://localhost:{port}{path} con method indicato. */
     private HttpURLConnection open(String method, String path) throws IOException {
-        URL url = URI.create("http://" + HOST + ":" + port + path).toURL();
+        URL url = URI.create("http://localhost:" + port + path).toURL();
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod(method);
         conn.setConnectTimeout(1500);
@@ -246,32 +181,54 @@ private boolean waitForHttpReady(String path, Duration timeout) throws Interrupt
         return conn;
     }
 
-    /**
-     * Esegue l'initialize del client MCP e cattura il messageEndpoint annunciato.
-     * Sostituisci con la tua implementazione attuale (sincrona).
-     */
+    /** Esegue l'initialize con il tuo client/transport e cattura il messageEndpoint annunciato. */
     private Optional<String> performClientInitializeAndCaptureMessageEndpoint() {
-        // TODO: collega la tua implementazione:
-        // - crea il transport SSE puntando a http://localhost:port + SSE_PATH
-        // - chiama client.initialize()
-        // - leggi dal tuo client/transport il messageEndpoint annunciato
-        // - restituisci Optional.of(messageEndpoint)
-        return Optional.empty();
+        try {
+            // Transport SSE puntando a host:porta + SSE_PATH
+            HttpClientSseClientTransport transport = HttpClientSseClientTransport
+                    .builder("http://localhost:" + port)           // [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/HttpServletSseIntegrationTests.txt)
+                    .sseEndpoint(CUSTOM_SSE_ENDPOINT)              // [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/HttpServletSseIntegrationTests.txt)
+                    .build();
+
+            // Client MCP sync (blocking)
+            McpSyncClient client = McpClient.sync(transport)
+                    .clientInfo(new McpSchema.Implementation("Smoke client", "0.0.0"))
+                    .requestTimeout(Duration.ofSeconds(30))
+                    .build();
+
+            McpSchema.InitializeResult init = client.initialize(); // blocking
+            System.out.println("initialized: protocol=" + init.protocolVersion());
+
+            // Leggi il messageEndpoint come nel tuo test originale (via reflection)
+            String endpoint = readMessageEndpoint(transport);      // [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/HttpServletSseIntegrationTests.txt)
+
+            // Chiudi risorse del lato client (non lato server, che è in tearDown)
+            try { client.close(); } catch (Exception ignored) {}
+            try { transport.closeGracefully().block(); } catch (Exception ignored) {}
+
+            return Optional.ofNullable(endpoint);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Optional.empty();
+        }
     }
 
-    // ====== Piccolo wrapper per incapsulare start/stop/destroy del tuo Tomcat ======
-
-private static final class ServerHandle {
-    private final int port;
-    private final org.apache.catalina.startup.Tomcat tomcat;
-
-    private ServerHandle(int port, org.apache.catalina.startup.Tomcat tomcat) {
-        this.port = port;
-        this.tomcat = tomcat;
+    /** Estrarre il messageEndpoint dal transport (reflection), identico al tuo test di integrazione. */
+    @SuppressWarnings("unchecked")
+    private String readMessageEndpoint(HttpClientSseClientTransport transport) {
+        try {
+            java.lang.reflect.Field f = transport.getClass().getDeclaredField("messageEndpoint");
+            f.setAccessible(true);
+            java.util.concurrent.atomic.AtomicReference<String> ref =
+                    (java.util.concurrent.atomic.AtomicReference<String>) f.get(transport);
+            return ref.get();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
-    void stop() throws Exception { tomcat.stop(); }
-    void destroy() throws Exception { tomcat.destroy(); }
-}
-
+    // Context extractor di test, come nel tuo test originale
+    static io.modelcontextprotocol.server.McpTransportContextExtractor<javax.servlet.http.HttpServletRequest>
+        TEST_CONTEXT_EXTRACTOR = (r) ->
+            McpTransportContext.create(java.util.Collections.singletonMap("important", "value")); // [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/HttpServletSseIntegrationTests.txt)
 }
