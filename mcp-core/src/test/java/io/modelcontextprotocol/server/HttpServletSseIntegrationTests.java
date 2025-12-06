@@ -11,6 +11,7 @@ import java.net.Socket;
 import java.net.URL;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.stream.Stream;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -18,6 +19,7 @@ import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
 import io.modelcontextprotocol.common.McpTransportContext;
+import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider;
 import io.modelcontextprotocol.server.transport.TomcatTestUtil;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -26,34 +28,45 @@ import org.apache.catalina.LifecycleException;
 import org.apache.catalina.LifecycleState;
 import org.apache.catalina.startup.Tomcat;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.provider.Arguments;
 
 @Timeout(15)
 class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationTests {
 
-    private static final String CUSTOM_SSE_ENDPOINT = "/somePath/sse";            // come nel test originale [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/smoketest_completo.txt)
-    private static final String CUSTOM_MESSAGE_ENDPOINT = "/otherPath/mcp/message"; // come nel test originale [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/smoketest_completo.txt)
+    private static final String CUSTOM_SSE_ENDPOINT = "/somePath/sse";
+    private static final String CUSTOM_MESSAGE_ENDPOINT = "/otherPath/mcp/message";
+
+    // ===== factory per i ParameterizedTest (ripristinata) =====
+    static Stream<Arguments> clientsForTesting() {
+        // Almeno un tipo di client: httpclient (come nello smoke e nel tuo test originario)
+        return Stream.of(Arguments.of("httpclient"));
+    }
 
     private HttpServletSseServerTransportProvider mcpServerTransportProvider;
     private Tomcat tomcat;
+
     private HttpClientSseClientTransport transport;
     private McpSyncClient client;
+
+    // Avvio del server MCP lato servlet (popola sessionFactory)
+    private McpAsyncServer asyncServer;
 
     private int port; // porta dedicata per ogni metodo di test
 
     @BeforeEach
     public void before() {
         // 0) Porta per-test (elimina collisioni)
-        port = TomcatTestUtil.findAvailablePort();                                  // [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/smoketest_completo.txt)
+        port = TomcatTestUtil.findAvailablePort();
 
         // 1) Costruisci il provider come nel test originale
         mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
                 .contextExtractor(TEST_CONTEXT_EXTRACTOR)
                 .messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
                 .sseEndpoint(CUSTOM_SSE_ENDPOINT)
-                .build();                                                            // [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/smoketest_completo.txt)
+                .build();
 
         // 2) Avvia Tomcat embedded usando la tua utility
-        tomcat = TomcatTestUtil.createTomcatServer("", port, mcpServerTransportProvider); // [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/smoketest_completo.txt)
+        tomcat = TomcatTestUtil.createTomcatServer("", port, mcpServerTransportProvider);
         try {
             tomcat.getConnector(); // assicura la creazione del connector
             tomcat.start();
@@ -63,26 +76,32 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
             throw new RuntimeException("Failed to start embedded Tomcat", e);
         }
 
-        // 3) Transport SSE client-side
-        System.out.println("preparo client transport");
-        transport = HttpClientSseClientTransport.builder("http://localhost:" + port) // [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/smoketest_completo.txt)
-                .sseEndpoint(CUSTOM_SSE_ENDPOINT)                                     // [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/smoketest_completo.txt)
+        // 3) 🔴 Avvia anche il server MCP (popola sessionFactory nel provider)
+        asyncServer = McpServer.async(mcpServerTransportProvider)
+                .serverInfo("integration-server", "1.0.0")
+                .requestTimeout(Duration.ofSeconds(30))
                 .build();
 
-        // 4) Client MCP sync
+        // 4) Transport SSE client-side
+        System.out.println("preparo client transport");
+        transport = HttpClientSseClientTransport.builder("http://localhost:" + port)
+                .sseEndpoint(CUSTOM_SSE_ENDPOINT)
+                .build();
+
+        // 5) Client MCP sync
         System.out.println("preparo client mcp (sync)");
         client = McpClient.sync(transport)
                 .clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
                 .requestTimeout(Duration.ofSeconds(30))
                 .build();
 
-        // 5) Readiness SSE prima di initialize (evita race)
+        // 6) Readiness SSE prima di initialize (evita race)
         assertTrue(waitForHttpReady(CUSTOM_SSE_ENDPOINT, Duration.ofSeconds(6)),
                    "SSE non pronta, impossibile inizializzare il client");
 
-        // 6) initialize (blocking) + diagnostica endpoint
+        // 7) initialize (blocking) + diagnostica endpoint
         System.out.println("inizializzo client");
-        McpSchema.InitializeResult init = client.initialize();
+        McpSchema.InitializeResult init = client.initialize(); // se sessionFactory è null → NPE lato servlet
         System.out.println("initialized: protocol=" + init.protocolVersion());
         System.out.println("messageEndpoint = " + readMessageEndpoint(transport));
         System.out.println("fine before");
@@ -105,11 +124,14 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
                 transport.closeGracefully().block();  // 2) chiudi il transport
             }
             if (mcpServerTransportProvider != null) {
-                mcpServerTransportProvider.closeGracefully().block(); // 3) chiudi lato server
+                mcpServerTransportProvider.closeGracefully().block(); // 3) chiudi lato server/transport
+            }
+            if (asyncServer != null) {
+                asyncServer.closeGracefully().block(); // 4) chiudi il server MCP
             }
             if (tomcat != null) {
-                tomcat.stop();                        // 4) ferma Tomcat
-                tomcat.destroy();                     // 5) distruggi Tomcat
+                tomcat.stop();                        // 5) ferma Tomcat
+                tomcat.destroy();                     // 6) distruggi Tomcat
             }
         } catch (LifecycleException e) {
             throw new RuntimeException("Failed to stop Tomcat", e);
@@ -117,19 +139,22 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
             client = null;
             transport = null;
             mcpServerTransportProvider = null;
+            asyncServer = null;
             tomcat = null;
         }
         System.out.println("Risorse chiuse.");
     }
 
     @Override
-    protected io.modelcontextprotocol.server.McpServer.AsyncSpecification<?> prepareAsyncServerBuilder() {
-        return io.modelcontextprotocol.server.McpServer.async(this.mcpServerTransportProvider); // come nel tuo test [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/smoketest_completo.txt)
+    protected McpServer.AsyncSpecification<?> prepareAsyncServerBuilder() {
+        // coerente con i tuoi test originari
+        return McpServer.async(this.mcpServerTransportProvider);
     }
 
     @Override
-    protected io.modelcontextprotocol.server.McpServer.SyncSpecification<?> prepareSyncServerBuilder() {
-        return io.modelcontextprotocol.server.McpServer.sync(this.mcpServerTransportProvider);  // come nel tuo test [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/smoketest_completo.txt)
+    protected McpServer.SyncSpecification<?> prepareSyncServerBuilder() {
+        // coerente con i tuoi test originari
+        return McpServer.sync(this.mcpServerTransportProvider);
     }
 
     @Override
@@ -173,17 +198,17 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
     @SuppressWarnings("unchecked")
     private String readMessageEndpoint(HttpClientSseClientTransport transport) {
         try {
-            java.lang.reflect.Field f = transport.getClass().getDeclaredField("messageEndpoint"); // come nel tuo test [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/smoketest_completo.txt)
+            java.lang.reflect.Field f = transport.getClass().getDeclaredField("messageEndpoint");
             f.setAccessible(true);
             java.util.concurrent.atomic.AtomicReference<String> ref =
                     (java.util.concurrent.atomic.AtomicReference<String>) f.get(transport);
             return ref.get();
         } catch (Exception e) {
             return null;
-        }
+        } 
     }
 
     static io.modelcontextprotocol.server.McpTransportContextExtractor<HttpServletRequest>
         TEST_CONTEXT_EXTRACTOR = (r) ->
-            McpTransportContext.create(Collections.singletonMap("important", "value")); // come nel tuo test [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/smoketest_completo.txt)
+            McpTransportContext.create(Collections.singletonMap("important", "value"));
 }
