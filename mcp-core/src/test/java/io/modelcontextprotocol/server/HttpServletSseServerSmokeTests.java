@@ -154,19 +154,19 @@ class HttpServletSseServerSmokeTests {
      * Sostituisci l’implementazione con la tua (ad es. builder del Tomcat, addContext, addServlet, start()).
      */
 
+
 private ServerHandle startTomcatOn(int port) throws Exception {
+    System.out.println("Avvio Tomcat su porta " + port);
+
     org.apache.catalina.startup.Tomcat tomcat = new org.apache.catalina.startup.Tomcat();
+    tomcat.setBaseDir(java.nio.file.Files.createTempDirectory("tomcat-smoke").toString());
     tomcat.setPort(port);
 
-    // Base dir temporanea
-    tomcat.setBaseDir(java.nio.file.Files.createTempDirectory("tomcat-smoke").toString());
-
-    // Context root "" (ROOT)
+    // Context ROOT
     String docBase = new java.io.File(".").getAbsolutePath();
     org.apache.catalina.Context ctx = tomcat.addContext("", docBase);
 
-    // Mappiamo almeno una servlet "ping" sulla root,
-    // così la GET "/" risponde 200.
+    // Servlet "ping" per la root "/" (risponde 200), utile per readiness
     javax.servlet.http.HttpServlet pingServlet = new javax.servlet.http.HttpServlet() {
         @Override protected void doGet(javax.servlet.http.HttpServletRequest req,
                                        javax.servlet.http.HttpServletResponse resp)
@@ -176,18 +176,23 @@ private ServerHandle startTomcatOn(int port) throws Exception {
             resp.getWriter().write("OK");
         }
     };
-
     tomcat.addServlet("", "ping", pingServlet);
     ctx.addServletMappingDecoded("/", "ping");
 
-    // Se hai già la tua servlet SSE, puoi aggiungere anche quella:
+    // (Se vuoi già testare la tua SSE, mappa anche l’endpoint reale)
     // javax.servlet.http.HttpServlet sseServlet = new HttpServletSseServerTransportProvider(...);
     // tomcat.addServlet("", "mcpServlet", sseServlet);
     // ctx.addServletMappingDecoded(SSE_PATH, "mcpServlet");
 
+    // 🔴 Punto chiave: inizializza il connector PRIMA di start
+    tomcat.getConnector();
+
     tomcat.start();
+    System.out.println("Tomcat avviato su porta " + port);
+
     return new ServerHandle(port, tomcat);
 }
+
 
 
     /**
