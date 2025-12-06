@@ -38,49 +38,65 @@ class HttpServletSseServerSmokeTests {
 
     // Valore catturato dall'handshake initialize
     private Optional<String> announcedMessageEndpoint = Optional.empty();
+    
 
-    // ====== Lifecycle per-test con porta dedicata ======
-    @BeforeEach
-    void setUp() throws Exception {
-        System.out.println("sono in before each");
-        port = TomcatTestUtil.findAvailablePort(); // usa la stessa utility del tuo test [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/HttpServletSseIntegrationTests.txt)
 
-        // Costruisci il provider *come nel test originale*
-        provider = HttpServletSseServerTransportProvider.builder()
-                .contextExtractor(TEST_CONTEXT_EXTRACTOR)
-                .messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
-                .sseEndpoint(CUSTOM_SSE_ENDPOINT)
-                .build();
+ // campi
+ private io.modelcontextprotocol.server.McpAsyncServer asyncServer; // mantieni un riferimento per chiusura
 
-        // Avvia Tomcat usando la tua utility
-        System.out.println("Avvio Tomcat su porta " + port);
-        tomcat = TomcatTestUtil.createTomcatServer("", port, provider); // [1](https://ibm-my.sharepoint.com/personal/nicola_vaglica_it_ibm_com/Documents/File%20di%20Microsoft%20Copilot%20Chat/HttpServletSseIntegrationTests.txt)
+ @BeforeEach
+ void setUp() throws Exception {
+     System.out.println("sono in before each");
+     port = TomcatTestUtil.findAvailablePort();
 
-        // (Extra) assicurati che il connector esista prima di start
-        tomcat.getConnector();
-        tomcat.start();
-        System.out.println("Tomcat avviato su porta " + port);
-    }
+     // Provider come nel test originale
+     provider = HttpServletSseServerTransportProvider.builder()
+             .contextExtractor(TEST_CONTEXT_EXTRACTOR)
+             .messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
+             .sseEndpoint(CUSTOM_SSE_ENDPOINT)
+             .build();
 
-    @AfterEach
-    void tearDown() throws Exception {
-        System.out.println("Chiusura risorse...");
-        try {
-            // Chiudi lato server (trasporto) prima del container
-            if (provider != null) {
-                provider.closeGracefully().block();
-            }
-            if (tomcat != null) {
-                tomcat.stop();
-                tomcat.destroy();
-            }
-        } finally {
-            provider = null;
-            tomcat = null;
-            announcedMessageEndpoint = Optional.empty();
-        }
-        System.out.println("Risorse chiuse.");
-    }
+     // Avvia Tomcat
+     System.out.println("Avvio Tomcat su porta " + port);
+     tomcat = TomcatTestUtil.createTomcatServer("", port, provider);
+     tomcat.getConnector();
+     tomcat.start();
+     System.out.println("Tomcat avviato su porta " + port);
+
+     // 🔴 Avvia anche il server MCP (popola sessionFactory nel provider)
+     asyncServer = io.modelcontextprotocol.server.McpServer.async(provider)
+             .serverInfo("smoke-server", "1.0.0")
+             .requestTimeout(Duration.ofSeconds(30))
+             .build();
+ }
+
+ @AfterEach
+ void tearDown() throws Exception {
+     System.out.println("Chiusura risorse...");
+     try {
+         // chiudi prima il server MCP (per terminare le sessioni SSE aperte)
+         if (asyncServer != null) {
+             asyncServer.closeGracefully().block();
+         }
+         // poi il transport provider
+         if (provider != null) {
+             provider.closeGracefully().block();
+         }
+         // infine il container
+         if (tomcat != null) {
+             tomcat.stop();
+             tomcat.destroy();
+         }
+     } finally {
+         asyncServer = null;
+         provider = null;
+         tomcat = null;
+         announcedMessageEndpoint = Optional.empty();
+     }
+     System.out.println("Risorse chiuse.");
+ }
+
+  
 
     // ====== Test 1: il server è pronto su SSE (solo readiness HTTP) ======
     @Test @Order(1)
