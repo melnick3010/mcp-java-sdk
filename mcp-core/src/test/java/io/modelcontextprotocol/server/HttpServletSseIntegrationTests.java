@@ -56,18 +56,17 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 
 	@BeforeEach
 	public void before() {
-		// 0) Porta per-test (elimina collisioni)
+		// 0) Porta per-test
 		port = TomcatTestUtil.findAvailablePort();
 
-		// 1) Costruisci il provider come nel test originale
+		// 1) Costruisci provider + avvio Tomcat
 		mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
 				.contextExtractor(TEST_CONTEXT_EXTRACTOR).messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
 				.sseEndpoint(CUSTOM_SSE_ENDPOINT).build();
 
-		// 2) Avvia Tomcat embedded usando la tua utility
 		tomcat = TomcatTestUtil.createTomcatServer("", port, mcpServerTransportProvider);
 		try {
-			tomcat.getConnector(); // assicura la creazione del connector
+			tomcat.getConnector();
 			tomcat.start();
 			assertThat(tomcat.getServer().getState()).isEqualTo(LifecycleState.STARTED);
 			System.out.println("Tomcat avviato su porta " + port);
@@ -75,27 +74,30 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 			throw new RuntimeException("Failed to start embedded Tomcat", e);
 		}
 
-		// 3) 🔴 Avvia anche il server MCP (popola sessionFactory nel provider)
+		// 2) Avvia il server MCP (popola sessionFactory lato servlet)
 		asyncServer = McpServer.async(mcpServerTransportProvider).serverInfo("integration-server", "1.0.0")
 				.requestTimeout(Duration.ofSeconds(30)).build();
 
-		// 4) Transport SSE client-side
+		// 🔴 3) Popola i builder per i test parametrizzati
+		// (il base class usa clientBuilders.get(name).build() nei test)
+		prepareClients(port, CUSTOM_MESSAGE_ENDPOINT);
+
+		// 4) Transport & client per la parte “non parametrizzata” del test di handshake
 		System.out.println("preparo client transport");
 		transport = HttpClientSseClientTransport.builder("http://localhost:" + port).sseEndpoint(CUSTOM_SSE_ENDPOINT)
 				.build();
 
-		// 5) Client MCP sync
 		System.out.println("preparo client mcp (sync)");
 		client = McpClient.sync(transport).clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
 				.requestTimeout(Duration.ofSeconds(30)).build();
 
-		// 6) Readiness SSE prima di initialize (evita race)
+		// 5) Readiness SSE prima di initialize
 		assertTrue(waitForHttpReady(CUSTOM_SSE_ENDPOINT, Duration.ofSeconds(6)),
 				"SSE non pronta, impossibile inizializzare il client");
 
-		// 7) initialize (blocking) + diagnostica endpoint
+		// 6) initialize (blocking)
 		System.out.println("inizializzo client");
-		McpSchema.InitializeResult init = client.initialize(); // se sessionFactory è null → NPE lato servlet
+		McpSchema.InitializeResult init = client.initialize();
 		System.out.println("initialized: protocol=" + init.protocolVersion());
 		System.out.println("messageEndpoint = " + readMessageEndpoint(transport));
 		System.out.println("fine before");
