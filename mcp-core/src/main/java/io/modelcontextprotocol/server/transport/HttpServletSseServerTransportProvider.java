@@ -286,7 +286,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		this.sessions.put(sessionId, session);
 
 		// Event 'endpoint' (message URL con query ?sessionId=...)
-		String endpointUrl = buildEndpointUrl(sessionId);
+		String endpointUrl = buildEndpointUrl(request,sessionId);
 
 		// Flush anche dell'evento
 		sendEvent(writer, ENDPOINT_EVENT_TYPE, endpointUrl);
@@ -310,6 +310,46 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		}
 		return this.baseUrl + this.messageEndpoint + "?sessionId=" + sessionId;
 	}
+	
+
+private String buildEndpointUrl(HttpServletRequest request, String sessionId) {
+    // Deriva scheme + host + port dalla richiesta SSE
+    String scheme = request.getScheme();
+    String host = request.getServerName();
+    int port = request.getServerPort();
+
+    // Deriva il base path del servlet/context corrente
+    // Esempio: se l’SSE è su /somePath/sse, e messageEndpoint = /mcp/message,
+    // l’endpoint finale diventa /somePath/mcp/message
+    String contextPath = request.getContextPath();      // es. "" o "/app"
+    String servletPath = request.getServletPath();      // es. "/somePath/*"
+    String ssePath     = request.getRequestURI();       // es. "/somePath/sse"
+
+    // Calcola il "directory" del SSE path, togliendo il segmento finale "sse"
+    int lastSlash = ssePath.lastIndexOf('/');
+    String basePath = (lastSlash > 0) ? ssePath.substring(0, lastSlash) : "";
+    // Ora basePath è "/somePath"
+
+    // Assicura che messageEndpoint sia normalizzato (con leading slash)
+    String endpointPath = (this.messageEndpoint.startsWith("/"))
+            ? this.messageEndpoint
+            : "/" + this.messageEndpoint;
+
+    // Costruisci il path finale mantenendo lo stesso basePath dell’SSE
+    String fullPath = basePath + endpointPath;
+
+    // Ricostruisci l’URL assoluto (include scheme/host/port)
+    StringBuilder url = new StringBuilder();
+    url.append(scheme).append("://").append(host);
+    // Includi port solo se non standard
+    if (!("http".equalsIgnoreCase(scheme) && port == 80) &&
+        !("https".equalsIgnoreCase(scheme) && port == 443)) {
+        url.append(':').append(port);
+    }
+    url.append(fullPath).append("?sessionId=").append(sessionId);
+    return url.toString();
+}
+
 
 	/**
 	 * Handles POST requests for client messages.
@@ -332,6 +372,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		}
 
 		String requestURI = request.getRequestURI();
+		logger.info("SSE doPost() requestURI={}", requestURI);
 		if (!requestURI.endsWith(messageEndpoint)) {
 			response.sendError(HttpServletResponse.SC_NOT_FOUND);
 			return;
