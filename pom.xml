@@ -65,7 +65,7 @@
 		<javax.servlet.version>3.1.0</javax.servlet.version> <!-- usa javax, NON jakarta -->
 		<tomcat.version>9.0.87</tomcat.version>
 		<!-- Plugin versions -->
-		<spring-javaformat-maven-plugin.version>0.0.36</spring-javaformat-maven-plugin.version>
+		<spring-javaformat-maven-plugin.version>0.0.28</spring-javaformat-maven-plugin.version>
 		<maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
 		<maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
 		<bnd-maven-plugin.version>6.3.1</bnd-maven-plugin.version> <!-- stabile su JDK8 -->
@@ -178,9 +178,6 @@
 					<!-- Formato report -->
 					<reportFormat>plain</reportFormat>
 					<argLine>
-      --add-opens=java.base/java.io=ALL-UNNAMED
-      --add-opens=java.base/java.lang=ALL-UNNAMED
-      --add-opens=java.rmi/sun.rmi.transport=ALL-UNNAMED
     </argLine>
 				</configuration>
 			</plugin>
