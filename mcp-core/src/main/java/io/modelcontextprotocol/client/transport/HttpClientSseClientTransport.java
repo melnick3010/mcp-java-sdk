@@ -176,15 +176,24 @@ public class HttpClientSseClientTransport implements McpClientTransport {
                             else if (MESSAGE_EVENT_TYPE.equals(eventType)) {
                                 try {
                                     JSONRPCMessage incoming = McpSchema.deserializeJsonRpcMessage(jsonMapper, data);
+                                    // Distinzione corretta tra REQUEST vs RESPONSE/NOTIFICATION:
+                                    Mono<JSONRPCMessage> out = handler.apply(Mono.just(incoming));
 
-                                    // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-                                    // IMPORTANT: Applica il handler e INVIA la risposta al server via POST
-                                    // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-                                    handler.apply(Mono.just(incoming))
-                                           .flatMap(this::sendMessage) // POST al messageEndpoint
+                                    if (incoming instanceof McpSchema.JSONRPCRequest) {
+                                        // Richiesta dal server al client -> calcola response e inviala via POST
+																																																		
+																	  
+                                        out.flatMap(this::sendMessage)
                                            .doOnError(ex -> logger.error("Failed to handle/send response", ex))
                                            .onErrorResume(ex -> Mono.empty())
                                            .subscribe();
+                                    } else {
+                                        // Response del server a una request del client (o Notification) -> NON POST
+                                        // Lascia che il handler completi la pending localmente.
+                                        out.doOnError(ex -> logger.error("Failed to handle incoming message", ex))
+                                           .onErrorResume(ex -> Mono.empty())
+                                           .subscribe();
+                                    }
                                 }
                                 catch (IOException e) {
                                     logger.error("Failed to parse SSE message", e);
