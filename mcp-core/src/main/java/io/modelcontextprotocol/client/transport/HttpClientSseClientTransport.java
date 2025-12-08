@@ -190,14 +190,36 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 														: "UNKNOWN";
 								logger.info("SSE MESSAGE PARSED: kind={}", kind);
 
-								Mono<JSONRPCMessage> out = handler.apply(Mono.just(incoming));
+								Mono<JSONRPCMessage> out = handler.apply(Mono.just(incoming)).doOnNext(msg -> {
+									String kindOut = (msg instanceof McpSchema.JSONRPCRequest) ? "REQUEST"
+											: (msg instanceof McpSchema.JSONRPCResponse) ? "RESPONSE"
+													: (msg instanceof McpSchema.JSONRPCNotification) ? "NOTIFICATION"
+															: "UNKNOWN";
+
+									Object idOut = null;
+									if (msg instanceof McpSchema.JSONRPCRequest)
+										idOut = ((McpSchema.JSONRPCRequest) msg).id();
+									if (msg instanceof McpSchema.JSONRPCResponse)
+										idOut = ((McpSchema.JSONRPCResponse) msg).id();
+
+									logger.info("CLIENT HANDLER OUTPUT: kind={}, id={}", kindOut, idOut);
+								});
 
 								if (incoming instanceof McpSchema.JSONRPCRequest) {
 									logger.info("DISPATCH: kind=REQUEST -> WILL POST response to stream endpoint");
 									final String targetEndpoint = endpointForThisStream;
-									out.flatMap(msg -> postToEndpoint(msg, targetEndpoint))
-											.doOnError(ex -> logger.error("Failed to handle/send response", ex))
+
+									out.flatMap(msg -> {
+										Object idOut = null;
+										if (msg instanceof McpSchema.JSONRPCRequest)
+											idOut = ((McpSchema.JSONRPCRequest) msg).id();
+										if (msg instanceof McpSchema.JSONRPCResponse)
+											idOut = ((McpSchema.JSONRPCResponse) msg).id();
+										logger.info("CLIENT POST PREPARED: endpoint={}, id={}", targetEndpoint, idOut);
+										return postToEndpoint(msg, targetEndpoint);
+									}).doOnError(ex -> logger.error("Failed to handle/send response", ex))
 											.onErrorResume(ex -> Mono.empty()).subscribe();
+
 								} else {
 									logger.info("DISPATCH: kind={} -> NO POST (handled locally)", kind);
 									out.doOnError(ex -> logger.error("Failed to handle incoming message", ex))
@@ -216,6 +238,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	}
 
 	// Helper: POST verso un endpoint esplicito (quello del corrente stream)
+
 	private Mono<Void> postToEndpoint(JSONRPCMessage message, String endpoint) {
 		return Mono.defer(() -> {
 			if (endpoint == null || isClosing) {
@@ -224,6 +247,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			return Mono.fromCallable(() -> {
 				String jsonBody = jsonMapper.writeValueAsString(message);
 				URI postUri = Utils.resolveUri(this.baseUri, endpoint);
+
 				org.apache.http.client.methods.RequestBuilder rb = org.apache.http.client.methods.RequestBuilder.post()
 						.setUri(postUri).addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
 						.addHeader(MCP_PROTOCOL_VERSION_HEADER_NAME, MCP_PROTOCOL_VERSION)
@@ -235,11 +259,17 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 						.block();
 
 				org.apache.http.client.methods.HttpUriRequest request = rb.build();
+
+				// --- NUOVO: cronometro per latenza POST ---
+				final long t0 = System.nanoTime();
+
 				try (CloseableHttpResponse response = httpClient.execute(request)) {
 					int statusCode = response.getStatusLine().getStatusCode();
 					if (statusCode < 200 || statusCode >= 300) {
 						throw new McpTransportException("Failed to send message. Status: " + statusCode);
 					}
+					long elapsedMs = (System.nanoTime() - t0) / 1_000_000;
+					logger.info("CLIENT POST SUCCESS: status={}, elapsedMs={}", statusCode, elapsedMs);
 				}
 				return null;
 			}).subscribeOn(Schedulers.boundedElastic()).then();

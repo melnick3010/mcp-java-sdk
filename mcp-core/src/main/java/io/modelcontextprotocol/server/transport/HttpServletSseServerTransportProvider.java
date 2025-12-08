@@ -419,8 +419,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		if (message instanceof McpSchema.JSONRPCRequest)
 			id = ((McpSchema.JSONRPCRequest) message).id();
 		if (message instanceof McpSchema.JSONRPCResponse)
-			id = ((McpSchema.JSONRPCResponse) message).id();
-		logger.info("SERVER doPost: kind={}, id={}, uri={}", kind, id, request.getRequestURI());
+			id = ((McpSchema.JSONRPCResponse) message).id();		
+		logger.info("SERVER doPost: kind={}, id={}, sessionId={}, uri={}", kind, id, sessionId, request.getRequestURI());
 
 		long t0 = System.nanoTime();
 		try {
