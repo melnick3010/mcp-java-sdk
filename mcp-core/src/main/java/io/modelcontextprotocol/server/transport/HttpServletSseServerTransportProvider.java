@@ -415,10 +415,21 @@ private String buildEndpointUrl(HttpServletRequest request, String sessionId) {
 			final McpTransportContext transportContext = this.contextExtractor.extract(request);
 			McpSchema.JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(jsonMapper, body.toString());
 
+			 // LOG: tipo e id del messaggio in ingresso
+		    String kind = (message instanceof McpSchema.JSONRPCRequest) ? "REQUEST"
+		            : (message instanceof McpSchema.JSONRPCResponse) ? "RESPONSE"
+		            : (message instanceof McpSchema.JSONRPCNotification) ? "NOTIFICATION"
+		            : "UNKNOWN";
+		    Object id = null;
+		    if (message instanceof McpSchema.JSONRPCRequest) id = ((McpSchema.JSONRPCRequest) message).id();
+		    if (message instanceof McpSchema.JSONRPCResponse) id = ((McpSchema.JSONRPCResponse) message).id();
+		    logger.info("SERVER doPost: kind={}, id={}, uri={}", kind, id, request.getRequestURI());
+		    long t0 = System.nanoTime();
 			// Process the message through the session's handle method
 			// Block for Servlet compatibility
 			session.handle(message).contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).block();
-
+			long dtMs = (System.nanoTime() - t0) / 1_000_000;
+	        logger.info("SERVER doPost COMPLETED: kind={}, id={}, elapsedMs={}", kind, id, dtMs);
 			response.setStatus(HttpServletResponse.SC_OK);
 		}
 		catch (Exception e) {
