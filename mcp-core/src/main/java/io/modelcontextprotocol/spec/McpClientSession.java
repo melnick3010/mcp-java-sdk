@@ -259,6 +259,7 @@ public class McpClientSession implements McpSession {
 				@Override
 				public void accept(MonoSink<McpSchema.JSONRPCResponse> pendingResponseSink) {
 					logger.debug("Sending message for method {}", method);
+					logger.info("CLIENT sendRequest: method={}, id={}", method, requestId);
 					pendingResponses.put(requestId, pendingResponseSink);
 					McpSchema.JSONRPCRequest jsonrpcRequest = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION,
 							method, requestId, requestParams);
@@ -279,6 +280,7 @@ public class McpClientSession implements McpSession {
 			}))
 			.timeout(this.requestTimeout)
 			.handle((jsonRpcResponse, deliveredResponseSink) -> {
+				logger.info("CLIENT receivedResponse: id={} (completing)", requestId);
 				if (jsonRpcResponse.error() != null) {
 					logger.error("Error handling request: {}", jsonRpcResponse.error());
 					deliveredResponseSink.error(new McpError(jsonRpcResponse.error()));
