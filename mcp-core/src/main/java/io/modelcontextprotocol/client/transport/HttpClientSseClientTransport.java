@@ -138,76 +138,97 @@ public class HttpClientSseClientTransport implements McpClientTransport {
         }
     }
 
-    @Override
-    public Mono<Void> connect(Function<Mono<JSONRPCMessage>, Mono<JSONRPCMessage>> handler) {
-        URI uri = Utils.resolveUri(this.baseUri, this.sseEndpoint);
 
-        return Mono.fromRunnable(() -> {
-            // 1) Costruisci RequestBuilder (GET) con headers
-            org.apache.http.client.methods.RequestBuilder rb = org.apache.http.client.methods.RequestBuilder.get()
-                .setUri(uri)
-                .addHeader("Accept", "text/event-stream")
-                .addHeader("Cache-Control", "no-cache")
-                .addHeader(MCP_PROTOCOL_VERSION_HEADER_NAME, MCP_PROTOCOL_VERSION);
+@Override
+public Mono<Void> connect(Function<Mono<JSONRPCMessage>, Mono<JSONRPCMessage>> handler) {
+    URI uri = Utils.resolveUri(this.baseUri, this.sseEndpoint);
+    return Mono.fromRunnable(() -> {
+        org.apache.http.client.methods.RequestBuilder rb = org.apache.http.client.methods.RequestBuilder.get()
+            .setUri(uri)
+            .addHeader("Accept", "text/event-stream")
+            .addHeader("Cache-Control", "no-cache")
+            .addHeader(MCP_PROTOCOL_VERSION_HEADER_NAME, MCP_PROTOCOL_VERSION);
 
-            // 2) Customizer
-            McpTransportContext transportContext = McpTransportContext.EMPTY;
-            rb = reactor.core.publisher.Mono
-                .from(this.httpRequestCustomizer.customize(rb, "GET", uri, (String) null, transportContext))
-                .block(); // boundedElastic; OK per I/O
+        McpTransportContext transportContext = McpTransportContext.EMPTY;
+        rb = reactor.core.publisher.Mono
+            .from(this.httpRequestCustomizer.customize(rb, "GET", uri, (String) null, transportContext))
+            .block();
 
-            // 3) Esegui GET SSE e leggi il flusso
-            org.apache.http.client.methods.HttpUriRequest request = rb.build();
-            try (CloseableHttpResponse response = httpClient.execute(request);
-                 BufferedReader reader = new BufferedReader(new InputStreamReader(response.getEntity().getContent()))) {
+        org.apache.http.client.methods.HttpUriRequest request = rb.build();
+        try (CloseableHttpResponse response = httpClient.execute(request);
+             BufferedReader reader = new BufferedReader(
+                 new InputStreamReader(response.getEntity().getContent()))) {
 
-                String line;
-                while ((line = reader.readLine()) != null && !isClosing) {
-                    if (line.startsWith("event:")) {
-                        String eventType = line.substring(6).trim();
-                        String dataLine = reader.readLine();
-                        if (dataLine != null && dataLine.startsWith("data:")) {
-                            String data = dataLine.substring(5).trim();
+            String line;
+            while ((line = reader.readLine()) != null && !isClosing) {
+                if (line.startsWith("event:")) {
+                    String eventType = line.substring(6).trim();
 
-                            if (ENDPOINT_EVENT_TYPE.equals(eventType)) {
-                                messageEndpoint.set(data);
-                                logger.debug("Discovered message endpoint: {}", data);
+                    // --- LOG DIAGNOSTICO: leggi una o più righe data: consecutive
+                    int dataLines = 0;
+                    StringBuilder dataBuilder = new StringBuilder();
+                    String next;
+                    reader.mark(8192); // buffer mark (best-effort)
+                    while ((next = reader.readLine()) != null) {
+                        if (next.startsWith("data:")) {
+                            if (dataLines > 0) dataBuilder.append('\n');
+                            dataBuilder.append(next.substring(5));
+                            dataLines++;
+                            continue;
+                        }
+                        // non è data:, riposiziona il reader all'inizio della riga non-data
+                        reader.reset();
+                        // ri-leggi la riga che non inizia con data: (per non perderla)
+                        line = next;
+                        break;
+                    }
+
+                    String data = dataBuilder.toString().trim();
+                    // Anteprima payload per debug (max 120 char)
+                    String preview = (data.length() <= 120) ? data : data.substring(0, 120) + "...";
+
+                    logger.info("SSE RAW EVENT: type={}, data_lines={}, payload_len={}, preview={}",
+                            eventType, dataLines, data.length(), preview);
+
+                    if (ENDPOINT_EVENT_TYPE.equals(eventType)) {
+                        messageEndpoint.set(data);
+                        logger.info("SSE ENDPOINT DISCOVERED: {}", data);
+                    }
+                    else if (MESSAGE_EVENT_TYPE.equals(eventType)) {
+                        try {
+                            JSONRPCMessage incoming = McpSchema.deserializeJsonRpcMessage(jsonMapper, data);
+                            String kind = (incoming instanceof McpSchema.JSONRPCRequest) ? "REQUEST"
+                                        : (incoming instanceof McpSchema.JSONRPCResponse) ? "RESPONSE"
+                                        : (incoming instanceof McpSchema.JSONRPCNotification) ? "NOTIFICATION"
+                                        : "UNKNOWN";
+                            logger.info("SSE MESSAGE PARSED: kind={}", kind);
+
+                            Mono<JSONRPCMessage> out = handler.apply(Mono.just(incoming));
+                            if (incoming instanceof McpSchema.JSONRPCRequest) {
+                                logger.info("DISPATCH: kind=REQUEST -> WILL POST response");
+                                out.flatMap(this::sendMessage)
+                                   .doOnError(ex -> logger.error("Failed to handle/send response", ex))
+                                   .onErrorResume(ex -> Mono.empty())
+                                   .subscribe();
+                            } else {
+                                logger.info("DISPATCH: kind={} -> NO POST (handled locally)", kind);
+                                out.doOnError(ex -> logger.error("Failed to handle incoming message", ex))
+                                   .onErrorResume(ex -> Mono.empty())
+                                   .subscribe();
                             }
-                            else if (MESSAGE_EVENT_TYPE.equals(eventType)) {
-                                try {
-                                    JSONRPCMessage incoming = McpSchema.deserializeJsonRpcMessage(jsonMapper, data);
-                                    // Distinzione corretta tra REQUEST vs RESPONSE/NOTIFICATION:
-                                    Mono<JSONRPCMessage> out = handler.apply(Mono.just(incoming));
-
-                                    if (incoming instanceof McpSchema.JSONRPCRequest) {
-                                        // Richiesta dal server al client -> calcola response e inviala via POST
-																																																		
-																	  
-                                        out.flatMap(this::sendMessage)
-                                           .doOnError(ex -> logger.error("Failed to handle/send response", ex))
-                                           .onErrorResume(ex -> Mono.empty())
-                                           .subscribe();
-                                    } else {
-                                        // Response del server a una request del client (o Notification) -> NON POST
-                                        // Lascia che il handler completi la pending localmente.
-                                        out.doOnError(ex -> logger.error("Failed to handle incoming message", ex))
-                                           .onErrorResume(ex -> Mono.empty())
-                                           .subscribe();
-                                    }
-                                }
-                                catch (IOException e) {
-                                    logger.error("Failed to parse SSE message", e);
-                                }
-                            }
+                        }
+                        catch (IOException e) {
+                            logger.error("Failed to parse SSE message", e);
                         }
                     }
                 }
             }
-            catch (IOException e) {
-                logger.error("Error during SSE connection", e);
-            }
-        }).subscribeOn(Schedulers.boundedElastic()).then();
-    }
+        } catch (IOException e) {
+            logger.error("Error during SSE connection", e);
+        }
+    }).subscribeOn(Schedulers.boundedElastic()).then();
+}
+
 
     @Override
     public Mono<Void> sendMessage(JSONRPCMessage message) {
