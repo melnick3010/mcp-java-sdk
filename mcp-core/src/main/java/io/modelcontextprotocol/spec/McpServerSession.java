@@ -121,6 +121,7 @@ public class McpServerSession implements McpLoggableSession {
 	@Override
 	public <T> Mono<T> sendRequest(String method, Object requestParams, TypeRef<T> typeRef) {
 		final String requestId = this.generateRequestId();
+		logger.info("SERVER sendRequest: method={}, id={}", method, requestId);
 		return Mono.<McpSchema.JSONRPCResponse>create(sink -> {
 			this.pendingResponses.put(requestId, sink);
 			McpSchema.JSONRPCRequest jsonrpcRequest = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION, method,
@@ -132,9 +133,12 @@ public class McpServerSession implements McpLoggableSession {
 			});
 		}).timeout(requestTimeout).handle((jsonRpcResponse, s) -> {
 			if (jsonRpcResponse.error() != null) {
+			 logger.error("SERVER sendRequest: id={} COMPLETED with error={}",
+                         requestId, jsonRpcResponse.error());
 				s.error(new McpError(jsonRpcResponse.error()));
 			}
 			else {
+			 logger.info("SERVER sendRequest: id={} COMPLETED with success", requestId);
 				if (typeRef.getType().equals(Void.class)) {
 					s.complete();
 				}
@@ -159,12 +163,15 @@ public class McpServerSession implements McpLoggableSession {
 			if (message instanceof McpSchema.JSONRPCResponse) {
 				McpSchema.JSONRPCResponse response = (McpSchema.JSONRPCResponse) message;
 				logger.debug("Received response: {}", response);
+				logger.info("SERVER handle(): incoming RESPONSE id={}", response.id());
 				if (response.id() != null) {
 					MonoSink<McpSchema.JSONRPCResponse> sink = pendingResponses.remove(response.id());
 					if (sink == null) {
 						logger.warn("Unexpected response for unknown id {}", response.id());
+						logger.warn("SERVER session: response id={} NOT FOUND in pending", response.id());
 					}
 					else {
+						logger.info("SERVER session: response id={} DELIVERED to pending", response.id());
 						sink.success(response);
 					}
 				}
@@ -178,6 +185,7 @@ public class McpServerSession implements McpLoggableSession {
 			else if (message instanceof McpSchema.JSONRPCRequest) {
 				McpSchema.JSONRPCRequest request = (McpSchema.JSONRPCRequest) message;
 				logger.debug("Received request: {}", request);
+				logger.info("SERVER handle(): incoming REQUEST method={}, id={}", request.method(), request.id());
 				return handleIncomingRequest(request, transportContext).onErrorResume(error -> {
 					McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError = (error instanceof McpError
 							&& ((McpError) error).getJsonRpcError() != null) ? ((McpError) error).getJsonRpcError()
@@ -186,6 +194,7 @@ public class McpServerSession implements McpLoggableSession {
 					McpSchema.JSONRPCResponse errorResponse = new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION,
 							request.id(), null, jsonRpcError);
 					// TODO: Should the error go to SSE or back as POST return?
+					logger.info("SERVER handle(): send ERROR response id={} via transport", request.id());
 					return this.transport.sendMessage(errorResponse).then(Mono.empty());
 				}).flatMap(this.transport::sendMessage);
 			}
@@ -205,6 +214,7 @@ public class McpServerSession implements McpLoggableSession {
 	/** Route JSON-RPC request to handler. */
 	private Mono<McpSchema.JSONRPCResponse> handleIncomingRequest(McpSchema.JSONRPCRequest request,
 			McpTransportContext transportContext) {
+		logger.info("SERVER handleIncomingRequest: method={}, id={}", request.method(), request.id());
 		return Mono.defer(() -> {
 			Mono<?> resultMono;
 			if (McpSchema.METHOD_INITIALIZE.equals(request.method())) {
@@ -219,6 +229,7 @@ public class McpServerSession implements McpLoggableSession {
 				McpRequestHandler<?> handler = this.requestHandlers.get(request.method());
 				if (handler == null) {
 					MethodNotFoundError error = getMethodNotFoundError(request.method());
+					logger.warn("SERVER handleIncomingRequest: handler NOT FOUND for method={}", request.method());
 					return Mono.just(new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, request.id(), null,
 							new McpSchema.JSONRPCResponse.JSONRPCError(McpSchema.ErrorCodes.METHOD_NOT_FOUND,
 									error.message(), error.data())));
@@ -227,12 +238,17 @@ public class McpServerSession implements McpLoggableSession {
 					.flatMap(exchange -> handler.handle(copyExchange(exchange, transportContext), request.params()));
 			}
 			return resultMono
-				.map(result -> new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, request.id(), result, null))
+				.map(result -> {
+	                McpSchema.JSONRPCResponse resp = new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, request.id(), result, null);
+	                logger.info("SERVER prepareResponse: id={} (will send via SSE)", request.id());
+	                return resp;
+				})
 				.onErrorResume(error -> {
 					McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError = (error instanceof McpError
 							&& ((McpError) error).getJsonRpcError() != null) ? ((McpError) error).getJsonRpcError()
 									: new McpSchema.JSONRPCResponse.JSONRPCError(McpSchema.ErrorCodes.INTERNAL_ERROR,
 											error.getMessage(), McpError.aggregateExceptionMessages(error));
+					logger.info("SERVER prepareErrorResponse: id={} (will send via SSE)", request.id());
 					return Mono.just(
 							new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, request.id(), null, jsonRpcError));
 				});
