@@ -531,30 +531,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 				// Not used
 			}
 		});
-		// Add listener to dispose subscription on timeout or error
-		asyncContext.addListener(new AsyncListener() {
-			@Override
-			public void onTimeout(AsyncEvent event) {
-				logger.warn("Async context timed out, disposing subscription");
-				subscription.dispose();
-			}
-			
-			@Override
-			public void onError(AsyncEvent event) {
-				logger.error("Async context error, disposing subscription");
-				subscription.dispose();
-			}
-			
-			@Override
-			public void onComplete(AsyncEvent event) {
-				// Subscription completes naturally, no action needed
-			}
-			
-			@Override
-			public void onStartAsync(AsyncEvent event) {
-				// No action needed
-			}
-		});
 	}
 
 	/**
