@@ -439,37 +439,54 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		
 		logger.info("SERVER doPost: Starting ASYNC processing for kind={}, id={}, thread={}", kind, id, Thread.currentThread().getName());
 		
+		// IMPORTANT: AsyncListener is intentionally NOT added here to prevent race conditions.
+		//
+		// Problem: The AsyncListener's onTimeout/onError handlers would dispose the subscription
+		// after the async context times out or encounters an error. However, for SSE responses,
+		// the subscription completes successfully and the async context is completed in the
+		// success handler (line ~459). The AsyncListener's lifecycle doesn't align with the SSE
+		// response lifecycle, creating a race condition where:
+		// 1. SSE response is sent successfully
+		// 2. Async context is completed (line ~459)
+		// 3. AsyncListener.onTimeout/onError fires AFTER successful completion
+		// 4. Subscription is incorrectly disposed despite successful response
+		//
+		// Solution: Resource cleanup is handled by the Reactive subscription itself:
+		// - Success handler completes the async context immediately after SSE response
+		// - Error handler completes the async context and sends error response
+		// - Reactive timeout (line ~447) handles long-running operations
+		// - No additional AsyncListener-based cleanup is needed or desired
+		//
+		// Alternative mechanisms ensure proper resource cleanup without race conditions:
+		// - Reactive timeout (55 seconds) shorter than async timeout (60 seconds)
+		// - AtomicBoolean 'completed' flag prevents duplicate completion attempts
+		// - Try-catch blocks handle IllegalStateException from already-completed contexts
+		
 		final long t0 = System.nanoTime();
 		final AtomicBoolean completed = new AtomicBoolean(false);
+		
 		Disposable subscription = session.handle(message)
 			.timeout(Duration.ofSeconds(55)) // Timeout shorter than async context timeout
 			.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
-			.subscribe(
-				v -> {
-					if (!completed.compareAndSet(false, true)) {
-						logger.debug("Async context already completed, skipping success handler");
-						return;
-					}
+			.doOnNext(v -> {
+				// Complete async context immediately after SSE message is sent
+				if (completed.compareAndSet(false, true)) {
 					long dtMs = (System.nanoTime() - t0) / 1_000_000;
-					logger.info("SERVER doPost ASYNC COMPLETED: kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs, Thread.currentThread().getName());
+					logger.info("SERVER doPost: SSE message sent, completing async context for kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs, Thread.currentThread().getName());
 					try {
-						HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
-						if (asyncResponse == null) {
-							logger.error("Async response is null");
-							return;
-						}
-						asyncResponse.setStatus(HttpServletResponse.SC_OK);
 						asyncContext.complete();
+						logger.debug("Async context completed after SSE response for kind={}, id={}", kind, id);
 					} catch (IllegalStateException e) {
 						logger.debug("Async context already completed or timed out: {}", e.getMessage());
 					} catch (Exception e) {
 						logger.error("Error completing async context: {}", e.getMessage());
-						try {
-							asyncContext.complete();
-						} catch (IllegalStateException ex) {
-							logger.debug("Async context already completed: {}", ex.getMessage());
-						}
 					}
+				}
+			})
+			.subscribe(
+				v -> {
+					// Success handler - async context already completed in doOnNext
+					logger.debug("Subscription completed successfully for kind={}, id={}", kind, id);
 				},
 				error -> {
 					if (!completed.compareAndSet(false, true)) {
@@ -502,35 +519,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 					}
 				}
 			);
-		
-		// Add AsyncListener to handle timeout events and dispose subscription
-		asyncContext.addListener(new AsyncListener() {
-			@Override
-			public void onComplete(AsyncEvent event) {
-				// Normal completion, no action needed
-			}
-			
-			@Override
-			public void onTimeout(AsyncEvent event) {
-				if (completed.compareAndSet(false, true)) {
-					logger.warn("Async context timed out for kind={}, id={}, disposing subscription", kind, id);
-					subscription.dispose();
-				}
-			}
-			
-			@Override
-			public void onError(AsyncEvent event) {
-				if (completed.compareAndSet(false, true)) {
-					logger.error("Async context error for kind={}, id={}, disposing subscription", kind, id);
-					subscription.dispose();
-				}
-			}
-			
-			@Override
-			public void onStartAsync(AsyncEvent event) {
-				// Not used
-			}
-		});
 	}
 
 	/**
@@ -623,7 +611,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 				try {
 					String jsonText = jsonMapper.writeValueAsString(message);
 					sendEvent(writer, MESSAGE_EVENT_TYPE, jsonText);
-					logger.debug("Message sent to session {}", sessionId);
+					logger.debug("Message sent to session {} via SSE", sessionId);
 				} catch (Exception e) {
 					logger.error("Failed to send message to session {}: {}", sessionId, e.getMessage());
 					sessions.remove(sessionId);
