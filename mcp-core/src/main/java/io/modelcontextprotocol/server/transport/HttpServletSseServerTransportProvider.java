@@ -419,35 +419,66 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		if (message instanceof McpSchema.JSONRPCRequest)
 			id = ((McpSchema.JSONRPCRequest) message).id();
 		if (message instanceof McpSchema.JSONRPCResponse)
-			id = ((McpSchema.JSONRPCResponse) message).id();		
+			id = ((McpSchema.JSONRPCResponse) message).id();
 		logger.info("SERVER doPost: kind={}, id={}, sessionId={}, uri={}, thread={}", kind, id, sessionId, request.getRequestURI(), Thread.currentThread().getName());
 
-		long t0 = System.nanoTime();
-		try {
-			logger.info("SERVER doPost BEFORE BLOCK: kind={}, id={}, thread={} - About to block waiting for session.handle()", kind, id, Thread.currentThread().getName());
-			session.handle(message).contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).block(); // punto
-																														// di
-																														// attesa
-			long dtMs = (System.nanoTime() - t0) / 1_000_000;
-			logger.info("SERVER doPost COMPLETED: kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs, Thread.currentThread().getName());
-
-			response.setStatus(HttpServletResponse.SC_OK);
-		} catch (Exception e) {
-			logger.error("Error processing message: {}", e.getMessage());
+		// RESPONSE messages can be handled immediately without blocking
+		// They just complete pending requests and don't need async processing
+		if (message instanceof McpSchema.JSONRPCResponse) {
+			logger.info("SERVER doPost: RESPONSE message - handling synchronously without blocking, thread={}", Thread.currentThread().getName());
 			try {
-				McpError mcpError = new McpError(e.getMessage());
-				response.setContentType(APPLICATION_JSON);
-				response.setCharacterEncoding(UTF_8);
-				response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-				String jsonError = jsonMapper.writeValueAsString(mcpError);
-				PrintWriter writer = response.getWriter();
-				writer.write(jsonError);
-				writer.flush();
-			} catch (IOException ex) {
-				logger.error(FAILED_TO_SEND_ERROR_RESPONSE, ex.getMessage());
+				session.handle(message).contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).block();
+				response.setStatus(HttpServletResponse.SC_OK);
+				return;
+			} catch (Exception e) {
+				logger.error("Error processing response message: {}", e.getMessage());
 				response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error processing message");
+				return;
 			}
 		}
+
+		// For REQUEST and NOTIFICATION messages, use async processing to avoid blocking
+		// This prevents deadlock when the server needs to send requests back to the client
+		final AsyncContext asyncContext = request.startAsync();
+		asyncContext.setTimeout(60000); // 60 second timeout
+		
+		logger.info("SERVER doPost: Starting ASYNC processing for kind={}, id={}, thread={}", kind, id, Thread.currentThread().getName());
+		
+		long t0 = System.nanoTime();
+		session.handle(message)
+			.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
+			.subscribe(
+				v -> {
+					long dtMs = (System.nanoTime() - t0) / 1_000_000;
+					logger.info("SERVER doPost ASYNC COMPLETED: kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs, Thread.currentThread().getName());
+					try {
+						HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
+						asyncResponse.setStatus(HttpServletResponse.SC_OK);
+						asyncContext.complete();
+					} catch (Exception e) {
+						logger.error("Error completing async context: {}", e.getMessage());
+						asyncContext.complete();
+					}
+				},
+				error -> {
+					logger.error("Error processing message asynchronously: {}", error.getMessage());
+					try {
+						HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
+						McpError mcpError = new McpError(error.getMessage());
+						asyncResponse.setContentType(APPLICATION_JSON);
+						asyncResponse.setCharacterEncoding(UTF_8);
+						asyncResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+						String jsonError = jsonMapper.writeValueAsString(mcpError);
+						PrintWriter writer = asyncResponse.getWriter();
+						writer.write(jsonError);
+						writer.flush();
+					} catch (IOException ex) {
+						logger.error(FAILED_TO_SEND_ERROR_RESPONSE, ex.getMessage());
+					} finally {
+						asyncContext.complete();
+					}
+				}
+			);
 	}
 
 	/**
