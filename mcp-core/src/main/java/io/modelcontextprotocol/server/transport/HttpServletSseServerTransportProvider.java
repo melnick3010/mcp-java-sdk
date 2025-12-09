@@ -16,6 +16,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.servlet.AsyncContext;
+import javax.servlet.AsyncEvent;
+import javax.servlet.AsyncListener;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -37,6 +39,7 @@ import io.modelcontextprotocol.util.KeepAliveScheduler;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -102,6 +105,11 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	public static final String SESSION_ID = "sessionId";
 
 	public static final String DEFAULT_BASE_URL = "";
+
+	/**
+	 * Timeout in milliseconds for async request processing
+	 */
+	private static final long ASYNC_TIMEOUT_MS = 60000;
 
 	/**
 	 * JSON mapper for serialization/deserialization
@@ -424,62 +432,129 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			id = null;
 		logger.info("SERVER doPost: kind={}, id={}, sessionId={}, uri={}, thread={}", kind, id, sessionId, request.getRequestURI(), Thread.currentThread().getName());
 
-		// RESPONSE messages can be handled immediately without blocking
-		// They just complete pending requests and don't need async processing
-		if (message instanceof McpSchema.JSONRPCResponse) {
-			logger.info("SERVER doPost: RESPONSE message - handling synchronously without blocking, thread={}", Thread.currentThread().getName());
-			try {
-				session.handle(message).contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).block();
-				response.setStatus(HttpServletResponse.SC_OK);
-				return;
-			} catch (Exception e) {
-				logger.error("Error processing response message: {}", e.getMessage());
-				response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error processing message");
-				return;
-			}
-		}
-
-		// For REQUEST and NOTIFICATION messages, use async processing to avoid blocking
-		// This prevents deadlock when the server needs to send requests back to the client
+		// Use async processing for all message types for consistency and better resource utilization
+		// This prevents blocking the servlet thread and improves performance under high load
 		final AsyncContext asyncContext = request.startAsync();
-		asyncContext.setTimeout(60000); // 60 second timeout
+		asyncContext.setTimeout(ASYNC_TIMEOUT_MS);
 		
 		logger.info("SERVER doPost: Starting ASYNC processing for kind={}, id={}, thread={}", kind, id, Thread.currentThread().getName());
 		
 		final long t0 = System.nanoTime();
-		session.handle(message)
+		final AtomicBoolean completed = new AtomicBoolean(false);
+		Disposable subscription = session.handle(message)
+			.timeout(Duration.ofSeconds(55)) // Timeout shorter than async context timeout
 			.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
-			.doOnSuccess(v -> {
-				long dtMs = (System.nanoTime() - t0) / 1_000_000;
-				logger.info("SERVER doPost ASYNC COMPLETED: kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs, Thread.currentThread().getName());
-				try {
-					HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
-					asyncResponse.setStatus(HttpServletResponse.SC_OK);
-					asyncContext.complete();
-				} catch (Exception e) {
-					logger.error("Error completing async context: {}", e.getMessage());
-					asyncContext.complete();
+			.subscribe(
+				v -> {
+					if (!completed.compareAndSet(false, true)) {
+						logger.debug("Async context already completed, skipping success handler");
+						return;
+					}
+					long dtMs = (System.nanoTime() - t0) / 1_000_000;
+					logger.info("SERVER doPost ASYNC COMPLETED: kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs, Thread.currentThread().getName());
+					try {
+						HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
+						if (asyncResponse == null) {
+							logger.error("Async response is null");
+							return;
+						}
+						asyncResponse.setStatus(HttpServletResponse.SC_OK);
+						asyncContext.complete();
+					} catch (IllegalStateException e) {
+						logger.debug("Async context already completed or timed out: {}", e.getMessage());
+					} catch (Exception e) {
+						logger.error("Error completing async context: {}", e.getMessage());
+						try {
+							asyncContext.complete();
+						} catch (IllegalStateException ex) {
+							logger.debug("Async context already completed: {}", ex.getMessage());
+						}
+					}
+				},
+				error -> {
+					if (!completed.compareAndSet(false, true)) {
+						logger.debug("Async context already completed, skipping error handler");
+						return;
+					}
+					logger.error("Error processing message asynchronously: {}", error.getMessage());
+					try {
+						HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
+						if (asyncResponse == null) {
+							logger.error("Async response is null");
+							return;
+						}
+						McpError mcpError = new McpError(error.getMessage());
+						asyncResponse.setContentType(APPLICATION_JSON);
+						asyncResponse.setCharacterEncoding(UTF_8);
+						asyncResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+						String jsonError = jsonMapper.writeValueAsString(mcpError);
+						PrintWriter writer = asyncResponse.getWriter();
+						writer.write(jsonError);
+						writer.flush();
+					} catch (IOException ex) {
+						logger.error(FAILED_TO_SEND_ERROR_RESPONSE, ex);
+					} finally {
+						try {
+							asyncContext.complete();
+						} catch (IllegalStateException ex) {
+							logger.debug("Async context already completed or timed out: {}", ex.getMessage());
+						}
+					}
 				}
-			})
-			.doOnError(error -> {
-				logger.error("Error processing message asynchronously: {}", error.getMessage());
-				try {
-					HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
-					McpError mcpError = new McpError(error.getMessage());
-					asyncResponse.setContentType(APPLICATION_JSON);
-					asyncResponse.setCharacterEncoding(UTF_8);
-					asyncResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-					String jsonError = jsonMapper.writeValueAsString(mcpError);
-					PrintWriter writer = asyncResponse.getWriter();
-					writer.write(jsonError);
-					writer.flush();
-				} catch (IOException ex) {
-					logger.error(FAILED_TO_SEND_ERROR_RESPONSE, ex.getMessage());
-				} finally {
-					asyncContext.complete();
+			);
+		
+		// Add AsyncListener to handle timeout events and dispose subscription
+		asyncContext.addListener(new AsyncListener() {
+			@Override
+			public void onComplete(AsyncEvent event) {
+				// Normal completion, no action needed
+			}
+			
+			@Override
+			public void onTimeout(AsyncEvent event) {
+				if (completed.compareAndSet(false, true)) {
+					logger.warn("Async context timed out for kind={}, id={}, disposing subscription", kind, id);
+					subscription.dispose();
 				}
-			})
-			.subscribe();
+			}
+			
+			@Override
+			public void onError(AsyncEvent event) {
+				if (completed.compareAndSet(false, true)) {
+					logger.error("Async context error for kind={}, id={}, disposing subscription", kind, id);
+					subscription.dispose();
+				}
+			}
+			
+			@Override
+			public void onStartAsync(AsyncEvent event) {
+				// Not used
+			}
+		});
+		// Add listener to dispose subscription on timeout or error
+		asyncContext.addListener(new AsyncListener() {
+			@Override
+			public void onTimeout(AsyncEvent event) {
+				logger.warn("Async context timed out, disposing subscription");
+				subscription.dispose();
+			}
+			
+			@Override
+			public void onError(AsyncEvent event) {
+				logger.error("Async context error, disposing subscription");
+				subscription.dispose();
+			}
+			
+			@Override
+			public void onComplete(AsyncEvent event) {
+				// Subscription completes naturally, no action needed
+			}
+			
+			@Override
+			public void onStartAsync(AsyncEvent event) {
+				// No action needed
+			}
+		});
 	}
 
 	/**
