@@ -412,14 +412,16 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		McpSchema.JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(jsonMapper, body.toString());
 
 		// LOG: tipo e id del messaggio in ingresso
-		String kind = (message instanceof McpSchema.JSONRPCRequest) ? "REQUEST"
+		final String kind = (message instanceof McpSchema.JSONRPCRequest) ? "REQUEST"
 				: (message instanceof McpSchema.JSONRPCResponse) ? "RESPONSE"
 						: (message instanceof McpSchema.JSONRPCNotification) ? "NOTIFICATION" : "UNKNOWN";
-		Object id = null;
+		final Object id;
 		if (message instanceof McpSchema.JSONRPCRequest)
 			id = ((McpSchema.JSONRPCRequest) message).id();
-		if (message instanceof McpSchema.JSONRPCResponse)
+		else if (message instanceof McpSchema.JSONRPCResponse)
 			id = ((McpSchema.JSONRPCResponse) message).id();
+		else
+			id = null;
 		logger.info("SERVER doPost: kind={}, id={}, sessionId={}, uri={}, thread={}", kind, id, sessionId, request.getRequestURI(), Thread.currentThread().getName());
 
 		// RESPONSE messages can be handled immediately without blocking
@@ -444,7 +446,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		
 		logger.info("SERVER doPost: Starting ASYNC processing for kind={}, id={}, thread={}", kind, id, Thread.currentThread().getName());
 		
-		long t0 = System.nanoTime();
+		final long t0 = System.nanoTime();
 		session.handle(message)
 			.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
 			.subscribe(
