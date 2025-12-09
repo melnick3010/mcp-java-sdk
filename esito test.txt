@@ -1,0 +1,253 @@
+[melnick3010@k8snv41 mcp-java-sdk]$  ~/mvn8 -pl mcp-core -Dtest=io.modelcontextprotocol.server.HttpServletSseIntegrationTests#testPingSuccess -Dsurefire.useModulePath=false test
+[INFO] Scanning for projects...
+[INFO]
+[INFO] ----------------< io.modelcontextprotocol.sdk:mcp-core >----------------
+[INFO] Building Java MCP SDK Core 0.17.0-SNAPSHOT
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- spring-javaformat-maven-plugin:0.0.28:validate (default) @ mcp-core ---
+[INFO]
+[INFO] --- maven-enforcer-plugin:3.5.0:enforce (enforce-java-and-bytecode) @ mcp-core ---
+[INFO] Rule 0: org.apache.maven.enforcer.rules.version.RequireJavaVersion passed
+[INFO] Rule 1: org.codehaus.mojo.extraenforcer.dependencies.EnforceBytecodeVersion passed
+[INFO]
+[INFO] --- maven-dependency-plugin:3.8.0:properties (default) @ mcp-core ---
+[INFO]
+[INFO] --- maven-resources-plugin:2.6:resources (default-resources) @ mcp-core ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] skip non existing resourceDirectory /home/melnick3010/mcp-java-sdk/mcp-core/src/main/resources
+[INFO]
+[INFO] --- flatten-maven-plugin:1.5.0:flatten (flatten) @ mcp-core ---
+[INFO] Generating flattened POM of project io.modelcontextprotocol.sdk:mcp-core:jar:0.17.0-SNAPSHOT...
+[INFO]
+[INFO] --- maven-compiler-plugin:3.11.0:compile (java-compile) @ mcp-core ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO]
+[INFO] --- bnd-maven-plugin:6.3.1:bnd-process (bnd-process) @ mcp-core ---
+[WARNING] Cannot consider developer in line '29' of file '/home/melnick3010/mcp-java-sdk/pom.xml' for bundle header 'Bundle-Developers' as it does not contain the mandatory id.
+[WARNING] Cannot consider developer in line '32' of file '/home/melnick3010/mcp-java-sdk/pom.xml' for bundle header 'Bundle-Developers' as it does not contain the mandatory id.
+[WARNING] /home/melnick3010/mcp-java-sdk/mcp-core/.flattened-pom.xml [0:0]: Split package, multiple jars provide the same package:io/modelcontextprotocol/json
+Use Import/Export Package directive -split-package:=(merge-first|merge-last|error|first) to get rid of this warning
+Package found in   [Jar:classes, Jar:mcp-json-0.17.0-SNAPSHOT]
+Class path         [Jar:classes, Jar:httpclient-4.5.13, Jar:httpcore-4.4.13, Jar:commons-logging-1.2, Jar:commons-codec-1.11, Jar:mcp-json-0.17.0-SNAPSHOT, Jar:slf4j-api-1.7.36, Jar:jackson-annotations-2.13.5, Jar:reactor-core-3.7.0, Jar:reactive-streams-1.0.4, Jar:javax.servlet-api-3.1.0]
+[WARNING] /home/melnick3010/mcp-java-sdk/mcp-core/.flattened-pom.xml [0:0]: Split package, multiple jars provide the same package:io/modelcontextprotocol/json/schema
+Use Import/Export Package directive -split-package:=(merge-first|merge-last|error|first) to get rid of this warning
+Package found in   [Jar:classes, Jar:mcp-json-0.17.0-SNAPSHOT]
+Class path         [Jar:classes, Jar:httpclient-4.5.13, Jar:httpcore-4.4.13, Jar:commons-logging-1.2, Jar:commons-codec-1.11, Jar:mcp-json-0.17.0-SNAPSHOT, Jar:slf4j-api-1.7.36, Jar:jackson-annotations-2.13.5, Jar:reactor-core-3.7.0, Jar:reactive-streams-1.0.4, Jar:javax.servlet-api-3.1.0]
+[WARNING] /home/melnick3010/mcp-java-sdk/mcp-core/.flattened-pom.xml [0:0]: Unused Import-Package instructions: [jakarta.*]
+[INFO]
+[INFO] --- maven-resources-plugin:2.6:testResources (default-testResources) @ mcp-core ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Copying 2 resources
+[INFO]
+[INFO] --- maven-compiler-plugin:3.11.0:testCompile (java-test-compile) @ mcp-core ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO]
+[INFO] --- maven-surefire-plugin:3.1.2:test (default-test) @ mcp-core ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO]
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running io.modelcontextprotocol.server.HttpServletSseIntegrationTests
+[ERROR] Tests run: 1, Failures: 0, Errors: 1, Skipped: 0, Time elapsed: 50.86 s <<< FAILURE! -- in io.modelcontextprotocol.server.HttpServletSseIntegrationTests
+[ERROR] io.modelcontextprotocol.server.HttpServletSseIntegrationTests.testPingSuccess(String)[1] -- Time elapsed: 50.72 s <<< ERROR!
+reactor.core.Exceptions$ReactiveException: java.util.concurrent.TimeoutException: Did not observe any item or terminal signal within 45000ms in 'source(MonoDeferContextual)' (and no fallback has been configured)
+        at reactor.core.Exceptions.propagate(Exceptions.java:410)
+        at reactor.core.publisher.BlockingSingleSubscriber.blockingGet(BlockingSingleSubscriber.java:102)
+        at reactor.core.publisher.Mono.block(Mono.java:1779)
+        at io.modelcontextprotocol.client.McpSyncClient.callTool(McpSyncClient.java:236)
+        at io.modelcontextprotocol.server.AbstractMcpClientServerIntegrationTests.testPingSuccess(AbstractMcpClientServerIntegrationTests.java:1294)
+        at java.lang.reflect.Method.invoke(Method.java:498)
+        at java.util.stream.ForEachOps$ForEachOp$OfRef.accept(ForEachOps.java:183)
+        at java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:193)
+        at java.util.stream.ReferencePipeline$2$1.accept(ReferencePipeline.java:175)
+        at java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:193)
+        at java.util.stream.ForEachOps$ForEachOp$OfRef.accept(ForEachOps.java:183)
+        at java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:193)
+        at java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:193)
+        at java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:193)
+        at java.util.stream.ForEachOps$ForEachOp$OfRef.accept(ForEachOps.java:183)
+        at java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:193)
+        at java.util.stream.Streams$StreamBuilderImpl.forEachRemaining(Streams.java:419)
+        at java.util.stream.ReferencePipeline$Head.forEach(ReferencePipeline.java:647)
+        at java.util.stream.ReferencePipeline$7$1.accept(ReferencePipeline.java:272)
+        at java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:193)
+        at java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:193)
+        at java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:193)
+        at java.util.Spliterators$ArraySpliterator.forEachRemaining(Spliterators.java:948)
+        at java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:482)
+        at java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:472)
+        at java.util.stream.ForEachOps$ForEachOp.evaluateSequential(ForEachOps.java:150)
+        at java.util.stream.ForEachOps$ForEachOp$OfRef.evaluateSequential(ForEachOps.java:173)
+        at java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:234)
+        at java.util.stream.ReferencePipeline.forEach(ReferencePipeline.java:485)
+        at java.util.stream.ReferencePipeline$7$1.accept(ReferencePipeline.java:272)
+        at java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:193)
+        at java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:193)
+        at java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:193)
+        at java.util.ArrayList$ArrayListSpliterator.forEachRemaining(ArrayList.java:1384)
+        at java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:482)
+        at java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:472)
+        at java.util.stream.ForEachOps$ForEachOp.evaluateSequential(ForEachOps.java:150)
+        at java.util.stream.ForEachOps$ForEachOp$OfRef.evaluateSequential(ForEachOps.java:173)
+        at java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:234)
+        at java.util.stream.ReferencePipeline.forEach(ReferencePipeline.java:485)
+        at java.util.stream.ReferencePipeline$7$1.accept(ReferencePipeline.java:272)
+        at java.util.ArrayList$ArrayListSpliterator.forEachRemaining(ArrayList.java:1384)
+        at java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:482)
+        at java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:472)
+        at java.util.stream.ForEachOps$ForEachOp.evaluateSequential(ForEachOps.java:150)
+        at java.util.stream.ForEachOps$ForEachOp$OfRef.evaluateSequential(ForEachOps.java:173)
+        at java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:234)
+        at java.util.stream.ReferencePipeline.forEach(ReferencePipeline.java:485)
+        at java.util.ArrayList.forEach(ArrayList.java:1259)
+        at java.util.ArrayList.forEach(ArrayList.java:1259)
+        Suppressed: java.lang.Exception: #block terminated with an error
+                at reactor.core.publisher.BlockingSingleSubscriber.blockingGet(BlockingSingleSubscriber.java:104)
+                ... 48 more
+Caused by: java.util.concurrent.TimeoutException: Did not observe any item or terminal signal within 45000ms in 'source(MonoDeferContextual)' (and no fallback has been configured)
+        at reactor.core.publisher.FluxTimeout$TimeoutMainSubscriber.handleTimeout(FluxTimeout.java:296)
+        at reactor.core.publisher.FluxTimeout$TimeoutMainSubscriber.doTimeout(FluxTimeout.java:281)
+        at reactor.core.publisher.FluxTimeout$TimeoutTimeoutSubscriber.onNext(FluxTimeout.java:420)
+        at reactor.core.publisher.FluxOnErrorReturn$ReturnSubscriber.onNext(FluxOnErrorReturn.java:162)
+        at reactor.core.publisher.MonoDelay$MonoDelayRunnable.propagateDelay(MonoDelay.java:270)
+        at reactor.core.publisher.MonoDelay$MonoDelayRunnable.run(MonoDelay.java:285)
+        at reactor.core.scheduler.SchedulerTask.call(SchedulerTask.java:68)
+        at reactor.core.scheduler.SchedulerTask.call(SchedulerTask.java:28)
+        at java.util.concurrent.FutureTask.run(FutureTask.java:266)
+        at java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.access$201(ScheduledThreadPoolExecutor.java:180)
+        at java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(ScheduledThreadPoolExecutor.java:293)
+        at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
+        at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+        at java.lang.Thread.run(Thread.java:750)
+
+[INFO]
+[INFO] Results:
+[INFO]
+[ERROR] Errors:
+[ERROR]   HttpServletSseIntegrationTests>AbstractMcpClientServerIntegrationTests.testPingSuccess:1294 » Reactive java.util.concurrent.TimeoutException: Did not observe any item or terminal signal within 45000ms in 'source(MonoDeferContextual)' (and no fallback has been configured)
+[INFO]
+[ERROR] Tests run: 1, Failures: 0, Errors: 1, Skipped: 0
+[INFO]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  01:04 min
+[INFO] Finished at: 2025-12-09T08:37:13-08:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.1.2:test (default-test) on project mcp-core:
+[ERROR]
+[ERROR] Please refer to /home/melnick3010/mcp-java-sdk/mcp-core/target/surefire-reports for the individual test results.
+[ERROR] Please refer to dump files (if any exist) [date].dump, [date]-jvmRun[N].dump and [date].dumpstream.
+[ERROR] -> [Help 1]
+[ERROR]
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR]
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+[melnick3010@k8snv41 mcp-java-sdk]$ cat mcp-core/target/surefire-reports/io.modelcontextprotocol.server.HttpServletSseIntegrationTests-output.txt
+Dec 09, 2025 8:36:24 AM org.apache.coyote.AbstractProtocol init
+INFO: Initializing ProtocolHandler ["http-nio-44683"]
+Dec 09, 2025 8:36:24 AM org.apache.catalina.core.StandardService startInternal
+INFO: Starting service [Tomcat]
+Dec 09, 2025 8:36:24 AM org.apache.catalina.core.StandardEngine startInternal
+INFO: Starting Servlet engine: [Apache Tomcat/9.0.87]
+Dec 09, 2025 8:36:24 AM org.apache.coyote.AbstractProtocol start
+INFO: Starting ProtocolHandler ["http-nio-44683"]
+Tomcat avviato su porta 44683
+2025-12-09 08:36:25 [http-nio-44683-exec-2] INFO  i.m.s.t.HttpServletSseServerTransportProvider - SSE doGet() requestURI=/somePath/sse
+2025-12-09 08:36:25 [http-nio-44683-exec-2] INFO  i.m.s.t.HttpServletSseServerTransportProvider - SSE endpoint event sent: http://localhost:44683/somePath/otherPath/mcp/message?sessionId=516d9a6a-c064-4cef-9126-cb9e9b5c3dfa
+2025-12-09 08:36:26 [http-nio-44683-exec-3] INFO  i.m.s.t.HttpServletSseServerTransportProvider - SSE doGet() requestURI=/somePath/sse
+2025-12-09 08:36:26 [http-nio-44683-exec-3] INFO  i.m.s.t.HttpServletSseServerTransportProvider - SSE endpoint event sent: http://localhost:44683/somePath/otherPath/mcp/message?sessionId=8fe7a752-d635-487f-9b81-9d635fd719e5
+2025-12-09 08:36:26 [boundedElastic-1] INFO  i.m.c.t.HttpClientSseClientTransport - SSE RAW EVENT: type=endpoint, data_lines=1, payload_len=100, preview=http://localhost:44683/somePath/otherPath/mcp/message?sessionId=8fe7a752-d635-487f-9b81-9d635fd719e5
+2025-12-09 08:36:26 [boundedElastic-1] INFO  i.m.c.t.HttpClientSseClientTransport - SSE ENDPOINT DISCOVERED (stream-local): http://localhost:44683/somePath/otherPath/mcp/message?sessionId=8fe7a752-d635-487f-9b81-9d635fd719e5
+2025-12-09 08:36:26 [main] INFO  i.m.spec.McpClientSession - CLIENT sendRequest: method=initialize, id=40ff5b3c-0
+2025-12-09 08:36:26 [http-nio-44683-exec-4] INFO  i.m.s.t.HttpServletSseServerTransportProvider - SERVER doPost: kind=REQUEST, id=40ff5b3c-0, sessionId=8fe7a752-d635-487f-9b81-9d635fd719e5, uri=/somePath/otherPath/mcp/message
+2025-12-09 08:36:26 [http-nio-44683-exec-4] INFO  i.m.spec.McpServerSession - SERVER handle(): incoming REQUEST method=initialize, id=40ff5b3c-0
+2025-12-09 08:36:26 [http-nio-44683-exec-4] INFO  i.m.spec.McpServerSession - SERVER handleIncomingRequest: method=initialize, id=40ff5b3c-0
+2025-12-09 08:36:26 [http-nio-44683-exec-4] INFO  i.m.server.McpAsyncServer - Client initialize request - Protocol: 2024-11-05, Capabilities: io.modelcontextprotocol.spec.McpSchema$ClientCapabilities@74f45efe, Info: io.modelcontextprotocol.spec.McpSchema$Implementation@5fee0802
+2025-12-09 08:36:26 [http-nio-44683-exec-4] INFO  i.m.spec.McpServerSession - SERVER prepareResponse: id=40ff5b3c-0 (will send via SSE)
+2025-12-09 08:36:26 [boundedElastic-1] INFO  i.m.c.t.HttpClientSseClientTransport - SSE RAW EVENT: type=message, data_lines=1, payload_len=190, preview={"jsonrpc":"2.0","id":"40ff5b3c-0","result":{"protocolVersion":"2024-11-05","capabilities":{"logging":{},"tools":{"listC...
+2025-12-09 08:36:26 [boundedElastic-1] INFO  i.m.c.t.HttpClientSseClientTransport - SSE MESSAGE PARSED: kind=RESPONSE
+2025-12-09 08:36:26 [boundedElastic-1] INFO  i.m.c.t.HttpClientSseClientTransport - DISPATCH: kind=RESPONSE -> NO POST (handled locally)
+2025-12-09 08:36:26 [http-nio-44683-exec-4] INFO  i.m.s.t.HttpServletSseServerTransportProvider - SERVER doPost COMPLETED: kind=REQUEST, id=40ff5b3c-0, elapsedMs=37
+2025-12-09 08:36:26 [boundedElastic-1] INFO  i.m.spec.McpClientSession - CLIENT receivedResponse: id=40ff5b3c-0 (completing)
+2025-12-09 08:36:26 [boundedElastic-1] INFO  i.m.client.LifecycleInitializer - Server response with Protocol: 2024-11-05, Capabilities: io.modelcontextprotocol.spec.McpSchema$ServerCapabilities@3e6f93ed, Info: io.modelcontextprotocol.spec.McpSchema$Implementation@578151 and Instructions null
+2025-12-09 08:36:26 [http-nio-44683-exec-5] INFO  i.m.s.t.HttpServletSseServerTransportProvider - SERVER doPost: kind=NOTIFICATION, id=null, sessionId=8fe7a752-d635-487f-9b81-9d635fd719e5, uri=/somePath/otherPath/mcp/message
+2025-12-09 08:36:26 [boundedElastic-1] INFO  i.m.c.t.HttpClientSseClientTransport - CLIENT HANDLER OUTPUT: kind=RESPONSE, id=40ff5b3c-0
+2025-12-09 08:36:26 [http-nio-44683-exec-5] INFO  i.m.s.t.HttpServletSseServerTransportProvider - SERVER doPost COMPLETED: kind=NOTIFICATION, id=null, elapsedMs=8
+2025-12-09 08:36:26 [main] INFO  i.m.spec.McpClientSession - CLIENT sendRequest: method=tools/call, id=40ff5b3c-1
+2025-12-09 08:36:26 [http-nio-44683-exec-6] INFO  i.m.s.t.HttpServletSseServerTransportProvider - SERVER doPost: kind=REQUEST, id=40ff5b3c-1, sessionId=8fe7a752-d635-487f-9b81-9d635fd719e5, uri=/somePath/otherPath/mcp/message
+2025-12-09 08:36:26 [http-nio-44683-exec-6] INFO  i.m.spec.McpServerSession - SERVER handle(): incoming REQUEST method=tools/call, id=40ff5b3c-1
+2025-12-09 08:36:26 [http-nio-44683-exec-6] INFO  i.m.spec.McpServerSession - SERVER handleIncomingRequest: method=tools/call, id=40ff5b3c-1
+2025-12-09 08:36:26 [http-nio-44683-exec-6] INFO  i.m.spec.McpServerSession - SERVER sendRequest: method=ping, id=87c71217-0e76-4a2e-b992-88f6dfa2eb4c-0
+2025-12-09 08:36:26 [boundedElastic-1] INFO  i.m.c.t.HttpClientSseClientTransport - SSE RAW EVENT: type=message, data_lines=1, payload_len=79, preview={"jsonrpc":"2.0","method":"ping","id":"87c71217-0e76-4a2e-b992-88f6dfa2eb4c-0"}
+2025-12-09 08:36:26 [boundedElastic-1] INFO  i.m.c.t.HttpClientSseClientTransport - SSE MESSAGE PARSED: kind=REQUEST
+2025-12-09 08:36:26 [boundedElastic-1] INFO  i.m.c.t.HttpClientSseClientTransport - DISPATCH: kind=REQUEST -> WILL POST response to stream endpoint
+2025-12-09 08:36:26 [boundedElastic-1] INFO  i.m.c.t.HttpClientSseClientTransport - CLIENT HANDLER OUTPUT: kind=RESPONSE, id=87c71217-0e76-4a2e-b992-88f6dfa2eb4c-0
+2025-12-09 08:36:26 [boundedElastic-1] INFO  i.m.c.t.HttpClientSseClientTransport - CLIENT POST PREPARED: endpoint=http://localhost:44683/somePath/otherPath/mcp/message?sessionId=8fe7a752-d635-487f-9b81-9d635fd719e5, id=87c71217-0e76-4a2e-b992-88f6dfa2eb4c-0
+2025-12-09 08:37:11 [main] WARN  i.m.spec.McpClientSession - Abruptly terminating exchange for request 40ff5b3c-1
+Chiusura risorse...
+2025-12-09 08:37:11 [boundedElastic-2] ERROR i.m.c.t.HttpClientSseClientTransport - Failed to handle/send response
+io.modelcontextprotocol.spec.McpTransportException: Failed to send message. Status: 503
+        at io.modelcontextprotocol.client.transport.HttpClientSseClientTransport.lambda$null$7(HttpClientSseClientTransport.java:290)
+        at reactor.core.publisher.MonoCallable.call(MonoCallable.java:72)
+        at reactor.core.publisher.FluxSubscribeOnCallable$CallableSubscribeOnSubscription.run(FluxSubscribeOnCallable.java:228)
+        at reactor.core.scheduler.SchedulerTask.call(SchedulerTask.java:68)
+        at reactor.core.scheduler.SchedulerTask.call(SchedulerTask.java:28)
+        at java.util.concurrent.FutureTask.run(FutureTask.java:266)
+        at java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.access$201(ScheduledThreadPoolExecutor.java:180)
+        at java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(ScheduledThreadPoolExecutor.java:293)
+        at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
+        at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+        at java.lang.Thread.run(Thread.java:750)
+Dec 09, 2025 8:37:11 AM org.apache.coyote.AbstractProtocol pause
+INFO: Pausing ProtocolHandler ["http-nio-44683"]
+Dec 09, 2025 8:37:11 AM org.apache.catalina.core.StandardService stopInternal
+INFO: Stopping service [Tomcat]
+Dec 09, 2025 8:37:11 AM org.apache.catalina.core.StandardWrapper unload
+INFO: Waiting for [1] instance(s) to be deallocated for Servlet [mcpServlet]
+Dec 09, 2025 8:37:12 AM org.apache.catalina.core.StandardWrapper unload
+INFO: Waiting for [1] instance(s) to be deallocated for Servlet [mcpServlet]
+Dec 09, 2025 8:37:13 AM org.apache.catalina.core.StandardWrapper unload
+INFO: Waiting for [1] instance(s) to be deallocated for Servlet [mcpServlet]
+Dec 09, 2025 8:37:13 AM org.apache.catalina.loader.WebappClassLoaderBase clearReferencesThreads
+WARNING: The web application [ROOT] is still processing a request that has yet to finish. This is very likely to create a memory leak. You can control the time allowed for requests to finish by using the unloadDelay attribute of the standard Context implementation. Stack trace of request processing thread:[
+ sun.misc.Unsafe.park(Native Method)
+ java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+ java.util.concurrent.locks.AbstractQueuedSynchronizer.parkAndCheckInterrupt(AbstractQueuedSynchronizer.java:836)
+ java.util.concurrent.locks.AbstractQueuedSynchronizer.doAcquireSharedInterruptibly(AbstractQueuedSynchronizer.java:997)
+ java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireSharedInterruptibly(AbstractQueuedSynchronizer.java:1304)
+ java.util.concurrent.CountDownLatch.await(CountDownLatch.java:231)
+ reactor.core.publisher.BlockingSingleSubscriber.blockingGet(BlockingSingleSubscriber.java:91)
+ reactor.core.publisher.Mono.block(Mono.java:1779)
+ io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider.doPost(HttpServletSseServerTransportProvider.java:418)
+ javax.servlet.http.HttpServlet.service(HttpServlet.java:707)
+ javax.servlet.http.HttpServlet.service(HttpServlet.java:790)
+ org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:210)
+ org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:154)
+ org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:168)
+ org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:90)
+ org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:481)
+ org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:130)
+ org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:93)
+ org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:74)
+ org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:346)
+ org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:390)
+ org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:63)
+ org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:928)
+ org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1786)
+ org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:52)
+ org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1191)
+ org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:659)
+ org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:63)
+ java.lang.Thread.run(Thread.java:750)]
+Dec 09, 2025 8:37:13 AM org.apache.coyote.AbstractProtocol stop
+INFO: Stopping ProtocolHandler ["http-nio-44683"]
+2025-12-09 08:37:13 [http-nio-44683-exec-6] ERROR i.m.s.t.HttpServletSseServerTransportProvider - Error processing message: java.lang.InterruptedException
+Dec 09, 2025 8:37:13 AM org.apache.coyote.AbstractProtocol destroy
+INFO: Destroying ProtocolHandler ["http-nio-44683"]
+Risorse chiuse.
+[melnick3010@k8snv41 mcp-java-sdk]$

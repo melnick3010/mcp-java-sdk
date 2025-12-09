@@ -420,15 +420,16 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			id = ((McpSchema.JSONRPCRequest) message).id();
 		if (message instanceof McpSchema.JSONRPCResponse)
 			id = ((McpSchema.JSONRPCResponse) message).id();		
-		logger.info("SERVER doPost: kind={}, id={}, sessionId={}, uri={}", kind, id, sessionId, request.getRequestURI());
+		logger.info("SERVER doPost: kind={}, id={}, sessionId={}, uri={}, thread={}", kind, id, sessionId, request.getRequestURI(), Thread.currentThread().getName());
 
 		long t0 = System.nanoTime();
 		try {
+			logger.info("SERVER doPost BEFORE BLOCK: kind={}, id={}, thread={} - About to block waiting for session.handle()", kind, id, Thread.currentThread().getName());
 			session.handle(message).contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).block(); // punto
 																														// di
 																														// attesa
 			long dtMs = (System.nanoTime() - t0) / 1_000_000;
-			logger.info("SERVER doPost COMPLETED: kind={}, id={}, elapsedMs={}", kind, id, dtMs);
+			logger.info("SERVER doPost COMPLETED: kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs, Thread.currentThread().getName());
 
 			response.setStatus(HttpServletResponse.SC_OK);
 		} catch (Exception e) {
