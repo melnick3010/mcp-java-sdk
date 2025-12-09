@@ -449,38 +449,37 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		final long t0 = System.nanoTime();
 		session.handle(message)
 			.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
-			.subscribe(
-				v -> {
-					long dtMs = (System.nanoTime() - t0) / 1_000_000;
-					logger.info("SERVER doPost ASYNC COMPLETED: kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs, Thread.currentThread().getName());
-					try {
-						HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
-						asyncResponse.setStatus(HttpServletResponse.SC_OK);
-						asyncContext.complete();
-					} catch (Exception e) {
-						logger.error("Error completing async context: {}", e.getMessage());
-						asyncContext.complete();
-					}
-				},
-				error -> {
-					logger.error("Error processing message asynchronously: {}", error.getMessage());
-					try {
-						HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
-						McpError mcpError = new McpError(error.getMessage());
-						asyncResponse.setContentType(APPLICATION_JSON);
-						asyncResponse.setCharacterEncoding(UTF_8);
-						asyncResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-						String jsonError = jsonMapper.writeValueAsString(mcpError);
-						PrintWriter writer = asyncResponse.getWriter();
-						writer.write(jsonError);
-						writer.flush();
-					} catch (IOException ex) {
-						logger.error(FAILED_TO_SEND_ERROR_RESPONSE, ex.getMessage());
-					} finally {
-						asyncContext.complete();
-					}
+			.doOnSuccess(v -> {
+				long dtMs = (System.nanoTime() - t0) / 1_000_000;
+				logger.info("SERVER doPost ASYNC COMPLETED: kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs, Thread.currentThread().getName());
+				try {
+					HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
+					asyncResponse.setStatus(HttpServletResponse.SC_OK);
+					asyncContext.complete();
+				} catch (Exception e) {
+					logger.error("Error completing async context: {}", e.getMessage());
+					asyncContext.complete();
 				}
-			);
+			})
+			.doOnError(error -> {
+				logger.error("Error processing message asynchronously: {}", error.getMessage());
+				try {
+					HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
+					McpError mcpError = new McpError(error.getMessage());
+					asyncResponse.setContentType(APPLICATION_JSON);
+					asyncResponse.setCharacterEncoding(UTF_8);
+					asyncResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+					String jsonError = jsonMapper.writeValueAsString(mcpError);
+					PrintWriter writer = asyncResponse.getWriter();
+					writer.write(jsonError);
+					writer.flush();
+				} catch (IOException ex) {
+					logger.error(FAILED_TO_SEND_ERROR_RESPONSE, ex.getMessage());
+				} finally {
+					asyncContext.complete();
+				}
+			})
+			.subscribe();
 	}
 
 	/**
