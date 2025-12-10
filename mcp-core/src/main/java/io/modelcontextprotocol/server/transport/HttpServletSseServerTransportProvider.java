@@ -353,6 +353,155 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	}
 
 	/**
+	 * Validates the incoming POST request and extracts the session.
+	 * @param request The HTTP servlet request
+	 * @param response The HTTP servlet response
+	 * @return The session if validation succeeds, null otherwise
+	 * @throws IOException If an I/O error occurs during validation
+	 */
+	private McpServerSession validatePostRequest(HttpServletRequest request, HttpServletResponse response)
+			throws IOException {
+		if (isClosing.get()) {
+			response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Server is shutting down");
+			return null;
+		}
+
+		String requestURI = request.getRequestURI();
+		if (!requestURI.endsWith(messageEndpoint)) {
+			response.sendError(HttpServletResponse.SC_NOT_FOUND);
+			return null;
+		}
+
+		// sessionId via query string
+		String sessionId = request.getParameter("sessionId");
+		if (sessionId == null || sessionId.isEmpty()) {
+			response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing sessionId");
+			return null;
+		}
+
+		// Get the session from the sessions map
+		McpServerSession session = sessions.get(sessionId);
+		if (session == null) {
+			response.setContentType(APPLICATION_JSON);
+			response.setCharacterEncoding(UTF_8);
+			response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+			String jsonError = jsonMapper.writeValueAsString(new McpError("Session not found: " + sessionId));
+			PrintWriter writer = response.getWriter();
+			writer.write(jsonError);
+			writer.flush();
+			logger.warn("SERVER doPost: sessionId NOT FOUND -> {}", sessionId);
+			return null;
+		}
+
+		return session;
+	}
+
+	/**
+	 * Extracts message type information from a JSON-RPC message.
+	 * @param message The JSON-RPC message
+	 * @return MessageInfo containing the message kind and ID
+	 */
+	private MessageInfo extractMessageInfo(McpSchema.JSONRPCMessage message) {
+		String kind;
+		Object id;
+
+		if (message instanceof McpSchema.JSONRPCRequest) {
+			kind = "REQUEST";
+			id = ((McpSchema.JSONRPCRequest) message).id();
+		}
+		else if (message instanceof McpSchema.JSONRPCResponse) {
+			kind = "RESPONSE";
+			id = ((McpSchema.JSONRPCResponse) message).id();
+		}
+		else if (message instanceof McpSchema.JSONRPCNotification) {
+			kind = "NOTIFICATION";
+			id = null;
+		}
+		else {
+			kind = "UNKNOWN";
+			id = null;
+		}
+
+		return new MessageInfo(kind, id);
+	}
+
+	/**
+	 * Completes the async context with proper error handling and logging.
+	 * @param asyncContext The async context to complete
+	 * @param completed Flag to prevent duplicate completion
+	 * @param kind The message kind for logging
+	 * @param id The message ID for logging
+	 * @param startTime The start time in nanoseconds for elapsed time calculation
+	 * @param setOkStatus Whether to set HTTP 200 OK status
+	 */
+	private void completeAsyncContext(AsyncContext asyncContext, AtomicBoolean completed, String kind, Object id,
+			long startTime, boolean setOkStatus) {
+		if (!completed.compareAndSet(false, true)) {
+			return;
+		}
+
+		long dtMs = (System.nanoTime() - startTime) / 1_000_000;
+		String completionType = setOkStatus ? "(with value)" : "(empty)";
+		logger.info("SERVER doPost ASYNC COMPLETED {}: kind={}, id={}, elapsedMs={}, thread={}", completionType, kind,
+				id, dtMs, Thread.currentThread().getName());
+
+		try {
+			HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
+			if (asyncResponse != null && setOkStatus) {
+				asyncResponse.setStatus(HttpServletResponse.SC_OK);
+			}
+			asyncContext.complete();
+		}
+		catch (IllegalStateException e) {
+			logger.debug("Async context already completed or timed out: {}", e.getMessage());
+		}
+		catch (Exception e) {
+			logger.error("Error completing async context: {}", e.getMessage());
+		}
+	}
+
+	/**
+	 * Handles errors during async message processing.
+	 * @param asyncContext The async context
+	 * @param completed Flag to prevent duplicate completion
+	 * @param error The error that occurred
+	 */
+	private void handleAsyncError(AsyncContext asyncContext, AtomicBoolean completed, Throwable error) {
+		if (!completed.compareAndSet(false, true)) {
+			logger.debug("Async context already completed, skipping error handler");
+			return;
+		}
+
+		logger.error("Error processing message asynchronously: {}", error.getMessage());
+		try {
+			HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
+			if (asyncResponse == null) {
+				logger.error("Async response is null");
+				return;
+			}
+			McpError mcpError = new McpError(error.getMessage());
+			asyncResponse.setContentType(APPLICATION_JSON);
+			asyncResponse.setCharacterEncoding(UTF_8);
+			asyncResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+			String jsonError = jsonMapper.writeValueAsString(mcpError);
+			PrintWriter writer = asyncResponse.getWriter();
+			writer.write(jsonError);
+			writer.flush();
+		}
+		catch (IOException ex) {
+			logger.error(FAILED_TO_SEND_ERROR_RESPONSE, ex);
+		}
+		finally {
+			try {
+				asyncContext.complete();
+			}
+			catch (IllegalStateException ex) {
+				logger.debug("Async context already completed or timed out: {}", ex.getMessage());
+			}
+		}
+	}
+
+	/**
 	 * Handles POST requests for client messages.
 	 * <p>
 	 * This method processes incoming messages from clients, routes them through the
@@ -367,38 +516,15 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	@Override
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
-		if (isClosing.get()) {
-			response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Server is shutting down");
-			return;
-		}
-
-		String requestURI = request.getRequestURI();
-		if (!requestURI.endsWith(messageEndpoint)) {
-			response.sendError(HttpServletResponse.SC_NOT_FOUND);
-			return;
-		}
-
-		// sessionId via query string
-		String sessionId = request.getParameter("sessionId");
-		if (sessionId == null || sessionId.isEmpty()) {
-			response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing sessionId");
-			return;
-		}
-
-		// Get the session from the sessions map
-		McpServerSession session = sessions.get(sessionId);
+		// Validate request and get session
+		McpServerSession session = validatePostRequest(request, response);
 		if (session == null) {
-			response.setContentType(APPLICATION_JSON);
-			response.setCharacterEncoding(UTF_8);
-			response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-			String jsonError = jsonMapper.writeValueAsString(new McpError("Session not found: " + sessionId));
-			PrintWriter writer = response.getWriter();
-			writer.write(jsonError);
-			writer.flush();
-			logger.warn("SERVER doPost: sessionId NOT FOUND -> {}", sessionId);
 			return;
 		}
 
+		String sessionId = request.getParameter("sessionId");
+
+		// Read request body
 		BufferedReader reader = request.getReader();
 		StringBuilder body = new StringBuilder();
 		String line;
@@ -406,22 +532,14 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			body.append(line);
 		}
 
+		// Extract transport context and deserialize message
 		final McpTransportContext transportContext = this.contextExtractor.extract(request);
 		McpSchema.JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(jsonMapper, body.toString());
 
-		// LOG: tipo e id del messaggio in ingresso
-		final String kind = (message instanceof McpSchema.JSONRPCRequest) ? "REQUEST"
-				: (message instanceof McpSchema.JSONRPCResponse) ? "RESPONSE"
-						: (message instanceof McpSchema.JSONRPCNotification) ? "NOTIFICATION" : "UNKNOWN";
-		final Object id;
-		if (message instanceof McpSchema.JSONRPCRequest)
-			id = ((McpSchema.JSONRPCRequest) message).id();
-		else if (message instanceof McpSchema.JSONRPCResponse)
-			id = ((McpSchema.JSONRPCResponse) message).id();
-		else
-			id = null;
-		logger.info("SERVER doPost: kind={}, id={}, sessionId={}, uri={}, thread={}", kind, id, sessionId,
-				request.getRequestURI(), Thread.currentThread().getName());
+		// Extract message information for logging
+		final MessageInfo messageInfo = extractMessageInfo(message);
+		logger.info("SERVER doPost: kind={}, id={}, sessionId={}, uri={}, thread={}", messageInfo.kind, messageInfo.id,
+				sessionId, request.getRequestURI(), Thread.currentThread().getName());
 
 		// Use async processing for all message types for consistency and better resource
 		// utilization
@@ -430,8 +548,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		final AsyncContext asyncContext = request.startAsync();
 		asyncContext.setTimeout(ASYNC_TIMEOUT_MS);
 
-		logger.info("SERVER doPost: Starting ASYNC processing for kind={}, id={}, thread={}", kind, id,
-				Thread.currentThread().getName());
+		logger.info("SERVER doPost: Starting ASYNC processing for kind={}, id={}, thread={}", messageInfo.kind,
+				messageInfo.id, Thread.currentThread().getName());
 
 		// IMPORTANT: AsyncListener is intentionally NOT added here to prevent race
 		// conditions.
@@ -470,97 +588,20 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 																							// async
 																							// context
 																							// timeout
-				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).subscribe(v -> {
-					if (!completed.compareAndSet(false, true)) {
-						logger.debug("Async context already completed, skipping success handler");
-						return;
-					}
-					long dtMs = (System.nanoTime() - t0) / 1_000_000;
-					logger.info("SERVER doPost ASYNC COMPLETED: kind={}, id={}, elapsedMs={}, thread={}", kind, id,
-							dtMs, Thread.currentThread().getName());
-					try {
-						HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
-						if (asyncResponse == null) {
-							logger.error("Async response is null");
-							return;
-						}
-						asyncResponse.setStatus(HttpServletResponse.SC_OK);
-						asyncContext.complete();
-					}
-					catch (IllegalStateException e) {
-						logger.debug("Async context already completed or timed out: {}", e.getMessage());
-					}
-					catch (Exception e) {
-						logger.error("Error completing async context: {}", e.getMessage());
-						try {
-							asyncContext.complete();
-						}
-						catch (IllegalStateException ex) {
-							logger.debug("Async context already completed: {}", ex.getMessage());
-						}
-					}
+				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).doOnNext(v -> {
+					// Complete async context when Mono emits a value (for responses with
+					// content)
+					completeAsyncContext(asyncContext, completed, messageInfo.kind, messageInfo.id, t0, true);
+				}).subscribe(v -> {
+					// Success handler - async context may already be completed in
+					// doOnNext
+					logger.debug("Subscription value received for kind={}, id={}", messageInfo.kind, messageInfo.id);
 				}, error -> {
-					if (!completed.compareAndSet(false, true)) {
-						logger.debug("Async context already completed, skipping error handler");
-						return;
-					}
-					logger.error("Error processing message asynchronously: {}", error.getMessage());
-					try {
-						HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
-						if (asyncResponse == null) {
-							logger.error("Async response is null");
-							return;
-						}
-						McpError mcpError = new McpError(error.getMessage());
-						asyncResponse.setContentType(APPLICATION_JSON);
-						asyncResponse.setCharacterEncoding(UTF_8);
-						asyncResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-						String jsonError = jsonMapper.writeValueAsString(mcpError);
-						PrintWriter writer = asyncResponse.getWriter();
-						writer.write(jsonError);
-						writer.flush();
-					}
-					catch (IOException ex) {
-						logger.error(FAILED_TO_SEND_ERROR_RESPONSE, ex);
-					}
-					finally {
-						try {
-							asyncContext.complete();
-						}
-						catch (IllegalStateException ex) {
-							logger.debug("Async context already completed or timed out: {}", ex.getMessage());
-						}
-					}
+					// Error handler
+					handleAsyncError(asyncContext, completed, error);
 				}, () -> {
-					// Completion handler for empty Mono (SSE responses)
-					if (!completed.compareAndSet(false, true)) {
-						logger.debug("Async context already completed, skipping completion handler");
-						return;
-					}
-					long dtMs = (System.nanoTime() - t0) / 1_000_000;
-					logger.info("SERVER doPost ASYNC COMPLETED (empty): kind={}, id={}, elapsedMs={}, thread={}", kind,
-							id, dtMs, Thread.currentThread().getName());
-					try {
-						HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
-						if (asyncResponse == null) {
-							logger.error("Async response is null");
-							return;
-						}
-						asyncResponse.setStatus(HttpServletResponse.SC_OK);
-						asyncContext.complete();
-					}
-					catch (IllegalStateException e) {
-						logger.debug("Async context already completed or timed out: {}", e.getMessage());
-					}
-					catch (Exception e) {
-						logger.error("Error completing async context: {}", e.getMessage());
-						try {
-							asyncContext.complete();
-						}
-						catch (IllegalStateException ex) {
-							logger.debug("Async context already completed: {}", ex.getMessage());
-						}
-					}
+					// Completion handler for empty Mono (SSE responses, notifications)
+					completeAsyncContext(asyncContext, completed, messageInfo.kind, messageInfo.id, t0, false);
 				});
 	}
 
@@ -704,6 +745,22 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			catch (Exception e) {
 				logger.warn("Failed to complete async context for session {}: {}", sessionId, e.getMessage());
 			}
+		}
+
+	}
+
+	/**
+	 * Helper class to hold message type information for logging.
+	 */
+	private static class MessageInfo {
+
+		final String kind;
+
+		final Object id;
+
+		MessageInfo(String kind, Object id) {
+			this.kind = kind;
+			this.id = id;
 		}
 
 	}
