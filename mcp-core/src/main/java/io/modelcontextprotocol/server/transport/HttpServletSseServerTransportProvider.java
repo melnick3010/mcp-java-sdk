@@ -468,25 +468,59 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		Disposable subscription = session.handle(message)
 			.timeout(Duration.ofSeconds(55)) // Timeout shorter than async context timeout
 			.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
-			.doOnNext(v -> {
-				// Complete async context immediately after SSE message is sent
-				if (completed.compareAndSet(false, true)) {
+			.subscribe(
+				v -> {
+					if (!completed.compareAndSet(false, true)) {
+						logger.debug("Async context already completed, skipping success handler");
+						return;
+					}
 					long dtMs = (System.nanoTime() - t0) / 1_000_000;
-					logger.info("SERVER doPost: SSE message sent, completing async context for kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs, Thread.currentThread().getName());
+					logger.info("SERVER doPost ASYNC COMPLETED: kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs, Thread.currentThread().getName());
 					try {
+						HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
+						if (asyncResponse == null) {
+							logger.error("Async response is null");
+							return;
+						}
+						asyncResponse.setStatus(HttpServletResponse.SC_OK);
 						asyncContext.complete();
-						logger.debug("Async context completed after SSE response for kind={}, id={}", kind, id);
 					} catch (IllegalStateException e) {
 						logger.debug("Async context already completed or timed out: {}", e.getMessage());
 					} catch (Exception e) {
 						logger.error("Error completing async context: {}", e.getMessage());
+						try {
+							asyncContext.complete();
+						} catch (IllegalStateException ex) {
+							logger.debug("Async context already completed: {}", ex.getMessage());
+						}
 					}
-				}
-			})
-			.subscribe(
-				v -> {
-					// Success handler - async context already completed in doOnNext
-					logger.debug("Subscription completed successfully for kind={}, id={}", kind, id);
+				},
+				() -> {
+					// Completion handler for empty Mono (SSE responses)
+					if (!completed.compareAndSet(false, true)) {
+						logger.debug("Async context already completed, skipping completion handler");
+						return;
+					}
+					long dtMs = (System.nanoTime() - t0) / 1_000_000;
+					logger.info("SERVER doPost ASYNC COMPLETED (empty): kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs, Thread.currentThread().getName());
+					try {
+						HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
+						if (asyncResponse == null) {
+							logger.error("Async response is null");
+							return;
+						}
+						asyncResponse.setStatus(HttpServletResponse.SC_OK);
+						asyncContext.complete();
+					} catch (IllegalStateException e) {
+						logger.debug("Async context already completed or timed out: {}", e.getMessage());
+					} catch (Exception e) {
+						logger.error("Error completing async context: {}", e.getMessage());
+						try {
+							asyncContext.complete();
+						} catch (IllegalStateException ex) {
+							logger.debug("Async context already completed: {}", ex.getMessage());
+						}
+					}
 				},
 				error -> {
 					if (!completed.compareAndSet(false, true)) {
