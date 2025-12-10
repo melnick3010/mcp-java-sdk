@@ -136,6 +136,25 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		System.out.println("Risorse chiuse.");
 	}
 
+	
+    @AfterAll
+    static void afterAll() {
+        // 1) Chiudi le risorse globali di Reactor Netty (event loops)
+        try {
+            reactor.netty.ReactorNetty.shutdown(); // 1.2.x
+        } catch (Throwable ignore) {
+            // Se la versione non espone ReactorNetty.shutdown(), puoi ignorare o loggare.
+        }
+
+        // 2) Chiudi gli scheduler globali di Reactor (parallel, boundedElastic, single)
+        Schedulers.shutdownNow();
+
+        // (Opzionale) Reset di hook se usati:
+        // reactor.core.publisher.Hooks.resetOnEachOperator();
+        // reactor.core.publisher.Hooks.resetOnLastOperator();
+    }
+
+
 	@Override
 	protected McpServer.AsyncSpecification<?> prepareAsyncServerBuilder() {
 		return McpServer.async(this.mcpServerTransportProvider);
