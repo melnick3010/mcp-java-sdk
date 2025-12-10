@@ -426,30 +426,57 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	}
 
 	/**
-	 * Completes the async context with proper error handling and logging.
+	 * Completes the async context with HTTP 200 OK status for responses with content.
 	 * @param asyncContext The async context to complete
 	 * @param completed Flag to prevent duplicate completion
 	 * @param kind The message kind for logging
 	 * @param id The message ID for logging
 	 * @param startTime The start time in nanoseconds for elapsed time calculation
-	 * @param setOkStatus Whether to set HTTP 200 OK status
 	 */
-	private void completeAsyncContext(AsyncContext asyncContext, AtomicBoolean completed, String kind, Object id,
-			long startTime, boolean setOkStatus) {
+	private void completeAsyncContextWithStatus(AsyncContext asyncContext, AtomicBoolean completed, String kind,
+			Object id, long startTime) {
+		if (!completed.compareAndSet(false, true)) {
+			return;
+		}
+	
+		long dtMs = (System.nanoTime() - startTime) / 1_000_000;
+		logger.info("SERVER doPost ASYNC COMPLETED (with value): kind={}, id={}, elapsedMs={}, thread={}", kind, id,
+				dtMs, Thread.currentThread().getName());
+	
+		HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
+		if (asyncResponse != null) {
+			asyncResponse.setStatus(HttpServletResponse.SC_OK);
+		}
+		safeCompleteAsyncContext(asyncContext);
+	}
+
+	/**
+	 * Completes the async context without setting status for empty responses (SSE, notifications).
+	 * @param asyncContext The async context to complete
+	 * @param completed Flag to prevent duplicate completion
+	 * @param kind The message kind for logging
+	 * @param id The message ID for logging
+	 * @param startTime The start time in nanoseconds for elapsed time calculation
+	 */
+	private void completeAsyncContextEmpty(AsyncContext asyncContext, AtomicBoolean completed, String kind, Object id,
+			long startTime) {
 		if (!completed.compareAndSet(false, true)) {
 			return;
 		}
 
 		long dtMs = (System.nanoTime() - startTime) / 1_000_000;
-		String completionType = setOkStatus ? "(with value)" : "(empty)";
-		logger.info("SERVER doPost ASYNC COMPLETED {}: kind={}, id={}, elapsedMs={}, thread={}", completionType, kind,
-				id, dtMs, Thread.currentThread().getName());
+		logger.info("SERVER doPost ASYNC COMPLETED (empty): kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs,
+				Thread.currentThread().getName());
 
+		safeCompleteAsyncContext(asyncContext);
+	}
+	
+	/**
+	 * Safely completes an async context with consistent error handling and logging.
+	 * @param asyncContext The async context to complete
+	 */
+	private void safeCompleteAsyncContext(AsyncContext asyncContext) {
 		try {
-			HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
-			if (asyncResponse != null && setOkStatus) {
-				asyncResponse.setStatus(HttpServletResponse.SC_OK);
-			}
 			asyncContext.complete();
 		}
 		catch (IllegalStateException e) {
@@ -459,7 +486,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			logger.error("Error completing async context: {}", e.getMessage());
 		}
 	}
-
+	
 	/**
 	 * Handles errors during async message processing.
 	 * @param asyncContext The async context
@@ -477,27 +504,23 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
 			if (asyncResponse == null) {
 				logger.error("Async response is null");
-				return;
 			}
+			else {
 			McpError mcpError = new McpError(error.getMessage());
 			asyncResponse.setContentType(APPLICATION_JSON);
 			asyncResponse.setCharacterEncoding(UTF_8);
 			asyncResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
 			String jsonError = jsonMapper.writeValueAsString(mcpError);
 			PrintWriter writer = asyncResponse.getWriter();
-			writer.write(jsonError);
-			writer.flush();
+				writer.write(jsonError);
+				writer.flush();
+			}
 		}
 		catch (IOException ex) {
 			logger.error(FAILED_TO_SEND_ERROR_RESPONSE, ex);
 		}
 		finally {
-			try {
-				asyncContext.complete();
-			}
-			catch (IllegalStateException ex) {
-				logger.debug("Async context already completed or timed out: {}", ex.getMessage());
-			}
+			safeCompleteAsyncContext(asyncContext);
 		}
 	}
 
@@ -524,7 +547,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 		String sessionId = request.getParameter("sessionId");
 
-		// Read request body
 		BufferedReader reader = request.getReader();
 		StringBuilder body = new StringBuilder();
 		String line;
@@ -532,11 +554,11 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			body.append(line);
 		}
 
-		// Extract transport context and deserialize message
+		// Extract transport context
 		final McpTransportContext transportContext = this.contextExtractor.extract(request);
+		// Deserialize message
 		McpSchema.JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(jsonMapper, body.toString());
 
-		// Extract message information for logging
 		final MessageInfo messageInfo = extractMessageInfo(message);
 		logger.info("SERVER doPost: kind={}, id={}, sessionId={}, uri={}, thread={}", messageInfo.kind, messageInfo.id,
 				sessionId, request.getRequestURI(), Thread.currentThread().getName());
@@ -588,22 +610,53 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 																							// async
 																							// context
 																							// timeout
-				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).doOnNext(v -> {
-					// Complete async context when Mono emits a value (for responses with
-					// content)
-					completeAsyncContext(asyncContext, completed, messageInfo.kind, messageInfo.id, t0, true);
-				}).subscribe(v -> {
-					// Success handler - async context may already be completed in
-					// doOnNext
-					logger.debug("Subscription value received for kind={}, id={}", messageInfo.kind, messageInfo.id);
+				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).subscribe(v -> {
+					// Success handler - complete async context when Mono emits a value (for
+					// responses with content)
+					completeAsyncContextWithStatus(asyncContext, completed, messageInfo.kind, messageInfo.id, t0);
 				}, error -> {
 					// Error handler
 					handleAsyncError(asyncContext, completed, error);
 				}, () -> {
 					// Completion handler for empty Mono (SSE responses, notifications)
-					completeAsyncContext(asyncContext, completed, messageInfo.kind, messageInfo.id, t0, false);
+					completeAsyncContextEmpty(asyncContext, completed, messageInfo.kind, messageInfo.id, t0);
 				});
 	}
+	/**
+	 * Subscribes to message handling with reactive stream processing.
+	 * <p>
+	 * This method sets up the reactive subscription for handling incoming messages,
+	 * including timeout configuration, context propagation, and completion handlers.
+	 * @param session The MCP server session
+	 * @param message The JSON-RPC message to handle
+	 * @param asyncContext The async context for the request
+	 * @param messageInfo Information about the message (kind and id)
+	 * @param transportContext The transport context for the request
+	 * @param completed Atomic flag to track completion status
+	 * @param t0 Start time in nanoseconds for performance tracking
+	 */
+	private void subscribeToMessageHandling(McpServerSession session, McpSchema.JSONRPCMessage message,
+			AsyncContext asyncContext, MessageInfo messageInfo, McpTransportContext transportContext,
+			AtomicBoolean completed, long t0) {
+		Disposable subscription = session.handle(message).timeout(Duration.ofSeconds(55)) // Timeout
+																							// shorter
+																							// than
+																							// async
+																							// context
+																							// timeout
+				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).subscribe(v -> {
+					// Success handler - complete async context when Mono emits a value (for
+					// responses with content)
+					completeAsyncContextWithStatus(asyncContext, completed, messageInfo.kind, messageInfo.id, t0);
+				}, error -> {
+					// Error handler
+					handleAsyncError(asyncContext, completed, error);
+				}, () -> {
+					// Completion handler for empty Mono (SSE responses, notifications)
+					completeAsyncContextEmpty(asyncContext, completed, messageInfo.kind, messageInfo.id, t0);
+				});
+	}
+
 
 	/**
 	 * Initiates a graceful shutdown of the transport.
@@ -696,7 +749,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 				catch (Exception e) {
 					logger.error("Failed to send message to session {}: {}", sessionId, e.getMessage());
 					sessions.remove(sessionId);
-					asyncContext.complete();
+					safeCompleteAsyncContext(asyncContext);
 				}
 			});
 		}
@@ -721,14 +774,9 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		public Mono<Void> closeGracefully() {
 			return Mono.fromRunnable(() -> {
 				logger.debug("Closing session transport: {}", sessionId);
-				try {
-					sessions.remove(sessionId);
-					asyncContext.complete();
-					logger.debug("Successfully completed async context for session {}", sessionId);
-				}
-				catch (Exception e) {
-					logger.warn("Failed to complete async context for session {}: {}", sessionId, e.getMessage());
-				}
+				sessions.remove(sessionId);
+				safeCompleteAsyncContext(asyncContext);
+				logger.debug("Successfully completed async context for session {}", sessionId);
 			});
 		}
 
@@ -737,14 +785,9 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		 */
 		@Override
 		public void close() {
-			try {
-				sessions.remove(sessionId);
-				asyncContext.complete();
-				logger.debug("Successfully completed async context for session {}", sessionId);
-			}
-			catch (Exception e) {
-				logger.warn("Failed to complete async context for session {}: {}", sessionId, e.getMessage());
-			}
+			sessions.remove(sessionId);
+			safeCompleteAsyncContext(asyncContext);
+			logger.debug("Successfully completed async context for session {}", sessionId);
 		}
 
 	}
