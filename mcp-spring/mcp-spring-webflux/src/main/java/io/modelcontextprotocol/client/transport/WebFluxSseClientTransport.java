@@ -245,21 +245,15 @@ public class WebFluxSseClientTransport implements McpClientTransport {
 			}
 			try {
 				String jsonText = this.jsonMapper.writeValueAsString(message);
-				return webClient.post()
-					.uri(messageEndpointUri)
-					.contentType(MediaType.APPLICATION_JSON)
-					.header(HttpHeaders.PROTOCOL_VERSION, MCP_PROTOCOL_VERSION)
-					.bodyValue(jsonText)
-					.retrieve()
-					.toBodilessEntity()
-					.doOnSuccess(response -> {
-						logger.debug("Message sent successfully");
-					})
-					.doOnError(error -> {
-						if (!isClosing) {
-							logger.error("Error sending message: {}", error.getMessage());
-						}
-					});
+				return webClient.post().uri(messageEndpointUri).contentType(MediaType.APPLICATION_JSON)
+						.header(HttpHeaders.PROTOCOL_VERSION, MCP_PROTOCOL_VERSION).bodyValue(jsonText).retrieve()
+						.toBodilessEntity().doOnSuccess(response -> {
+							logger.debug("Message sent successfully");
+						}).doOnError(error -> {
+							if (!isClosing) {
+								logger.error("Error sending message: {}", error.getMessage());
+							}
+						});
 			}
 			catch (IOException e) {
 				if (!isClosing) {

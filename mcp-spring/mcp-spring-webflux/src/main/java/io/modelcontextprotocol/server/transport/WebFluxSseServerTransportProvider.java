@@ -162,18 +162,14 @@ public class WebFluxSseServerTransportProvider implements McpServerTransportProv
 		this.messageEndpoint = messageEndpoint;
 		this.sseEndpoint = sseEndpoint;
 		this.contextExtractor = contextExtractor;
-		this.routerFunction = RouterFunctions.route()
-			.GET(this.sseEndpoint, this::handleSseConnection)
-			.POST(this.messageEndpoint, this::handleMessage)
-			.build();
+		this.routerFunction = RouterFunctions.route().GET(this.sseEndpoint, this::handleSseConnection)
+				.POST(this.messageEndpoint, this::handleMessage).build();
 
 		if (keepAliveInterval != null) {
 
 			this.keepAliveScheduler = KeepAliveScheduler
-				.builder(() -> (isClosing) ? Flux.empty() : Flux.fromIterable(sessions.values()))
-				.initialDelay(keepAliveInterval)
-				.interval(keepAliveInterval)
-				.build();
+					.builder(() -> (isClosing) ? Flux.empty() : Flux.fromIterable(sessions.values()))
+					.initialDelay(keepAliveInterval).interval(keepAliveInterval).build();
 
 			this.keepAliveScheduler.start();
 		}
@@ -217,11 +213,10 @@ public class WebFluxSseServerTransportProvider implements McpServerTransportProv
 		logger.debug("Attempting to broadcast message to {} active sessions", sessions.size());
 
 		return Flux.fromIterable(sessions.values())
-			.flatMap(session -> session.sendNotification(method, params)
-				.doOnError(
+				.flatMap(session -> session.sendNotification(method, params).doOnError(
 						e -> logger.error("Failed to send message to session {}: {}", session.getId(), e.getMessage()))
-				.onErrorComplete())
-			.then();
+						.onErrorComplete())
+				.then();
 	}
 
 	// FIXME: This javadoc makes claims about using isClosing flag but it's not
@@ -236,16 +231,14 @@ public class WebFluxSseServerTransportProvider implements McpServerTransportProv
 	@Override
 	public Mono<Void> closeGracefully() {
 		return Flux.fromIterable(sessions.values())
-			.doFirst(() -> logger.debug("Initiating graceful shutdown with {} active sessions", sessions.size()))
-			.flatMap(McpServerSession::closeGracefully)
-			.then()
-			.doOnSuccess(v -> {
-				logger.debug("Graceful shutdown completed");
-				sessions.clear();
-				if (this.keepAliveScheduler != null) {
-					this.keepAliveScheduler.shutdown();
-				}
-			});
+				.doFirst(() -> logger.debug("Initiating graceful shutdown with {} active sessions", sessions.size()))
+				.flatMap(McpServerSession::closeGracefully).then().doOnSuccess(v -> {
+					logger.debug("Graceful shutdown completed");
+					sessions.clear();
+					if (this.keepAliveScheduler != null) {
+						this.keepAliveScheduler.shutdown();
+					}
+				});
 	}
 
 	/**
@@ -277,26 +270,25 @@ public class WebFluxSseServerTransportProvider implements McpServerTransportProv
 
 		McpTransportContext transportContext = this.contextExtractor.extract(request);
 
-		return ServerResponse.ok()
-			.contentType(MediaType.TEXT_EVENT_STREAM)
-			.body(Flux.<ServerSentEvent<?>>create(sink -> {
-				WebFluxMcpSessionTransport sessionTransport = new WebFluxMcpSessionTransport(sink);
+		return ServerResponse.ok().contentType(MediaType.TEXT_EVENT_STREAM)
+				.body(Flux.<ServerSentEvent<?>>create(sink -> {
+					WebFluxMcpSessionTransport sessionTransport = new WebFluxMcpSessionTransport(sink);
 
-				McpServerSession session = sessionFactory.create(sessionTransport);
-				String sessionId = session.getId();
+					McpServerSession session = sessionFactory.create(sessionTransport);
+					String sessionId = session.getId();
 
-				logger.debug("Created new SSE connection for session: {}", sessionId);
-				sessions.put(sessionId, session);
+					logger.debug("Created new SSE connection for session: {}", sessionId);
+					sessions.put(sessionId, session);
 
-				// Send initial endpoint event
-				logger.debug("Sending initial endpoint event to session: {}", sessionId);
-				sink.next(
-						ServerSentEvent.builder().event(ENDPOINT_EVENT_TYPE).data(buildEndpointUrl(sessionId)).build());
-				sink.onCancel(() -> {
-					logger.debug("Session {} cancelled", sessionId);
-					sessions.remove(sessionId);
-				});
-			}).contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)), ServerSentEvent.class);
+					// Send initial endpoint event
+					logger.debug("Sending initial endpoint event to session: {}", sessionId);
+					sink.next(ServerSentEvent.builder().event(ENDPOINT_EVENT_TYPE).data(buildEndpointUrl(sessionId))
+							.build());
+					sink.onCancel(() -> {
+						logger.debug("Session {} cancelled", sessionId);
+						sessions.remove(sessionId);
+					});
+				}).contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)), ServerSentEvent.class);
 	}
 
 	/**
@@ -307,11 +299,8 @@ public class WebFluxSseServerTransportProvider implements McpServerTransportProv
 	 */
 	private String buildEndpointUrl(String sessionId) {
 		// for WebMVC compatibility
-		return UriComponentsBuilder.fromUriString(this.baseUrl)
-			.path(this.messageEndpoint)
-			.queryParam(SESSION_ID, sessionId)
-			.build()
-			.toUriString();
+		return UriComponentsBuilder.fromUriString(this.baseUrl).path(this.messageEndpoint)
+				.queryParam(SESSION_ID, sessionId).build().toUriString();
 	}
 
 	/**
@@ -343,7 +332,7 @@ public class WebFluxSseServerTransportProvider implements McpServerTransportProv
 
 		if (session == null) {
 			return ServerResponse.status(HttpStatus.NOT_FOUND)
-				.bodyValue(new McpError("Session not found: " + request.queryParam("sessionId").get()));
+					.bodyValue(new McpError("Session not found: " + request.queryParam("sessionId").get()));
 		}
 
 		McpTransportContext transportContext = this.contextExtractor.extract(request);
@@ -357,7 +346,7 @@ public class WebFluxSseServerTransportProvider implements McpServerTransportProv
 					// - the error is signalled on the SSE connection
 					// return ServerResponse.ok().build();
 					return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-						.bodyValue(new McpError(error.getMessage()));
+							.bodyValue(new McpError(error.getMessage()));
 				});
 			}
 			catch (IllegalArgumentException | IOException e) {
@@ -385,10 +374,8 @@ public class WebFluxSseServerTransportProvider implements McpServerTransportProv
 					throw Exceptions.propagate(e);
 				}
 			}).doOnNext(jsonText -> {
-				ServerSentEvent<Object> event = ServerSentEvent.builder()
-					.event(MESSAGE_EVENT_TYPE)
-					.data(jsonText)
-					.build();
+				ServerSentEvent<Object> event = ServerSentEvent.builder().event(MESSAGE_EVENT_TYPE).data(jsonText)
+						.build();
 				sink.next(event);
 			}).doOnError(e -> {
 				// TODO log with sessionid

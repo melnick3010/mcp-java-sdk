@@ -50,8 +50,7 @@ class WebMvcSseCustomContextPathTests {
 		}
 
 		HttpClientSseClientTransport clientTransport = HttpClientSseClientTransport.builder("http://localhost:" + PORT)
-			.sseEndpoint(CUSTOM_CONTEXT_PATH + WebMvcSseServerTransportProvider.DEFAULT_SSE_ENDPOINT)
-			.build();
+				.sseEndpoint(CUSTOM_CONTEXT_PATH + WebMvcSseServerTransportProvider.DEFAULT_SSE_ENDPOINT).build();
 
 		clientBuilder = McpClient.sync(clientTransport);
 
@@ -81,7 +80,7 @@ class WebMvcSseCustomContextPathTests {
 	void testCustomContextPath() {
 		McpServer.async(mcpServerTransportProvider).serverInfo("test-server", "1.0.0").build();
 		McpSyncClient client = clientBuilder.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
-			.build();
+				.build();
 		assertThat(client.initialize()).isNotNull();
 	}
 
@@ -92,11 +91,9 @@ class WebMvcSseCustomContextPathTests {
 		@Bean
 		public WebMvcSseServerTransportProvider webMvcSseServerTransportProvider() {
 
-			return WebMvcSseServerTransportProvider.builder()
-				.baseUrl(CUSTOM_CONTEXT_PATH)
-				.messageEndpoint(MESSAGE_ENDPOINT)
-				.sseEndpoint(WebMvcSseServerTransportProvider.DEFAULT_SSE_ENDPOINT)
-				.build();
+			return WebMvcSseServerTransportProvider.builder().baseUrl(CUSTOM_CONTEXT_PATH)
+					.messageEndpoint(MESSAGE_ENDPOINT)
+					.sseEndpoint(WebMvcSseServerTransportProvider.DEFAULT_SSE_ENDPOINT).build();
 			// return new WebMvcSseServerTransportProvider(new ObjectMapper(),
 			// CUSTOM_CONTEXT_PATH, MESSAGE_ENDPOINT,
 			// WebMvcSseServerTransportProvider.DEFAULT_SSE_ENDPOINT);

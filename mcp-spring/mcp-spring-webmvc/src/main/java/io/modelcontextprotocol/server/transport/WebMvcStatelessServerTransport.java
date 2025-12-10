@@ -59,10 +59,8 @@ public class WebMvcStatelessServerTransport implements McpStatelessServerTranspo
 		this.jsonMapper = jsonMapper;
 		this.mcpEndpoint = mcpEndpoint;
 		this.contextExtractor = contextExtractor;
-		this.routerFunction = RouterFunctions.route()
-			.GET(this.mcpEndpoint, this::handleGet)
-			.POST(this.mcpEndpoint, this::handlePost)
-			.build();
+		this.routerFunction = RouterFunctions.route().GET(this.mcpEndpoint, this::handleGet)
+				.POST(this.mcpEndpoint, this::handlePost).build();
 	}
 
 	@Override
@@ -117,16 +115,15 @@ public class WebMvcStatelessServerTransport implements McpStatelessServerTranspo
 				McpSchema.JSONRPCRequest jsonrpcRequest = (McpSchema.JSONRPCRequest) message;
 				try {
 					McpSchema.JSONRPCResponse jsonrpcResponse = this.mcpHandler
-						.handleRequest(transportContext, jsonrpcRequest)
-						.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
-						.block();
+							.handleRequest(transportContext, jsonrpcRequest)
+							.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).block();
 
 					return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(jsonrpcResponse);
 				}
 				catch (Exception e) {
 					logger.error("Failed to handle request: {}", e.getMessage());
 					return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-						.body(new McpError("Failed to handle request: " + e.getMessage()));
+							.body(new McpError("Failed to handle request: " + e.getMessage()));
 				}
 
 			}
@@ -134,21 +131,20 @@ public class WebMvcStatelessServerTransport implements McpStatelessServerTranspo
 				McpSchema.JSONRPCNotification jsonrpcNotification = (McpSchema.JSONRPCNotification) message;
 				try {
 					this.mcpHandler.handleNotification(transportContext, jsonrpcNotification)
-						.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
-						.block();
+							.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).block();
 
 					return ServerResponse.accepted().build();
 				}
 				catch (Exception e) {
 					logger.error("Failed to handle notification: {}", e.getMessage());
 					return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-						.body(new McpError("Failed to handle notification: " + e.getMessage()));
+							.body(new McpError("Failed to handle notification: " + e.getMessage()));
 				}
 
 			}
 			else {
 				return ServerResponse.badRequest()
-					.body(new McpError("The server accepts either requests or notifications"));
+						.body(new McpError("The server accepts either requests or notifications"));
 			}
 
 		}
@@ -159,7 +155,7 @@ public class WebMvcStatelessServerTransport implements McpStatelessServerTranspo
 		catch (Exception e) {
 			logger.error("Unexpected error handling message: {}", e.getMessage());
 			return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-				.body(new McpError("Unexpected error: " + e.getMessage()));
+					.body(new McpError("Unexpected error: " + e.getMessage()));
 		}
 	}
 

@@ -49,10 +49,9 @@ class WebFluxSseClientTransportTests {
 
 	@SuppressWarnings("resource")
 	static GenericContainer<?> container = new GenericContainer<>("docker.io/tzolov/mcp-everything-server:v3")
-		.withCommand("node dist/index.js sse")
-		.withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String()))
-		.withExposedPorts(3001)
-		.waitingFor(Wait.forHttp("/").forStatusCode(404));
+			.withCommand("node dist/index.js sse")
+			.withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String())).withExposedPorts(3001)
+			.waitingFor(Wait.forHttp("/").forStatusCode(404));
 
 	private TestSseClientTransport transport;
 
@@ -133,12 +132,11 @@ class WebFluxSseClientTransportTests {
 	@Test
 	void constructorValidation() {
 		assertThatThrownBy(() -> new WebFluxSseClientTransport(null, JSON_MAPPER))
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessageContaining("WebClient.Builder must not be null");
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("WebClient.Builder must not be null");
 
 		assertThatThrownBy(() -> new WebFluxSseClientTransport(webClientBuilder, null))
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessageContaining("jsonMapper must not be null");
+				.isInstanceOf(IllegalArgumentException.class).hasMessageContaining("jsonMapper must not be null");
 	}
 
 	@Test
@@ -150,20 +148,17 @@ class WebFluxSseClientTransportTests {
 		// Test builder with custom ObjectMapper
 		ObjectMapper customMapper = new ObjectMapper();
 		WebFluxSseClientTransport transport2 = WebFluxSseClientTransport.builder(webClientBuilder)
-			.jsonMapper(new JacksonMcpJsonMapper(customMapper))
-			.build();
+				.jsonMapper(new JacksonMcpJsonMapper(customMapper)).build();
 		assertThatCode(() -> transport2.closeGracefully().block()).doesNotThrowAnyException();
 
 		// Test builder with custom SSE endpoint
 		WebFluxSseClientTransport transport3 = WebFluxSseClientTransport.builder(webClientBuilder)
-			.sseEndpoint("/custom-sse")
-			.build();
+				.sseEndpoint("/custom-sse").build();
 		assertThatCode(() -> transport3.closeGracefully().block()).doesNotThrowAnyException();
 
 		// Test builder with all custom parameters
 		WebFluxSseClientTransport transport4 = WebFluxSseClientTransport.builder(webClientBuilder)
-			.sseEndpoint("/custom-sse")
-			.build();
+				.sseEndpoint("/custom-sse").build();
 		assertThatCode(() -> transport4.closeGracefully().block()).doesNotThrowAnyException();
 	}
 

@@ -125,18 +125,13 @@ public class WebMvcStreamableServerTransportProvider implements McpStreamableSer
 		this.mcpEndpoint = mcpEndpoint;
 		this.disallowDelete = disallowDelete;
 		this.contextExtractor = contextExtractor;
-		this.routerFunction = RouterFunctions.route()
-			.GET(this.mcpEndpoint, this::handleGet)
-			.POST(this.mcpEndpoint, this::handlePost)
-			.DELETE(this.mcpEndpoint, this::handleDelete)
-			.build();
+		this.routerFunction = RouterFunctions.route().GET(this.mcpEndpoint, this::handleGet)
+				.POST(this.mcpEndpoint, this::handlePost).DELETE(this.mcpEndpoint, this::handleDelete).build();
 
 		if (keepAliveInterval != null) {
 			this.keepAliveScheduler = KeepAliveScheduler
-				.builder(() -> (isClosing) ? Flux.empty() : Flux.fromIterable(this.sessions.values()))
-				.initialDelay(keepAliveInterval)
-				.interval(keepAliveInterval)
-				.build();
+					.builder(() -> (isClosing) ? Flux.empty() : Flux.fromIterable(this.sessions.values()))
+					.initialDelay(keepAliveInterval).interval(keepAliveInterval).build();
 
 			this.keepAliveScheduler.start();
 		}
@@ -268,20 +263,18 @@ public class WebMvcStreamableServerTransportProvider implements McpStreamableSer
 					String lastId = request.headers().asHttpHeaders().getFirst(HttpHeaders.LAST_EVENT_ID);
 
 					try {
-						session.replay(lastId)
-							.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
-							.toIterable()
-							.forEach(message -> {
-								try {
-									sessionTransport.sendMessage(message)
-										.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
-										.block();
-								}
-								catch (Exception e) {
-									logger.error("Failed to replay message: {}", e.getMessage());
-									sseBuilder.error(e);
-								}
-							});
+						session.replay(lastId).contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
+								.toIterable().forEach(message -> {
+									try {
+										sessionTransport.sendMessage(message)
+												.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
+												.block();
+									}
+									catch (Exception e) {
+										logger.error("Failed to replay message: {}", e.getMessage());
+										sseBuilder.error(e);
+									}
+								});
 					}
 					catch (Exception e) {
 						logger.error("Failed to replay messages: {}", e.getMessage());
@@ -291,7 +284,7 @@ public class WebMvcStreamableServerTransportProvider implements McpStreamableSer
 				else {
 					// Establish new listening stream
 					McpStreamableServerSession.McpStreamableServerSessionStream listeningStream = session
-						.listeningStream(sessionTransport);
+							.listeningStream(sessionTransport);
 
 					sseBuilder.onComplete(() -> {
 						logger.debug("SSE connection completed for session: {}", sessionId);
@@ -320,7 +313,7 @@ public class WebMvcStreamableServerTransportProvider implements McpStreamableSer
 		if (!acceptHeaders.contains(MediaType.TEXT_EVENT_STREAM)
 				|| !acceptHeaders.contains(MediaType.APPLICATION_JSON)) {
 			return ServerResponse.badRequest()
-				.body(new McpError("Invalid Accept headers. Expected TEXT_EVENT_STREAM and APPLICATION_JSON"));
+					.body(new McpError("Invalid Accept headers. Expected TEXT_EVENT_STREAM and APPLICATION_JSON"));
 		}
 
 		McpTransportContext transportContext = this.contextExtractor.extract(request);
@@ -340,23 +333,22 @@ public class WebMvcStreamableServerTransportProvider implements McpStreamableSer
 							});
 
 					McpStreamableServerSession.McpStreamableServerSessionInit init = this.sessionFactory
-						.startSession(initializeRequest);
+							.startSession(initializeRequest);
 
 					this.sessions.put(init.session().getId(), init.session());
 
 					try {
 						McpSchema.InitializeResult initResult = init.initResult().block();
 
-						return ServerResponse.ok()
-							.contentType(MediaType.APPLICATION_JSON)
-							.header(HttpHeaders.MCP_SESSION_ID, init.session().getId())
-							.body(new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, jsonrpcRequest.id(),
-									initResult, null));
+						return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
+								.header(HttpHeaders.MCP_SESSION_ID, init.session().getId())
+								.body(new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, jsonrpcRequest.id(),
+										initResult, null));
 					}
 					catch (Exception e) {
 						logger.error("Failed to initialize session: {}", e.getMessage());
 						return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-							.body(new McpError(e.getMessage()));
+								.body(new McpError(e.getMessage()));
 					}
 				}
 			}
@@ -371,15 +363,14 @@ public class WebMvcStreamableServerTransportProvider implements McpStreamableSer
 
 			if (session == null) {
 				return ServerResponse.status(HttpStatus.NOT_FOUND)
-					.body(new McpError("Session not found: " + sessionId));
+						.body(new McpError("Session not found: " + sessionId));
 			}
 
 			if (message instanceof McpSchema.JSONRPCResponse) {
 				McpSchema.JSONRPCResponse jsonrpcResponse = (McpSchema.JSONRPCResponse) message;
 
-				session.accept(jsonrpcResponse)
-					.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
-					.block();
+				session.accept(jsonrpcResponse).contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
+						.block();
 
 				return ServerResponse.accepted().build();
 
@@ -388,8 +379,7 @@ public class WebMvcStreamableServerTransportProvider implements McpStreamableSer
 				McpSchema.JSONRPCNotification jsonrpcNotification = (McpSchema.JSONRPCNotification) message;
 
 				session.accept(jsonrpcNotification)
-					.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
-					.block();
+						.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).block();
 
 				return ServerResponse.accepted().build();
 
@@ -411,8 +401,7 @@ public class WebMvcStreamableServerTransportProvider implements McpStreamableSer
 
 					try {
 						session.responseStream(jsonrpcRequest, sessionTransport)
-							.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
-							.block();
+								.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).block();
 					}
 					catch (Exception e) {
 						logger.error("Failed to handle request stream: {}", e.getMessage());
@@ -423,7 +412,7 @@ public class WebMvcStreamableServerTransportProvider implements McpStreamableSer
 			}
 			else {
 				return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-					.body(new McpError("Unknown message type"));
+						.body(new McpError("Unknown message type"));
 			}
 
 		}
@@ -538,9 +527,8 @@ public class WebMvcStreamableServerTransportProvider implements McpStreamableSer
 					}
 
 					String jsonText = jsonMapper.writeValueAsString(message);
-					this.sseBuilder.id(messageId != null ? messageId : this.sessionId)
-						.event(MESSAGE_EVENT_TYPE)
-						.data(jsonText);
+					this.sseBuilder.id(messageId != null ? messageId : this.sessionId).event(MESSAGE_EVENT_TYPE)
+							.data(jsonText);
 					logger.debug("Message sent to session {} with ID {}", this.sessionId, messageId);
 				}
 				catch (Exception e) {

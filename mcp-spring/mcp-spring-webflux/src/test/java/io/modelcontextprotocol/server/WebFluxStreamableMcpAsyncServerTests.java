@@ -31,8 +31,7 @@ class WebFluxStreamableMcpAsyncServerTests extends AbstractMcpAsyncServerTests {
 
 	private McpStreamableServerTransportProvider createMcpTransportProvider() {
 		WebFluxStreamableServerTransportProvider transportProvider = WebFluxStreamableServerTransportProvider.builder()
-			.messageEndpoint(MESSAGE_ENDPOINT)
-			.build();
+				.messageEndpoint(MESSAGE_ENDPOINT).build();
 
 		HttpHandler httpHandler = RouterFunctions.toHttpHandler(transportProvider.getRouterFunction());
 		ReactorHttpHandlerAdapter adapter = new ReactorHttpHandlerAdapter(httpHandler);

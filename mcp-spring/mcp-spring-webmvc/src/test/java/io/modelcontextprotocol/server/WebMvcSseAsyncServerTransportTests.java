@@ -37,10 +37,8 @@ class WebMvcSseAsyncServerTransportTests extends AbstractMcpAsyncServerTests {
 
 		@Bean
 		public WebMvcSseServerTransportProvider webMvcSseServerTransportProvider() {
-			return WebMvcSseServerTransportProvider.builder()
-				.messageEndpoint(MESSAGE_ENDPOINT)
-				.sseEndpoint(WebMvcSseServerTransportProvider.DEFAULT_SSE_ENDPOINT)
-				.build();
+			return WebMvcSseServerTransportProvider.builder().messageEndpoint(MESSAGE_ENDPOINT)
+					.sseEndpoint(WebMvcSseServerTransportProvider.DEFAULT_SSE_ENDPOINT).build();
 		}
 
 		@Bean

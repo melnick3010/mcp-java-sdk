@@ -38,12 +38,8 @@ public class McpTestRequestRecordingExchangeFilterFunction
 	@Override
 	public Mono<ServerResponse> filter(ServerRequest request, HandlerFunction<ServerResponse> next) {
 		// Lowercase header names (locale-stable) and join multi-values with comma
-		final Map<String, String> headers = request.headers()
-			.asHttpHeaders()
-			.keySet()
-			.stream()
-			.collect(Collectors.toMap(k -> k.toLowerCase(Locale.ROOT),
-					k -> String.join(",", request.headers().header(k))));
+		final Map<String, String> headers = request.headers().asHttpHeaders().keySet().stream().collect(
+				Collectors.toMap(k -> k.toLowerCase(Locale.ROOT), k -> String.join(",", request.headers().header(k))));
 
 		// Rebuild the request with captured body; keep a record of the call
 		final Mono<ServerRequest> cr = request.bodyToMono(String.class).defaultIfEmpty("").map(body -> {

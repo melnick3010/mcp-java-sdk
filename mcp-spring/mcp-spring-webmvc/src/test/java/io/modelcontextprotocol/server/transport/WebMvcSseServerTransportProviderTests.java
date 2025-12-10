@@ -59,8 +59,7 @@ class WebMvcSseServerTransportProviderTests {
 		}
 
 		HttpClientSseClientTransport transport = HttpClientSseClientTransport.builder("http://localhost:" + PORT)
-			.sseEndpoint(WebMvcSseServerTransportProvider.DEFAULT_SSE_ENDPOINT)
-			.build();
+				.sseEndpoint(WebMvcSseServerTransportProvider.DEFAULT_SSE_ENDPOINT).build();
 
 		clientBuilder = McpClient.sync(transport);
 		mcpServerTransportProvider = tomcatServer.getAppContext().getBean(WebMvcSseServerTransportProvider.class);
@@ -70,8 +69,7 @@ class WebMvcSseServerTransportProviderTests {
 	void validBaseUrl() {
 		McpServer.async(mcpServerTransportProvider).serverInfo("test-server", "1.0.0").build();
 		try (McpSyncClient client = clientBuilder
-			.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
-			.build()) {
+				.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0")).build()) {
 			assertThat(client.initialize()).isNotNull();
 		}
 	}
@@ -102,13 +100,10 @@ class WebMvcSseServerTransportProviderTests {
 		@Bean
 		public WebMvcSseServerTransportProvider webMvcSseServerTransportProvider() {
 
-			return WebMvcSseServerTransportProvider.builder()
-				.baseUrl("http://localhost:" + PORT + "/")
-				.messageEndpoint(MESSAGE_ENDPOINT)
-				.sseEndpoint(WebMvcSseServerTransportProvider.DEFAULT_SSE_ENDPOINT)
-				.jsonMapper(McpJsonMapper.getDefault())
-				.contextExtractor(req -> McpTransportContext.EMPTY)
-				.build();
+			return WebMvcSseServerTransportProvider.builder().baseUrl("http://localhost:" + PORT + "/")
+					.messageEndpoint(MESSAGE_ENDPOINT)
+					.sseEndpoint(WebMvcSseServerTransportProvider.DEFAULT_SSE_ENDPOINT)
+					.jsonMapper(McpJsonMapper.getDefault()).contextExtractor(req -> McpTransportContext.EMPTY).build();
 		}
 
 		@Bean

@@ -67,8 +67,8 @@ public class DefaultJsonSchemaValidator implements JsonSchemaValidator {
 			// Check if validation passed
 			if (!validationResult.isEmpty()) {
 				return ValidationResponse
-					.asInvalid("Validation failed: structuredContent does not match tool outputSchema. "
-							+ "Validation errors: " + validationResult);
+						.asInvalid("Validation failed: structuredContent does not match tool outputSchema. "
+								+ "Validation errors: " + validationResult);
 			}
 
 			return ValidationResponse.asValid(jsonStructuredOutput.toString());

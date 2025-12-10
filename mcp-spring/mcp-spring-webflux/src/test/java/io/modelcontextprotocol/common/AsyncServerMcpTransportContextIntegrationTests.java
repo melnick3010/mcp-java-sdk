@@ -87,15 +87,13 @@ public class AsyncServerMcpTransportContextIntegrationTests {
 	});
 
 	// Tools
-	private final McpSchema.Tool tool = McpSchema.Tool.builder()
-		.name("test-tool")
-		.description("return the value of the x-test header from call tool request")
-		.build();
+	private final McpSchema.Tool tool = McpSchema.Tool.builder().name("test-tool")
+			.description("return the value of the x-test header from call tool request").build();
 
 	private final BiFunction<McpTransportContext, McpSchema.CallToolRequest, Mono<McpSchema.CallToolResult>> asyncStatelessHandler = (
 			transportContext, request) -> {
 		return Mono
-			.just(new McpSchema.CallToolResult(transportContext.get("server-side-header-value").toString(), null));
+				.just(new McpSchema.CallToolResult(transportContext.get("server-side-header-value").toString(), null));
 	};
 
 	private final BiFunction<McpAsyncServerExchange, McpSchema.CallToolRequest, Mono<McpSchema.CallToolResult>> asyncStatefulHandler = (
@@ -113,31 +111,22 @@ public class AsyncServerMcpTransportContextIntegrationTests {
 
 	// Server transports
 	private final WebFluxStatelessServerTransport statelessServerTransport = WebFluxStatelessServerTransport.builder()
-		.contextExtractor(serverContextExtractor)
-		.build();
+			.contextExtractor(serverContextExtractor).build();
 
 	private final WebFluxStreamableServerTransportProvider streamableServerTransport = WebFluxStreamableServerTransportProvider
-		.builder()
-		.contextExtractor(serverContextExtractor)
-		.build();
+			.builder().contextExtractor(serverContextExtractor).build();
 
 	private final WebFluxSseServerTransportProvider sseServerTransport = WebFluxSseServerTransportProvider.builder()
-		.contextExtractor(serverContextExtractor)
-		.messageEndpoint("/mcp/message")
-		.build();
+			.contextExtractor(serverContextExtractor).messageEndpoint("/mcp/message").build();
 
 	// Async clients
-	private final McpAsyncClient asyncStreamableClient = McpClient
-		.async(WebClientStreamableHttpTransport
+	private final McpAsyncClient asyncStreamableClient = McpClient.async(WebClientStreamableHttpTransport
 			.builder(WebClient.builder().baseUrl("http://localhost:" + PORT).filter(asyncClientContextProvider))
-			.build())
-		.build();
+			.build()).build();
 
-	private final McpAsyncClient asyncSseClient = McpClient
-		.async(WebFluxSseClientTransport
+	private final McpAsyncClient asyncSseClient = McpClient.async(WebFluxSseClientTransport
 			.builder(WebClient.builder().baseUrl("http://localhost:" + PORT).filter(asyncClientContextProvider))
-			.build())
-		.build();
+			.build()).build();
 
 	private DisposableServer httpServer;
 
@@ -167,9 +156,8 @@ public class AsyncServerMcpTransportContextIntegrationTests {
 		startHttpServer(statelessServerTransport.getRouterFunction());
 
 		McpStatelessAsyncServer mcpServer = McpServer.async(statelessServerTransport)
-			.capabilities(McpSchema.ServerCapabilities.builder().tools(true).build())
-			.tools(new McpStatelessServerFeatures.AsyncToolSpecification(tool, asyncStatelessHandler))
-			.build();
+				.capabilities(McpSchema.ServerCapabilities.builder().tools(true).build())
+				.tools(new McpStatelessServerFeatures.AsyncToolSpecification(tool, asyncStatelessHandler)).build();
 
 		StepVerifier.create(asyncStreamableClient.initialize()).assertNext(initResult -> {
 			assertThat(initResult).isNotNull();
@@ -177,19 +165,16 @@ public class AsyncServerMcpTransportContextIntegrationTests {
 
 		// Test tool call with context
 		StepVerifier
-			.create(asyncStreamableClient.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()))
-				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY,
-						McpTransportContext
-							.create(Collections.singletonMap("client-side-header-value", "some important value")))))
-			.assertNext(response -> {
-				assertThat(response).isNotNull();
-				assertThat(response.getContent()).hasSize(1)
-					.first()
-					.extracting(McpSchema.TextContent.class::cast)
-					.extracting(McpSchema.TextContent::getText)
-					.isEqualTo("some important value");
-			})
-			.verifyComplete();
+				.create(asyncStreamableClient
+						.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()))
+						.contextWrite(ctx -> ctx.put(McpTransportContext.KEY,
+								McpTransportContext.create(
+										Collections.singletonMap("client-side-header-value", "some important value")))))
+				.assertNext(response -> {
+					assertThat(response).isNotNull();
+					assertThat(response.getContent()).hasSize(1).first().extracting(McpSchema.TextContent.class::cast)
+							.extracting(McpSchema.TextContent::getText).isEqualTo("some important value");
+				}).verifyComplete();
 
 		mcpServer.close();
 	}
@@ -200,9 +185,8 @@ public class AsyncServerMcpTransportContextIntegrationTests {
 		startHttpServer(streamableServerTransport.getRouterFunction());
 
 		McpAsyncServer mcpServer = McpServer.async(streamableServerTransport)
-			.capabilities(McpSchema.ServerCapabilities.builder().tools(true).build())
-			.tools(new McpServerFeatures.AsyncToolSpecification(tool, null, asyncStatefulHandler))
-			.build();
+				.capabilities(McpSchema.ServerCapabilities.builder().tools(true).build())
+				.tools(new McpServerFeatures.AsyncToolSpecification(tool, null, asyncStatefulHandler)).build();
 
 		StepVerifier.create(asyncStreamableClient.initialize()).assertNext(initResult -> {
 			assertThat(initResult).isNotNull();
@@ -210,19 +194,16 @@ public class AsyncServerMcpTransportContextIntegrationTests {
 
 		// Test tool call with context
 		StepVerifier
-			.create(asyncStreamableClient.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()))
-				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY,
-						McpTransportContext
-							.create(Collections.singletonMap("client-side-header-value", "some important value")))))
-			.assertNext(response -> {
-				assertThat(response).isNotNull();
-				assertThat(response.getContent()).hasSize(1)
-					.first()
-					.extracting(McpSchema.TextContent.class::cast)
-					.extracting(McpSchema.TextContent::getText)
-					.isEqualTo("some important value");
-			})
-			.verifyComplete();
+				.create(asyncStreamableClient
+						.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()))
+						.contextWrite(ctx -> ctx.put(McpTransportContext.KEY,
+								McpTransportContext.create(
+										Collections.singletonMap("client-side-header-value", "some important value")))))
+				.assertNext(response -> {
+					assertThat(response).isNotNull();
+					assertThat(response.getContent()).hasSize(1).first().extracting(McpSchema.TextContent.class::cast)
+							.extracting(McpSchema.TextContent::getText).isEqualTo("some important value");
+				}).verifyComplete();
 
 		mcpServer.close();
 	}
@@ -233,9 +214,8 @@ public class AsyncServerMcpTransportContextIntegrationTests {
 		startHttpServer(sseServerTransport.getRouterFunction());
 
 		McpAsyncServer mcpServer = McpServer.async(sseServerTransport)
-			.capabilities(McpSchema.ServerCapabilities.builder().tools(true).build())
-			.tools(new McpServerFeatures.AsyncToolSpecification(tool, null, asyncStatefulHandler))
-			.build();
+				.capabilities(McpSchema.ServerCapabilities.builder().tools(true).build())
+				.tools(new McpServerFeatures.AsyncToolSpecification(tool, null, asyncStatefulHandler)).build();
 
 		StepVerifier.create(asyncSseClient.initialize()).assertNext(initResult -> {
 			assertThat(initResult).isNotNull();
@@ -243,19 +223,15 @@ public class AsyncServerMcpTransportContextIntegrationTests {
 
 		// Test tool call with context
 		StepVerifier
-			.create(asyncSseClient.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()))
-				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY,
-						McpTransportContext
-							.create(Collections.singletonMap("client-side-header-value", "some important value")))))
-			.assertNext(response -> {
-				assertThat(response).isNotNull();
-				assertThat(response.getContent()).hasSize(1)
-					.first()
-					.extracting(McpSchema.TextContent.class::cast)
-					.extracting(McpSchema.TextContent::getText)
-					.isEqualTo("some important value");
-			})
-			.verifyComplete();
+				.create(asyncSseClient.callTool(new McpSchema.CallToolRequest("test-tool", Collections.emptyMap()))
+						.contextWrite(ctx -> ctx.put(McpTransportContext.KEY,
+								McpTransportContext.create(
+										Collections.singletonMap("client-side-header-value", "some important value")))))
+				.assertNext(response -> {
+					assertThat(response).isNotNull();
+					assertThat(response.getContent()).hasSize(1).first().extracting(McpSchema.TextContent.class::cast)
+							.extracting(McpSchema.TextContent::getText).isEqualTo("some important value");
+				}).verifyComplete();
 
 		mcpServer.close();
 	}

@@ -47,7 +47,7 @@ class WebFluxSseIntegrationTests extends AbstractMcpClientServerIntegrationTests
 	private WebFluxSseServerTransportProvider mcpServerTransportProvider;
 
 	static McpTransportContextExtractor<ServerRequest> TEST_CONTEXT_EXTRACTOR = (r) -> McpTransportContext
-		.create(Collections.singletonMap("important", "value"));
+			.create(Collections.singletonMap("important", "value"));
 
 	static Stream<Arguments> clientsForTesting() {
 		return Stream.of(Arguments.of("httpclient"), Arguments.of("webflux"));
@@ -57,17 +57,17 @@ class WebFluxSseIntegrationTests extends AbstractMcpClientServerIntegrationTests
 	protected void prepareClients(int port, String mcpEndpoint) {
 
 		clientBuilders
-			.put("httpclient",
-					McpClient.sync(HttpClientSseClientTransport.builder("http://localhost:" + PORT)
-						.sseEndpoint(CUSTOM_SSE_ENDPOINT)
-						.build()).requestTimeout(Duration.ofHours(10)));
+				.put("httpclient",
+						McpClient
+								.sync(HttpClientSseClientTransport.builder("http://localhost:" + PORT)
+										.sseEndpoint(CUSTOM_SSE_ENDPOINT).build())
+								.requestTimeout(Duration.ofHours(10)));
 
 		clientBuilders.put("webflux",
 				McpClient
-					.sync(WebFluxSseClientTransport.builder(WebClient.builder().baseUrl("http://localhost:" + PORT))
-						.sseEndpoint(CUSTOM_SSE_ENDPOINT)
-						.build())
-					.requestTimeout(Duration.ofHours(10)));
+						.sync(WebFluxSseClientTransport.builder(WebClient.builder().baseUrl("http://localhost:" + PORT))
+								.sseEndpoint(CUSTOM_SSE_ENDPOINT).build())
+						.requestTimeout(Duration.ofHours(10)));
 
 	}
 
@@ -85,10 +85,8 @@ class WebFluxSseIntegrationTests extends AbstractMcpClientServerIntegrationTests
 	public void before() {
 
 		this.mcpServerTransportProvider = new WebFluxSseServerTransportProvider.Builder()
-			.messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
-			.sseEndpoint(CUSTOM_SSE_ENDPOINT)
-			.contextExtractor(TEST_CONTEXT_EXTRACTOR)
-			.build();
+				.messageEndpoint(CUSTOM_MESSAGE_ENDPOINT).sseEndpoint(CUSTOM_SSE_ENDPOINT)
+				.contextExtractor(TEST_CONTEXT_EXTRACTOR).build();
 
 		HttpHandler httpHandler = RouterFunctions.toHttpHandler(mcpServerTransportProvider.getRouterFunction());
 		ReactorHttpHandlerAdapter adapter = new ReactorHttpHandlerAdapter(httpHandler);

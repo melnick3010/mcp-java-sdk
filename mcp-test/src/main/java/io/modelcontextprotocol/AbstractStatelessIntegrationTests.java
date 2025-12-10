@@ -69,15 +69,13 @@ public abstract class AbstractStatelessIntegrationTests {
 		SyncSpec clientBuilder = clientBuilders.get(clientType);
 
 		McpStatelessAsyncServer server = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.requestTimeout(Duration.ofSeconds(1000))
-			.build();
+				.requestTimeout(Duration.ofSeconds(1000)).build();
 
 		try (
 				// Create client without sampling capabilities
 				McpSyncClient client = clientBuilder
-					.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
-					.requestTimeout(Duration.ofSeconds(1000))
-					.build()) {
+						.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
+						.requestTimeout(Duration.ofSeconds(1000)).build()) {
 
 			assertThat(client.initialize()).isNotNull();
 
@@ -100,31 +98,28 @@ public abstract class AbstractStatelessIntegrationTests {
 				Collections.singletonList(new McpSchema.TextContent("CALL RESPONSE")), null);
 
 		McpStatelessServerFeatures.SyncToolSpecification tool1 = McpStatelessServerFeatures.SyncToolSpecification
-			.builder()
-			.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
-			.callHandler((ctx, request) -> {
+				.builder().tool(Tool.builder().name("tool1").description("tool1 description")
+						.inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((ctx, request) -> {
 
-				try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-					HttpGet httpGet = new HttpGet(
-							"https://raw.githubusercontent.com/modelcontextprotocol/java-sdk/refs/heads/main/README.md");
+					try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+						HttpGet httpGet = new HttpGet(
+								"https://raw.githubusercontent.com/modelcontextprotocol/java-sdk/refs/heads/main/README.md");
 
-					try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
-						String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
-						assertThat(responseBody).isNotBlank();
+						try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
+							String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
+							assertThat(responseBody).isNotBlank();
+						}
 					}
-				}
-				catch (Exception e) {
-					e.printStackTrace();
-				}
+					catch (Exception e) {
+						e.printStackTrace();
+					}
 
-				return callResponse;
-			})
-			.build();
+					return callResponse;
+				}).build();
 
 		McpStatelessSyncServer mcpServer = prepareSyncServerBuilder()
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool1)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool1).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 
@@ -134,7 +129,7 @@ public abstract class AbstractStatelessIntegrationTests {
 			assertThat(mcpClient.listTools().getTools()).contains(tool1.tool());
 
 			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
+					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
 			assertThat(response).isNotNull().isEqualTo(callResponse);
 		}
@@ -150,20 +145,15 @@ public abstract class AbstractStatelessIntegrationTests {
 		SyncSpec clientBuilder = clientBuilders.get(clientType);
 
 		McpStatelessSyncServer mcpServer = prepareSyncServerBuilder()
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(McpStatelessServerFeatures.SyncToolSpecification.builder()
-				.tool(Tool.builder()
-					.name("tool1")
-					.description("tool1 description")
-					.inputSchema(EMPTY_JSON_SCHEMA)
-					.build())
-				.callHandler((context, request) -> {
-					// We trigger a timeout on blocking read, raising an exception
-					Mono.never().block(Duration.ofSeconds(1));
-					return null;
-				})
-				.build())
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build())
+				.tools(McpStatelessServerFeatures.SyncToolSpecification.builder().tool(Tool.builder().name("tool1")
+						.description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
+						.callHandler((context, request) -> {
+							// We trigger a timeout on blocking read, raising an exception
+							Mono.never().block(Duration.ofSeconds(1));
+							return null;
+						}).build())
+				.build();
 
 		try (McpSyncClient mcpClient = clientBuilder.requestTimeout(Duration.ofMillis(6666)).build()) {
 			InitializeResult initResult = mcpClient.initialize();
@@ -173,8 +163,9 @@ public abstract class AbstractStatelessIntegrationTests {
 			// the offending tool
 			// instead of getting back a timeout.
 			assertThatExceptionOfType(McpError.class)
-				.isThrownBy(() -> mcpClient.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap())))
-				.withMessageContaining("Timeout on blocking read");
+					.isThrownBy(
+							() -> mcpClient.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap())))
+					.withMessageContaining("Timeout on blocking read");
 		}
 		finally {
 			mcpServer.closeGracefully();
@@ -190,35 +181,32 @@ public abstract class AbstractStatelessIntegrationTests {
 		CallToolResult callResponse = new McpSchema.CallToolResult(
 				Collections.singletonList(new McpSchema.TextContent("CALL RESPONSE")), null);
 		McpStatelessServerFeatures.SyncToolSpecification tool1 = McpStatelessServerFeatures.SyncToolSpecification
-			.builder()
-			.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
-			.callHandler((ctx, request) -> {
-				// perform a blocking call to a remote service
+				.builder().tool(Tool.builder().name("tool1").description("tool1 description")
+						.inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((ctx, request) -> {
+					// perform a blocking call to a remote service
 
-				try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-					HttpGet httpGet = new HttpGet(
-							"https://raw.githubusercontent.com/modelcontextprotocol/java-sdk/refs/heads/main/README.md");
+					try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+						HttpGet httpGet = new HttpGet(
+								"https://raw.githubusercontent.com/modelcontextprotocol/java-sdk/refs/heads/main/README.md");
 
-					try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
-						// Leggi il corpo come stringa (UTF-8)
-						String responseBody = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-						assertThat(responseBody).isNotBlank();
+						try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
+							// Leggi il corpo come stringa (UTF-8)
+							String responseBody = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+							assertThat(responseBody).isNotBlank();
+						}
 					}
-				}
-				catch (Exception e) {
-					e.printStackTrace();
-				}
+					catch (Exception e) {
+						e.printStackTrace();
+					}
 
-				return callResponse;
-			})
-			.build();
+					return callResponse;
+				}).build();
 
 		AtomicReference<List<Tool>> rootsRef = new AtomicReference<>();
 
 		McpStatelessSyncServer mcpServer = prepareSyncServerBuilder()
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool1)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool1).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.toolsChangeConsumer(toolsUpdate -> {
 			// perform a blocking call to a remote service
@@ -251,14 +239,9 @@ public abstract class AbstractStatelessIntegrationTests {
 
 			// Add a new tool
 			McpStatelessServerFeatures.SyncToolSpecification tool2 = McpStatelessServerFeatures.SyncToolSpecification
-				.builder()
-				.tool(Tool.builder()
-					.name("tool2")
-					.description("tool2 description")
-					.inputSchema(EMPTY_JSON_SCHEMA)
-					.build())
-				.callHandler((exchange, request) -> callResponse)
-				.build();
+					.builder().tool(Tool.builder().name("tool2").description("tool2 description")
+							.inputSchema(EMPTY_JSON_SCHEMA).build())
+					.callHandler((exchange, request) -> callResponse).build();
 
 			mcpServer.addTool(tool2);
 		}
@@ -304,31 +287,23 @@ public abstract class AbstractStatelessIntegrationTests {
 		outputSchema.put("properties", properties);
 		outputSchema.put("required", Arrays.asList("result", "operation"));
 
-		Tool calculatorTool = Tool.builder()
-			.name("calculator")
-			.description("Performs mathematical calculations")
-			.outputSchema(outputSchema)
-			.build();
+		Tool calculatorTool = Tool.builder().name("calculator").description("Performs mathematical calculations")
+				.outputSchema(outputSchema).build();
 
 		McpStatelessServerFeatures.SyncToolSpecification tool = McpStatelessServerFeatures.SyncToolSpecification
-			.builder()
-			.tool(calculatorTool)
-			.callHandler((exchange, request) -> {
+				.builder().tool(calculatorTool).callHandler((exchange, request) -> {
 
-				String expression = (String) request.getArguments().getOrDefault("expression", "2 + 3");
-				double result = evaluateExpression(expression);
-				Map<String, Object> structuredContent = new HashMap<>();
-				structuredContent.put("result", result);
-				structuredContent.put("operation", expression);
-				structuredContent.put("timestamp", "2024-01-01T10:00:00Z");
-				return CallToolResult.builder().structuredContent(structuredContent).build();
-			})
-			.build();
+					String expression = (String) request.getArguments().getOrDefault("expression", "2 + 3");
+					double result = evaluateExpression(expression);
+					Map<String, Object> structuredContent = new HashMap<>();
+					structuredContent.put("result", result);
+					structuredContent.put("operation", expression);
+					structuredContent.put("timestamp", "2024-01-01T10:00:00Z");
+					return CallToolResult.builder().structuredContent(structuredContent).build();
+				}).build();
 
 		McpStatelessSyncServer mcpServer = prepareSyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			InitializeResult initResult = mcpClient.initialize();
@@ -341,8 +316,8 @@ public abstract class AbstractStatelessIntegrationTests {
 			// Note: outputSchema might be null in sync server, but validation still works
 
 			// Call tool with valid structured output
-			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
+			CallToolResult response = mcpClient.callTool(
+					new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isFalse();
@@ -350,8 +325,7 @@ public abstract class AbstractStatelessIntegrationTests {
 			// In WebMVC, structured content is returned properly
 			if (response.getStructuredContent() != null) {
 				assertThat((Map<String, Object>) response.getStructuredContent()).containsEntry("result", 5.0)
-					.containsEntry("operation", "2 + 3")
-					.containsEntry("timestamp", "2024-01-01T10:00:00Z");
+						.containsEntry("operation", "2 + 3").containsEntry("timestamp", "2024-01-01T10:00:00Z");
 			}
 			else {
 				// Fallback to checking content if structured content is not available
@@ -360,9 +334,8 @@ public abstract class AbstractStatelessIntegrationTests {
 
 			assertThat(response.getStructuredContent()).isNotNull();
 			assertThatJson(response.getStructuredContent()).when(Option.IGNORING_ARRAY_ORDER)
-				.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-				.isObject()
-				.isEqualTo(json("{\"result\":5.0,\"operation\":\"2 + 3\",\"timestamp\":\"2024-01-01T10:00:00Z\"}"));
+					.when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+					.isEqualTo(json("{\"result\":5.0,\"operation\":\"2 + 3\",\"timestamp\":\"2024-01-01T10:00:00Z\"}"));
 		}
 		finally {
 			mcpServer.closeGracefully();
@@ -388,55 +361,44 @@ public abstract class AbstractStatelessIntegrationTests {
 		outputSchema.put("type", "array");
 		outputSchema.put("items", items);
 
-		Tool calculatorTool = Tool.builder()
-			.name("getMembers")
-			.description("Returns a list of members")
-			.outputSchema(outputSchema)
-			.build();
+		Tool calculatorTool = Tool.builder().name("getMembers").description("Returns a list of members")
+				.outputSchema(outputSchema).build();
 
 		McpStatelessServerFeatures.SyncToolSpecification tool = McpStatelessServerFeatures.SyncToolSpecification
-			.builder()
-			.tool(calculatorTool)
-			.callHandler((exchange, request) -> {
+				.builder().tool(calculatorTool).callHandler((exchange, request) -> {
 
-				List<Map<String, Object>> people = Arrays.asList(new HashMap<String, Object>() {
-					{
-						put("name", "John");
-						put("age", 30);
-					}
-				}, new HashMap<String, Object>() {
-					{
-						put("name", "Peter");
-						put("age", 25);
-					}
-				});
+					List<Map<String, Object>> people = Arrays.asList(new HashMap<String, Object>() {
+						{
+							put("name", "John");
+							put("age", 30);
+						}
+					}, new HashMap<String, Object>() {
+						{
+							put("name", "Peter");
+							put("age", 25);
+						}
+					});
 
-				return CallToolResult.builder().structuredContent(people).build();
-			})
-			.build();
+					return CallToolResult.builder().structuredContent(people).build();
+				}).build();
 
 		McpStatelessSyncServer mcpServer = prepareSyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			assertThat(mcpClient.initialize()).isNotNull();
 
 			// Call tool with valid structured output of type array
 			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("getMembers", Collections.emptyMap()));
+					.callTool(new McpSchema.CallToolRequest("getMembers", Collections.emptyMap()));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isFalse();
 
 			assertThat(response.getStructuredContent()).isNotNull();
 			assertThatJson(response.getStructuredContent()).when(Option.IGNORING_ARRAY_ORDER)
-				.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-				.isArray()
-				.hasSize(2)
-				.containsExactlyInAnyOrder(json("{\"name\":\"John\",\"age\":30}"),
-						json("{\"name\":\"Peter\",\"age\":25}"));
+					.when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isArray().hasSize(2).containsExactlyInAnyOrder(
+							json("{\"name\":\"John\",\"age\":30}"), json("{\"name\":\"Peter\",\"age\":25}"));
 		}
 		finally {
 			mcpServer.closeGracefully();
@@ -459,26 +421,21 @@ public abstract class AbstractStatelessIntegrationTests {
 		outputSchema.put("type", Arrays.asList("result", "operation"));
 		// Create a tool with output schema
 
-		Tool calculatorTool = Tool.builder()
-			.name("calculator")
-			.description("Performs mathematical calculations")
-			.outputSchema(outputSchema)
-			.build();
+		Tool calculatorTool = Tool.builder().name("calculator").description("Performs mathematical calculations")
+				.outputSchema(outputSchema).build();
 
 		// Handler that throws an exception to simulate an error
 		McpStatelessServerFeatures.SyncToolSpecification tool = McpStatelessServerFeatures.SyncToolSpecification
-			.builder()
-			.tool(calculatorTool)
-			.callHandler((exchange, request) -> CallToolResult.builder()
-				.isError(true)
-				.content(Collections.singletonList(new TextContent("Error calling tool: Simulated in-handler error")))
-				.build())
-			.build();
+				.builder().tool(calculatorTool)
+				.callHandler(
+						(exchange, request) -> CallToolResult.builder().isError(true)
+								.content(Collections.singletonList(
+										new TextContent("Error calling tool: Simulated in-handler error")))
+								.build())
+				.build();
 
 		McpStatelessSyncServer mcpServer = prepareSyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			InitializeResult initResult = mcpClient.initialize();
@@ -491,14 +448,14 @@ public abstract class AbstractStatelessIntegrationTests {
 			// Note: outputSchema might be null in sync server, but validation still works
 
 			// Call tool with valid structured output
-			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
+			CallToolResult response = mcpClient.callTool(
+					new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isTrue();
 			assertThat(response.getContent()).isNotEmpty();
 			assertThat(response.getContent())
-				.containsExactly(new McpSchema.TextContent("Error calling tool: Simulated in-handler error"));
+					.containsExactly(new McpSchema.TextContent("Error calling tool: Simulated in-handler error"));
 			assertThat(response.getStructuredContent()).isNull();
 		}
 		finally {
@@ -522,40 +479,30 @@ public abstract class AbstractStatelessIntegrationTests {
 		outputSchema.put("properties", properties);
 		outputSchema.put("required", Arrays.asList("result", "operation"));
 
-		Tool calculatorTool = Tool.builder()
-			.name("calculator")
-			.description("Performs mathematical calculations")
-			.outputSchema(outputSchema)
-			.build();
+		Tool calculatorTool = Tool.builder().name("calculator").description("Performs mathematical calculations")
+				.outputSchema(outputSchema).build();
 
 		McpStatelessServerFeatures.SyncToolSpecification tool = McpStatelessServerFeatures.SyncToolSpecification
-			.builder()
-			.tool(calculatorTool)
-			.callHandler((exchange, request) -> {
-				// Return invalid structured output. Result should be number, missing
-				// operation
-				Map<String, Object> structuredContent = new HashMap<>();
-				outputSchema.put("result", "not-a-number");
-				outputSchema.put("extra", "field");
-				return CallToolResult.builder()
-					.addTextContent("Invalid calculation")
-					.structuredContent(structuredContent)
-					.build();
-			})
-			.build();
+				.builder().tool(calculatorTool).callHandler((exchange, request) -> {
+					// Return invalid structured output. Result should be number, missing
+					// operation
+					Map<String, Object> structuredContent = new HashMap<>();
+					outputSchema.put("result", "not-a-number");
+					outputSchema.put("extra", "field");
+					return CallToolResult.builder().addTextContent("Invalid calculation")
+							.structuredContent(structuredContent).build();
+				}).build();
 
 		McpStatelessSyncServer mcpServer = prepareSyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
 
 			// Call tool with invalid structured output
-			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
+			CallToolResult response = mcpClient.callTool(
+					new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isTrue();
@@ -590,32 +537,25 @@ public abstract class AbstractStatelessIntegrationTests {
 		outputSchema.put("properties", properties);
 		outputSchema.put("required", Arrays.asList("result"));
 
-		Tool calculatorTool = Tool.builder()
-			.name("calculator")
-			.description("Performs mathematical calculations")
-			.outputSchema(outputSchema)
-			.build();
+		Tool calculatorTool = Tool.builder().name("calculator").description("Performs mathematical calculations")
+				.outputSchema(outputSchema).build();
 
-		SyncToolSpecification tool = McpStatelessServerFeatures.SyncToolSpecification.builder()
-			.tool(calculatorTool)
-			.callHandler((exchange, request) -> {
-				// Return result without structured content but tool has output schema
-				return CallToolResult.builder().addTextContent("Calculation completed").build();
-			})
-			.build();
+		SyncToolSpecification tool = McpStatelessServerFeatures.SyncToolSpecification.builder().tool(calculatorTool)
+				.callHandler((exchange, request) -> {
+					// Return result without structured content but tool has output schema
+					return CallToolResult.builder().addTextContent("Calculation completed").build();
+				}).build();
 
 		McpStatelessSyncServer mcpServer = prepareSyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
 
 			// Call tool that should return structured content but doesn't
-			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
+			CallToolResult response = mcpClient.callTool(
+					new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isTrue();
@@ -639,8 +579,7 @@ public abstract class AbstractStatelessIntegrationTests {
 
 		// Start server without tools
 		McpStatelessSyncServer mcpServer = prepareSyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			InitializeResult initResult = mcpClient.initialize();
@@ -667,27 +606,20 @@ public abstract class AbstractStatelessIntegrationTests {
 			outputSchema.put("properties", properties);
 			outputSchema.put("required", Arrays.asList("message", "count"));
 
-			Tool dynamicTool = Tool.builder()
-				.name("dynamic-tool")
-				.description("Dynamically added tool")
-				.outputSchema(outputSchema)
-				.build();
+			Tool dynamicTool = Tool.builder().name("dynamic-tool").description("Dynamically added tool")
+					.outputSchema(outputSchema).build();
 
 			SyncToolSpecification toolSpec = McpStatelessServerFeatures.SyncToolSpecification.builder()
-				.tool(dynamicTool)
-				.callHandler((exchange, request) -> {
-					int count = (Integer) request.getArguments().getOrDefault("count", 1);
+					.tool(dynamicTool).callHandler((exchange, request) -> {
+						int count = (Integer) request.getArguments().getOrDefault("count", 1);
 
-					Map<String, Object> structuredContent = new HashMap<>();
-					structuredContent.put("message", "Dynamic execution");
-					structuredContent.put("count", count);
+						Map<String, Object> structuredContent = new HashMap<>();
+						structuredContent.put("message", "Dynamic execution");
+						structuredContent.put("count", count);
 
-					return CallToolResult.builder()
-						.addTextContent("Dynamic tool executed " + count + " times")
-						.structuredContent(structuredContent)
-						.build();
-				})
-				.build();
+						return CallToolResult.builder().addTextContent("Dynamic tool executed " + count + " times")
+								.structuredContent(structuredContent).build();
+					}).build();
 
 			// Add tool to server
 			mcpServer.addTool(toolSpec);
@@ -705,7 +637,7 @@ public abstract class AbstractStatelessIntegrationTests {
 
 			// Call dynamically added tool
 			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("dynamic-tool", Collections.singletonMap("count", 3)));
+					.callTool(new McpSchema.CallToolRequest("dynamic-tool", Collections.singletonMap("count", 3)));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isFalse();
@@ -713,13 +645,12 @@ public abstract class AbstractStatelessIntegrationTests {
 			assertThat(response.getContent()).hasSize(1);
 			assertThat(response.getContent().get(0)).isInstanceOf(McpSchema.TextContent.class);
 			assertThat(((McpSchema.TextContent) response.getContent().get(0)).getText())
-				.isEqualTo("Dynamic tool executed 3 times");
+					.isEqualTo("Dynamic tool executed 3 times");
 
 			assertThat(response.getStructuredContent()).isNotNull();
 			assertThatJson(response.getStructuredContent()).when(Option.IGNORING_ARRAY_ORDER)
-				.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-				.isObject()
-				.isEqualTo(json("{\"count\":3,\"message\":\"Dynamic execution\"}"));
+					.when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+					.isEqualTo(json("{\"count\":3,\"message\":\"Dynamic execution\"}"));
 		}
 		finally {
 			mcpServer.closeGracefully();
@@ -729,16 +660,16 @@ public abstract class AbstractStatelessIntegrationTests {
 	private double evaluateExpression(String expression) {
 		// Simple expression evaluator for testing
 		switch (expression) {
-			case "2 + 3":
-				return 5.0;
-			case "10 * 2":
-				return 20.0;
-			case "7 + 8":
-				return 15.0;
-			case "5 + 3":
-				return 8.0;
-			default:
-				return 0.0;
+		case "2 + 3":
+			return 5.0;
+		case "10 * 2":
+			return 20.0;
+		case "7 + 8":
+			return 15.0;
+		case "5 + 3":
+			return 8.0;
+		default:
+			return 0.0;
 		}
 	}
 

@@ -44,18 +44,15 @@ class WebFluxStatelessIntegrationTests extends AbstractStatelessIntegrationTests
 
 	@Override
 	protected void prepareClients(int port, String mcpEndpoint) {
-		clientBuilders
-			.put("httpclient",
-					McpClient.sync(HttpClientStreamableHttpTransport.builder("http://localhost:" + PORT)
-						.endpoint(CUSTOM_MESSAGE_ENDPOINT)
-						.build()).initializationTimeout(Duration.ofHours(10)).requestTimeout(Duration.ofHours(10)));
-		clientBuilders
-			.put("webflux", McpClient
+		clientBuilders.put("httpclient",
+				McpClient
+						.sync(HttpClientStreamableHttpTransport.builder("http://localhost:" + PORT)
+								.endpoint(CUSTOM_MESSAGE_ENDPOINT).build())
+						.initializationTimeout(Duration.ofHours(10)).requestTimeout(Duration.ofHours(10)));
+		clientBuilders.put("webflux", McpClient
 				.sync(WebClientStreamableHttpTransport.builder(WebClient.builder().baseUrl("http://localhost:" + PORT))
-					.endpoint(CUSTOM_MESSAGE_ENDPOINT)
-					.build())
-				.initializationTimeout(Duration.ofHours(10))
-				.requestTimeout(Duration.ofHours(10)));
+						.endpoint(CUSTOM_MESSAGE_ENDPOINT).build())
+				.initializationTimeout(Duration.ofHours(10)).requestTimeout(Duration.ofHours(10)));
 	}
 
 	@Override
@@ -71,8 +68,7 @@ class WebFluxStatelessIntegrationTests extends AbstractStatelessIntegrationTests
 	@BeforeEach
 	public void before() {
 		this.mcpStreamableServerTransport = WebFluxStatelessServerTransport.builder()
-			.messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
-			.build();
+				.messageEndpoint(CUSTOM_MESSAGE_ENDPOINT).build();
 
 		HttpHandler httpHandler = RouterFunctions.toHttpHandler(mcpStreamableServerTransport.getRouterFunction());
 		ReactorHttpHandlerAdapter adapter = new ReactorHttpHandlerAdapter(httpHandler);

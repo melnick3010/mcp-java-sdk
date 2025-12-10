@@ -45,7 +45,7 @@ class WebFluxStreamableIntegrationTests extends AbstractMcpClientServerIntegrati
 	private WebFluxStreamableServerTransportProvider mcpStreamableServerTransportProvider;
 
 	static McpTransportContextExtractor<ServerRequest> TEST_CONTEXT_EXTRACTOR = (r) -> McpTransportContext
-		.create(Collections.singletonMap("important", "value"));
+			.create(Collections.singletonMap("important", "value"));
 
 	static Stream<Arguments> clientsForTesting() {
 		return Stream.of(Arguments.of("httpclient"), Arguments.of("webflux"));
@@ -55,17 +55,15 @@ class WebFluxStreamableIntegrationTests extends AbstractMcpClientServerIntegrati
 	protected void prepareClients(int port, String mcpEndpoint) {
 
 		clientBuilders
-			.put("httpclient",
-					McpClient.sync(HttpClientStreamableHttpTransport.builder("http://localhost:" + PORT)
-						.endpoint(CUSTOM_MESSAGE_ENDPOINT)
-						.build()).requestTimeout(Duration.ofHours(10)));
+				.put("httpclient",
+						McpClient
+								.sync(HttpClientStreamableHttpTransport.builder("http://localhost:" + PORT)
+										.endpoint(CUSTOM_MESSAGE_ENDPOINT).build())
+								.requestTimeout(Duration.ofHours(10)));
 		clientBuilders.put("webflux",
-				McpClient
-					.sync(WebClientStreamableHttpTransport
+				McpClient.sync(WebClientStreamableHttpTransport
 						.builder(WebClient.builder().baseUrl("http://localhost:" + PORT))
-						.endpoint(CUSTOM_MESSAGE_ENDPOINT)
-						.build())
-					.requestTimeout(Duration.ofHours(10)));
+						.endpoint(CUSTOM_MESSAGE_ENDPOINT).build()).requestTimeout(Duration.ofHours(10)));
 	}
 
 	@Override
@@ -82,12 +80,10 @@ class WebFluxStreamableIntegrationTests extends AbstractMcpClientServerIntegrati
 	public void before() {
 
 		this.mcpStreamableServerTransportProvider = WebFluxStreamableServerTransportProvider.builder()
-			.messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
-			.contextExtractor(TEST_CONTEXT_EXTRACTOR)
-			.build();
+				.messageEndpoint(CUSTOM_MESSAGE_ENDPOINT).contextExtractor(TEST_CONTEXT_EXTRACTOR).build();
 
 		HttpHandler httpHandler = RouterFunctions
-			.toHttpHandler(mcpStreamableServerTransportProvider.getRouterFunction());
+				.toHttpHandler(mcpStreamableServerTransportProvider.getRouterFunction());
 		ReactorHttpHandlerAdapter adapter = new ReactorHttpHandlerAdapter(httpHandler);
 		this.httpServer = HttpServer.create().port(PORT).handle(adapter).bindNow();
 

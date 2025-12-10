@@ -149,18 +149,14 @@ public class WebMvcSseServerTransportProvider implements McpServerTransportProvi
 		this.messageEndpoint = messageEndpoint;
 		this.sseEndpoint = sseEndpoint;
 		this.contextExtractor = contextExtractor;
-		this.routerFunction = RouterFunctions.route()
-			.GET(this.sseEndpoint, this::handleSseConnection)
-			.POST(this.messageEndpoint, this::handleMessage)
-			.build();
+		this.routerFunction = RouterFunctions.route().GET(this.sseEndpoint, this::handleSseConnection)
+				.POST(this.messageEndpoint, this::handleMessage).build();
 
 		if (keepAliveInterval != null) {
 
 			this.keepAliveScheduler = KeepAliveScheduler
-				.builder(() -> (isClosing) ? Flux.empty() : Flux.fromIterable(sessions.values()))
-				.initialDelay(keepAliveInterval)
-				.interval(keepAliveInterval)
-				.build();
+					.builder(() -> (isClosing) ? Flux.empty() : Flux.fromIterable(sessions.values()))
+					.initialDelay(keepAliveInterval).interval(keepAliveInterval).build();
 
 			this.keepAliveScheduler.start();
 		}
@@ -195,11 +191,10 @@ public class WebMvcSseServerTransportProvider implements McpServerTransportProvi
 		logger.debug("Attempting to broadcast message to {} active sessions", sessions.size());
 
 		return Flux.fromIterable(sessions.values())
-			.flatMap(session -> session.sendNotification(method, params)
-				.doOnError(
+				.flatMap(session -> session.sendNotification(method, params).doOnError(
 						e -> logger.error("Failed to send message to session {}: {}", session.getId(), e.getMessage()))
-				.onErrorComplete())
-			.then();
+						.onErrorComplete())
+				.then();
 	}
 
 	/**
@@ -292,11 +287,8 @@ public class WebMvcSseServerTransportProvider implements McpServerTransportProvi
 	 */
 	private String buildEndpointUrl(String sessionId) {
 		// for WebMVC compatibility
-		return UriComponentsBuilder.fromUriString(this.baseUrl)
-			.path(this.messageEndpoint)
-			.queryParam(SESSION_ID, sessionId)
-			.build()
-			.toUriString();
+		return UriComponentsBuilder.fromUriString(this.baseUrl).path(this.messageEndpoint)
+				.queryParam(SESSION_ID, sessionId).build().toUriString();
 	}
 
 	/**

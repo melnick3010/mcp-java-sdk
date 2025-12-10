@@ -151,10 +151,10 @@ public class WebClientStreamableHttpTransportErrorHandlingTest {
 		JSONRPCRequest testMessage = createTestMessage();
 
 		StepVerifier.create(transport.sendMessage(testMessage))
-			.expectErrorMatches(throwable -> throwable instanceof McpTransportException
-					&& throwable.getMessage().contains("Not Found") && throwable.getMessage().contains("404")
-					&& !(throwable instanceof McpTransportSessionNotFoundException))
-			.verify(Duration.ofSeconds(5));
+				.expectErrorMatches(throwable -> throwable instanceof McpTransportException
+						&& throwable.getMessage().contains("Not Found") && throwable.getMessage().contains("404")
+						&& !(throwable instanceof McpTransportSessionNotFoundException))
+				.verify(Duration.ofSeconds(5));
 	}
 
 	/**
@@ -193,8 +193,7 @@ public class WebClientStreamableHttpTransportErrorHandlingTest {
 		// Use delaySubscription to ensure session is fully processed before next
 		// request
 		StepVerifier.create(Mono.delay(Duration.ofMillis(200)).then(transport.sendMessage(testMessage)))
-			.expectError(McpTransportSessionNotFoundException.class)
-			.verify(Duration.ofSeconds(5));
+				.expectError(McpTransportSessionNotFoundException.class).verify(Duration.ofSeconds(5));
 
 		// Wait for second request to be made
 		assertThat(secondRequestLatch.await(5, TimeUnit.SECONDS)).isTrue();
@@ -219,10 +218,10 @@ public class WebClientStreamableHttpTransportErrorHandlingTest {
 		JSONRPCRequest testMessage = createTestMessage();
 
 		StepVerifier.create(transport.sendMessage(testMessage))
-			.expectErrorMatches(throwable -> throwable instanceof McpTransportException
-					&& throwable.getMessage().contains("Bad Request") && throwable.getMessage().contains("400")
-					&& !(throwable instanceof McpTransportSessionNotFoundException))
-			.verify(Duration.ofSeconds(5));
+				.expectErrorMatches(throwable -> throwable instanceof McpTransportException
+						&& throwable.getMessage().contains("Bad Request") && throwable.getMessage().contains("400")
+						&& !(throwable instanceof McpTransportSessionNotFoundException))
+				.verify(Duration.ofSeconds(5));
 	}
 
 	/**
@@ -264,8 +263,7 @@ public class WebClientStreamableHttpTransportErrorHandlingTest {
 		// Use delaySubscription to ensure session is fully processed before next
 		// request
 		StepVerifier.create(Mono.delay(Duration.ofMillis(200)).then(transport.sendMessage(testMessage)))
-			.expectError(McpTransportSessionNotFoundException.class)
-			.verify(Duration.ofSeconds(5));
+				.expectError(McpTransportSessionNotFoundException.class).verify(Duration.ofSeconds(5));
 
 		// Wait for second request to be made
 		boolean secondCompleted = secondRequestLatch.await(5, TimeUnit.SECONDS);
@@ -375,10 +373,14 @@ public class WebClientStreamableHttpTransportErrorHandlingTest {
 		currentServerSessionId.set("sse-session-1");
 
 		WebClientStreamableHttpTransport transport = WebClientStreamableHttpTransport
-			.builder(WebClient.builder().baseUrl(HOST))
-			.endpoint("/mcp-sse")
-			.openConnectionOnStartup(true) // This will trigger GET request on connect
-			.build();
+				.builder(WebClient.builder().baseUrl(HOST)).endpoint("/mcp-sse").openConnectionOnStartup(true) // This
+																												// will
+																												// trigger
+																												// GET
+																												// request
+																												// on
+																												// connect
+				.build();
 
 		// First connect successfully
 		StepVerifier.create(transport.connect(msg -> msg)).verifyComplete();

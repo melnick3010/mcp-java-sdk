@@ -56,10 +56,8 @@ public class WebFluxStatelessServerTransport implements McpStatelessServerTransp
 		this.jsonMapper = jsonMapper;
 		this.mcpEndpoint = mcpEndpoint;
 		this.contextExtractor = contextExtractor;
-		this.routerFunction = RouterFunctions.route()
-			.GET(this.mcpEndpoint, this::handleGet)
-			.POST(this.mcpEndpoint, this::handlePost)
-			.build();
+		this.routerFunction = RouterFunctions.route().GET(this.mcpEndpoint, this::handleGet)
+				.POST(this.mcpEndpoint, this::handlePost).build();
 	}
 
 	@Override
@@ -119,18 +117,18 @@ public class WebFluxStatelessServerTransport implements McpStatelessServerTransp
 						catch (IOException e) {
 							logger.error("Failed to serialize response: {}", e.getMessage());
 							return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-								.bodyValue(new McpError("Failed to serialize response"));
+									.bodyValue(new McpError("Failed to serialize response"));
 						}
 					});
 				}
 				else if (message instanceof McpSchema.JSONRPCNotification) {
 					McpSchema.JSONRPCNotification jsonrpcNotification = (McpSchema.JSONRPCNotification) message;
 					return this.mcpHandler.handleNotification(transportContext, jsonrpcNotification)
-						.then(ServerResponse.accepted().build());
+							.then(ServerResponse.accepted().build());
 				}
 				else {
 					return ServerResponse.badRequest()
-						.bodyValue(new McpError("The server accepts either requests or notifications"));
+							.bodyValue(new McpError("The server accepts either requests or notifications"));
 				}
 			}
 			catch (IllegalArgumentException | IOException e) {

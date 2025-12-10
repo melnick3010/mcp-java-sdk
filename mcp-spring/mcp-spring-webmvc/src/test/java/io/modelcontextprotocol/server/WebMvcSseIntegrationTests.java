@@ -44,7 +44,7 @@ class WebMvcSseIntegrationTests extends AbstractMcpClientServerIntegrationTests 
 	private WebMvcSseServerTransportProvider mcpServerTransportProvider;
 
 	static McpTransportContextExtractor<ServerRequest> TEST_CONTEXT_EXTRACTOR = r -> McpTransportContext
-		.create(Collections.singletonMap("important", "value"));
+			.create(Collections.singletonMap("important", "value"));
 
 	static Stream<Arguments> clientsForTesting() {
 		return Stream.of(Arguments.of("httpclient"), Arguments.of("webflux"));
@@ -55,11 +55,12 @@ class WebMvcSseIntegrationTests extends AbstractMcpClientServerIntegrationTests 
 
 		clientBuilders.put("httpclient",
 				McpClient.sync(HttpClientSseClientTransport.builder("http://localhost:" + port).build())
-					.requestTimeout(Duration.ofHours(10)));
+						.requestTimeout(Duration.ofHours(10)));
 
-		clientBuilders.put("webflux", McpClient
-			.sync(WebFluxSseClientTransport.builder(WebClient.builder().baseUrl("http://localhost:" + port)).build())
-			.requestTimeout(Duration.ofHours(10)));
+		clientBuilders.put("webflux",
+				McpClient.sync(WebFluxSseClientTransport
+						.builder(WebClient.builder().baseUrl("http://localhost:" + port)).build())
+						.requestTimeout(Duration.ofHours(10)));
 	}
 
 	@Configuration
@@ -68,10 +69,8 @@ class WebMvcSseIntegrationTests extends AbstractMcpClientServerIntegrationTests 
 
 		@Bean
 		public WebMvcSseServerTransportProvider webMvcSseServerTransportProvider() {
-			return WebMvcSseServerTransportProvider.builder()
-				.messageEndpoint(MESSAGE_ENDPOINT)
-				.contextExtractor(TEST_CONTEXT_EXTRACTOR)
-				.build();
+			return WebMvcSseServerTransportProvider.builder().messageEndpoint(MESSAGE_ENDPOINT)
+					.contextExtractor(TEST_CONTEXT_EXTRACTOR).build();
 		}
 
 		@Bean

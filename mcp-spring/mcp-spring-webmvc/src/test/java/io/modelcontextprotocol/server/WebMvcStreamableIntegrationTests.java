@@ -44,7 +44,7 @@ class WebMvcStreamableIntegrationTests extends AbstractMcpClientServerIntegratio
 	private WebMvcStreamableServerTransportProvider mcpServerTransportProvider;
 
 	static McpTransportContextExtractor<ServerRequest> TEST_CONTEXT_EXTRACTOR = r -> McpTransportContext
-		.create(Collections.singletonMap("important", "value"));
+			.create(Collections.singletonMap("important", "value"));
 
 	static Stream<Arguments> clientsForTesting() {
 		return Stream.of(Arguments.of("httpclient"), Arguments.of("webflux"));
@@ -56,10 +56,8 @@ class WebMvcStreamableIntegrationTests extends AbstractMcpClientServerIntegratio
 
 		@Bean
 		public WebMvcStreamableServerTransportProvider webMvcStreamableServerTransportProvider() {
-			return WebMvcStreamableServerTransportProvider.builder()
-				.contextExtractor(TEST_CONTEXT_EXTRACTOR)
-				.mcpEndpoint(MESSAGE_ENDPOINT)
-				.build();
+			return WebMvcStreamableServerTransportProvider.builder().contextExtractor(TEST_CONTEXT_EXTRACTOR)
+					.mcpEndpoint(MESSAGE_ENDPOINT).build();
 		}
 
 		@Bean
@@ -85,21 +83,18 @@ class WebMvcStreamableIntegrationTests extends AbstractMcpClientServerIntegratio
 			throw new RuntimeException("Failed to start Tomcat", e);
 		}
 
-		clientBuilders
-			.put("httpclient",
-					McpClient.sync(HttpClientStreamableHttpTransport.builder("http://localhost:" + PORT)
-						.endpoint(MESSAGE_ENDPOINT)
-						.build()).initializationTimeout(Duration.ofHours(10)).requestTimeout(Duration.ofHours(10)));
+		clientBuilders.put("httpclient",
+				McpClient
+						.sync(HttpClientStreamableHttpTransport.builder("http://localhost:" + PORT)
+								.endpoint(MESSAGE_ENDPOINT).build())
+						.initializationTimeout(Duration.ofHours(10)).requestTimeout(Duration.ofHours(10)));
 
-		clientBuilders.put("webflux",
-				McpClient.sync(WebClientStreamableHttpTransport
-					.builder(WebClient.builder().baseUrl("http://localhost:" + PORT))
-					.endpoint(MESSAGE_ENDPOINT)
-					.build()));
+		clientBuilders.put("webflux", McpClient.sync(WebClientStreamableHttpTransport
+				.builder(WebClient.builder().baseUrl("http://localhost:" + PORT)).endpoint(MESSAGE_ENDPOINT).build()));
 
 		// Get the transport from Spring context
 		this.mcpServerTransportProvider = tomcatServer.getAppContext()
-			.getBean(WebMvcStreamableServerTransportProvider.class);
+				.getBean(WebMvcStreamableServerTransportProvider.class);
 
 	}
 
@@ -137,17 +132,14 @@ class WebMvcStreamableIntegrationTests extends AbstractMcpClientServerIntegratio
 	@Override
 	protected void prepareClients(int port, String mcpEndpoint) {
 
-		clientBuilders.put("httpclient", McpClient
-			.sync(HttpClientStreamableHttpTransport.builder("http://localhost:" + port).endpoint(mcpEndpoint).build())
-			.requestTimeout(Duration.ofHours(10)));
+		clientBuilders.put("httpclient", McpClient.sync(
+				HttpClientStreamableHttpTransport.builder("http://localhost:" + port).endpoint(mcpEndpoint).build())
+				.requestTimeout(Duration.ofHours(10)));
 
 		clientBuilders.put("webflux",
-				McpClient
-					.sync(WebClientStreamableHttpTransport
-						.builder(WebClient.builder().baseUrl("http://localhost:" + port))
-						.endpoint(mcpEndpoint)
-						.build())
-					.requestTimeout(Duration.ofHours(10)));
+				McpClient.sync(WebClientStreamableHttpTransport
+						.builder(WebClient.builder().baseUrl("http://localhost:" + port)).endpoint(mcpEndpoint).build())
+						.requestTimeout(Duration.ofHours(10)));
 	}
 
 }

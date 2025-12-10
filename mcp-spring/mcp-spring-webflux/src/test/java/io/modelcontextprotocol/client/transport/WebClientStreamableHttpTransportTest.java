@@ -24,10 +24,9 @@ class WebClientStreamableHttpTransportTest {
 
 	@SuppressWarnings("resource")
 	static GenericContainer<?> container = new GenericContainer<>("docker.io/tzolov/mcp-everything-server:v3")
-		.withCommand("node dist/index.js streamableHttp")
-		.withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String()))
-		.withExposedPorts(3001)
-		.waitingFor(Wait.forHttp("/").forStatusCode(404));
+			.withCommand("node dist/index.js streamableHttp")
+			.withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String())).withExposedPorts(3001)
+			.waitingFor(Wait.forHttp("/").forStatusCode(404));
 
 	@BeforeAll
 	static void startContainer() {
@@ -54,9 +53,8 @@ class WebClientStreamableHttpTransportTest {
 		JSONRPCRequest testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION,
 				McpSchema.METHOD_INITIALIZE, "test-id", initializeRequest);
 
-		StepVerifier.create(transport.sendMessage(testMessage))
-			.expectErrorMessage("MCP session has been closed")
-			.verify();
+		StepVerifier.create(transport.sendMessage(testMessage)).expectErrorMessage("MCP session has been closed")
+				.verify();
 	}
 
 	@Test
@@ -72,9 +70,8 @@ class WebClientStreamableHttpTransportTest {
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
 		StepVerifier.create(transport.closeGracefully()).verifyComplete();
 
-		StepVerifier.create(transport.sendMessage(testMessage))
-			.expectErrorMatches(err -> err.getMessage().matches("MCP session with ID [a-zA-Z0-9-]* has been closed"))
-			.verify();
+		StepVerifier.create(transport.sendMessage(testMessage)).expectErrorMatches(
+				err -> err.getMessage().matches("MCP session with ID [a-zA-Z0-9-]* has been closed")).verify();
 	}
 
 }
