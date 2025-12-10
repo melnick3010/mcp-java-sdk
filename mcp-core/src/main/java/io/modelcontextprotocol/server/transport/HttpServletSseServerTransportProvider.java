@@ -42,6 +42,8 @@ import org.slf4j.LoggerFactory;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * A Servlet-based implementation of the MCP HTTP with Server-Sent Events (SSE) transport
@@ -175,6 +177,13 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	private KeepAliveScheduler keepAliveScheduler;
 
 	/**
+	 * Dedicated scheduler for this transport instance to avoid global scheduler thread
+	 * leaks. This scheduler is used for keep-alive operations and is properly disposed
+	 * during shutdown.
+	 */
+	private final Scheduler dedicatedScheduler;
+
+	/**
 	 * Creates a new HttpServletSseServerTransportProvider instance with a custom SSE
 	 * endpoint.
 	 * @param jsonMapper The JSON object mapper to use for message
@@ -203,10 +212,15 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		this.sseEndpoint = sseEndpoint;
 		this.contextExtractor = contextExtractor;
 
+		// Create a dedicated bounded elastic scheduler for this transport instance
+		this.dedicatedScheduler = Schedulers.newBoundedElastic(4, Integer.MAX_VALUE, "http-servlet-sse", 60, true);
+
 		if (keepAliveInterval != null) {
 
 			this.keepAliveScheduler = KeepAliveScheduler
 					.builder(() -> (isClosing.get()) ? Flux.empty() : Flux.fromIterable(sessions.values()))
+					.scheduler(dedicatedScheduler) // Use dedicated scheduler instead of
+													// global one
 					.initialDelay(keepAliveInterval).interval(keepAliveInterval).build();
 
 			this.keepAliveScheduler.start();
@@ -727,8 +741,16 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		return Flux.fromIterable(sessions.values()).flatMap(McpServerSession::closeGracefully).then().doOnSuccess(v -> {
 			sessions.clear();
 			logger.debug("Graceful shutdown completed");
+
+			// Stop keep-alive scheduler if active
 			if (this.keepAliveScheduler != null) {
-				this.keepAliveScheduler.shutdown();
+				this.keepAliveScheduler.stop();
+			}
+
+			// Dispose dedicated scheduler to properly cleanup threads
+			if (this.dedicatedScheduler != null && !this.dedicatedScheduler.isDisposed()) {
+				this.dedicatedScheduler.dispose();
+				logger.debug("Dedicated scheduler disposed");
 			}
 		});
 	}

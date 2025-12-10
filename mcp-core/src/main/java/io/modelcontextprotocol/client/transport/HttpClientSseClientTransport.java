@@ -29,6 +29,7 @@ import io.modelcontextprotocol.spec.ProtocolVersions;
 import io.modelcontextprotocol.util.Assert;
 import io.modelcontextprotocol.util.Utils;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 public class HttpClientSseClientTransport implements McpClientTransport {
@@ -57,6 +58,10 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 
 	private volatile boolean isClosing = false;
 
+	// Dedicated scheduler for this transport instance to avoid global scheduler thread
+	// leaks
+	private final Scheduler dedicatedScheduler;
+
 	// NB: lasciamo la reference globale per compatibilità, ma NON la usiamo nel
 	// loop SSE
 	private final AtomicReference<String> messageEndpoint = new AtomicReference<>();
@@ -73,6 +78,8 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 		this.jsonMapper = jsonMapper;
 		this.httpClient = httpClient;
 		this.httpRequestCustomizer = httpRequestCustomizer;
+		// Create a dedicated bounded elastic scheduler for this transport instance
+		this.dedicatedScheduler = Schedulers.newBoundedElastic(4, Integer.MAX_VALUE, "http-sse-client", 60, true);
 	}
 
 	@Override
@@ -261,7 +268,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			catch (IOException e) {
 				logger.error("Error during SSE connection", e);
 			}
-		}).subscribeOn(Schedulers.boundedElastic()).then();
+		}).subscribeOn(dedicatedScheduler).then();
 	}
 
 	// Helper: POST verso un endpoint esplicito (quello del corrente stream)
@@ -310,7 +317,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 							elapsedMs, msgId, Thread.currentThread().getName());
 				}
 				return null;
-			}).subscribeOn(Schedulers.boundedElastic()).then();
+			}).subscribeOn(dedicatedScheduler).then();
 		});
 	}
 
@@ -345,13 +352,19 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 					}
 				}
 				return null;
-			}).subscribeOn(Schedulers.boundedElastic()).then();
+			}).subscribeOn(dedicatedScheduler).then();
 		});
 	}
 
 	@Override
 	public Mono<Void> closeGracefully() {
-		return Mono.fromRunnable(() -> isClosing = true);
+		return Mono.fromRunnable(() -> {
+			isClosing = true;
+			// Dispose the dedicated scheduler to properly cleanup threads
+			if (dedicatedScheduler != null && !dedicatedScheduler.isDisposed()) {
+				dedicatedScheduler.dispose();
+			}
+		});
 	}
 
 	@Override
