@@ -90,13 +90,21 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	 * SSE-related header names and values
 	 */
 	private static final String CONTENT_TYPE_SSE = "text/event-stream";
+
 	private static final String HEADER_CACHE_CONTROL = "Cache-Control";
+
 	private static final String HEADER_CONNECTION = "Connection";
+
 	private static final String HEADER_ACCESS_CONTROL_ALLOW_ORIGIN = "Access-Control-Allow-Origin";
+
 	private static final String HEADER_X_ACCEL_BUFFERING = "X-Accel-Buffering";
+
 	private static final String NO_CACHE = "no-cache";
+
 	private static final String KEEP_ALIVE = "keep-alive";
+
 	private static final String ALLOW_ALL_ORIGINS = "*";
+
 	private static final String NO_BUFFERING = "no";
 
 	/**
@@ -272,8 +280,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		// Write an empty line and flush to immediately commit the body
 		initializeAndFlushSseResponse(writer, response);
 
-		McpServerSession session = createAndRegisterSession(asyncContext, writer);
-		String sessionId = session.getTransport().getSessionId();
+		String sessionId = createAndRegisterSession(asyncContext, writer);
 
 		// Event 'endpoint' (message URL with query ?sessionId=...)
 		String endpointUrl = buildEndpointUrl(request, sessionId);
@@ -286,15 +293,13 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	}
 
 	/**
-		* Validates the SSE request by checking endpoint matching and server shutdown status.
-		*
-		* @param request The HTTP servlet request
-		* @param response The HTTP servlet response
-		* @return true if validation succeeds, false otherwise
-		* @throws IOException If an I/O error occurs while sending error responses
-		*/
-	private boolean validateSseRequest(HttpServletRequest request, HttpServletResponse response)
-			throws IOException {
+	 * Validates the SSE request by checking endpoint matching and server shutdown status.
+	 * @param request The HTTP servlet request
+	 * @param response The HTTP servlet response
+	 * @return true if validation succeeds, false otherwise
+	 * @throws IOException If an I/O error occurs while sending error responses
+	 */
+	private boolean validateSseRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		String requestURI = request.getRequestURI();
 		// (diagnostic log)
 		logger.info("SSE doGet() requestURI={}", requestURI);
@@ -311,11 +316,10 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	}
 
 	/**
-		* Initializes and configures the async context for SSE connections.
-		*
-		* @param request The HTTP servlet request
-		* @return The configured AsyncContext with timeout set to 0 (no timeout)
-		*/
+	 * Initializes and configures the async context for SSE connections.
+	 * @param request The HTTP servlet request
+	 * @return The configured AsyncContext with timeout set to 0 (no timeout)
+	 */
 	private AsyncContext initializeAsyncContext(HttpServletRequest request) {
 		AsyncContext asyncContext = request.startAsync();
 		asyncContext.setTimeout(0);
@@ -323,34 +327,12 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	}
 
 	/**
-		* Constructs the full message endpoint URL by combining the base URL, message path,
-		* and the required session_id query parameter.
-		* @param sessionId the unique session identifier
-		* @return the fully qualified endpoint URL as a string
-		*/
-	private String buildEndpointUrl(String sessionId) {
-	/**
-	 * Creates and registers a new MCP server session.
-	 * 
-	 * @param asyncContext The async context for the SSE connection
-	 * @param writer The PrintWriter for sending SSE events
-	 * @return The created McpServerSession
+	 * Constructs the full message endpoint URL by combining the base URL, message path,
+	 * and the required session_id query parameter.
+	 * @param sessionId the unique session identifier
+	 * @return the fully qualified endpoint URL as a string
 	 */
-	private McpServerSession createAndRegisterSession(AsyncContext asyncContext, PrintWriter writer) {
-		String sessionId = java.util.UUID.randomUUID().toString();
-
-		// Trasporto sessione
-		HttpServletMcpSessionTransport sessionTransport = new HttpServletMcpSessionTransport(sessionId, asyncContext,
-				writer);
-
-		// ATTENZIONE: serve che sessionFactory sia già stato impostato dal
-		// McpServer.async(...)
-		McpServerSession session = sessionFactory.create(sessionTransport);
-		this.sessions.put(sessionId, session);
-
-		return session;
-	}
-
+	private String buildEndpointUrl(String sessionId) {
 		// for WebMVC compatibility
 		if (this.baseUrl.endsWith("/")) {
 			return this.baseUrl.substring(0, this.baseUrl.length() - 1) + this.messageEndpoint + "?sessionId="
@@ -359,35 +341,55 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		return this.baseUrl + this.messageEndpoint + "?sessionId=" + sessionId;
 	}
 
+	/**
+	 * Creates and registers a new MCP server session.
+	 * @param asyncContext The async context for the SSE connection
+	 * @param writer The PrintWriter for sending SSE events
+	 * @return The session ID of the created session
+	 */
+	private String createAndRegisterSession(AsyncContext asyncContext, PrintWriter writer) {
+		String sessionId = java.util.UUID.randomUUID().toString();
+
+		// Session transport
+		HttpServletMcpSessionTransport sessionTransport = new HttpServletMcpSessionTransport(sessionId, asyncContext,
+				writer);
+
+		// NOTE: sessionFactory must already be set by McpServer.async(...)
+		McpServerSession session = sessionFactory.create(sessionTransport);
+		this.sessions.put(sessionId, session);
+
+		return sessionId;
+	}
+
 	private String buildEndpointUrl(HttpServletRequest request, String sessionId) {
-		// Deriva scheme + host + port dalla richiesta SSE
+		// Derive scheme + host + port from SSE request
 		String scheme = request.getScheme();
 		String host = request.getServerName();
 		int port = request.getServerPort();
 
-		// Deriva il base path del servlet/context corrente
-		// Esempio: se l’SSE è su /somePath/sse, e messageEndpoint = /mcp/message,
-		// l’endpoint finale diventa /somePath/mcp/message
-		String contextPath = request.getContextPath(); // es. "" o "/app"
-		String servletPath = request.getServletPath(); // es. "/somePath/*"
-		String ssePath = request.getRequestURI(); // es. "/somePath/sse"
+		// Derive the base path of the current servlet/context
+		// Example: if SSE is on /somePath/sse, and messageEndpoint = /mcp/message,
+		// the final endpoint becomes /somePath/mcp/message
+		String contextPath = request.getContextPath(); // e.g. "" or "/app"
+		String servletPath = request.getServletPath(); // e.g. "/somePath/*"
+		String ssePath = request.getRequestURI(); // e.g. "/somePath/sse"
 
-		// Calcola il "directory" del SSE path, togliendo il segmento finale "sse"
+		// Calculate the "directory" of the SSE path, removing the final "sse" segment
 		int lastSlash = ssePath.lastIndexOf('/');
 		String basePath = (lastSlash > 0) ? ssePath.substring(0, lastSlash) : "";
-		// Ora basePath è "/somePath"
+		// Now basePath is "/somePath"
 
-		// Assicura che messageEndpoint sia normalizzato (con leading slash)
+		// Ensure messageEndpoint is normalized (with leading slash)
 		String endpointPath = (this.messageEndpoint.startsWith("/")) ? this.messageEndpoint
 				: "/" + this.messageEndpoint;
 
-		// Costruisci il path finale mantenendo lo stesso basePath dell’SSE
+		// Build the final path maintaining the same basePath as SSE
 		String fullPath = basePath + endpointPath;
 
-		// Ricostruisci l’URL assoluto (include scheme/host/port)
+		// Reconstruct the absolute URL (includes scheme/host/port)
 		StringBuilder url = new StringBuilder();
 		url.append(scheme).append("://").append(host);
-		// Includi port solo se non standard
+		// Include port only if non-standard
 		if (!("http".equalsIgnoreCase(scheme) && port == 80) && !("https".equalsIgnoreCase(scheme) && port == 443)) {
 			url.append(':').append(port);
 		}
@@ -410,8 +412,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	}
 
 	/**
-	 * Initializes and flushes the SSE response by writing an empty line and flushing buffers.
-	 * This ensures the response body is committed immediately.
+	 * Initializes and flushes the SSE response by writing an empty line and flushing
+	 * buffers. This ensures the response body is committed immediately.
 	 * @param writer The PrintWriter for the response
 	 * @param response The HTTP servlet response
 	 * @throws IOException If an I/O error occurs during flushing
@@ -519,11 +521,11 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		if (!completed.compareAndSet(false, true)) {
 			return;
 		}
-	
+
 		long dtMs = (System.nanoTime() - startTime) / 1_000_000;
 		logger.info("SERVER doPost ASYNC COMPLETED (with value): kind={}, id={}, elapsedMs={}, thread={}", kind, id,
 				dtMs, Thread.currentThread().getName());
-	
+
 		HttpServletResponse asyncResponse = (HttpServletResponse) asyncContext.getResponse();
 		if (asyncResponse != null) {
 			asyncResponse.setStatus(HttpServletResponse.SC_OK);
@@ -532,7 +534,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	}
 
 	/**
-	 * Completes the async context without setting status for empty responses (SSE, notifications).
+	 * Completes the async context without setting status for empty responses (SSE,
+	 * notifications).
 	 * @param asyncContext The async context to complete
 	 * @param completed Flag to prevent duplicate completion
 	 * @param kind The message kind for logging
@@ -551,7 +554,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 		safeCompleteAsyncContext(asyncContext);
 	}
-	
+
 	/**
 	 * Safely completes an async context with consistent error handling and logging.
 	 * @param asyncContext The async context to complete
@@ -567,7 +570,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			logger.error("Error completing async context: {}", e.getMessage());
 		}
 	}
-	
+
 	/**
 	 * Handles errors during async message processing.
 	 * @param asyncContext The async context
@@ -690,13 +693,14 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		final AtomicBoolean completed = new AtomicBoolean(false);
 
 		session.handle(message).timeout(Duration.ofSeconds(55)) // Timeout
-																							// shorter
-																							// than
-																							// async
-																							// context
-																							// timeout
+																// shorter
+																// than
+																// async
+																// context
+																// timeout
 				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).subscribe(v -> {
-					// Success handler - complete async context when Mono emits a value (for
+					// Success handler - complete async context when Mono emits a value
+					// (for
 					// responses with content)
 					completeAsyncContextWithStatus(asyncContext, completed, messageInfo.kind, messageInfo.id, t0);
 				}, error -> {
