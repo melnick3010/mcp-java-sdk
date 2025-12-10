@@ -79,8 +79,8 @@ public class HttpClientStreamableHttpTransportEmptyJsonResponseTest {
 		// Convertiamo il customizer sincrono in async, come fa la versione Java 17
 		// internamente
 		HttpClientStreamableHttpTransport transport = HttpClientStreamableHttpTransport.builder(host)
-			.asyncHttpRequestCustomizer(McpAsyncHttpClientRequestCustomizer.fromSync(mockRequestCustomizer))
-			.build();
+				.asyncHttpRequestCustomizer(McpAsyncHttpClientRequestCustomizer.fromSync(mockRequestCustomizer))
+				.build();
 
 		InitializeRequest initializeRequest = new McpSchema.InitializeRequest(ProtocolVersions.MCP_2025_03_26,
 				McpSchema.ClientCapabilities.builder().roots(true).build(),

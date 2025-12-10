@@ -19,11 +19,11 @@ public final class GsonMcpJsonMapper implements McpJsonMapper {
 
 	public GsonMcpJsonMapper() {
 		this(new GsonBuilder().serializeNulls()
-			// Ensure numeric values in untyped (Object) fields preserve integral numbers
-			// as Long
-			.setObjectToNumberStrategy(ToNumberPolicy.LONG_OR_DOUBLE)
-			.setNumberToNumberStrategy(ToNumberPolicy.LONG_OR_DOUBLE)
-			.create());
+				// Ensure numeric values in untyped (Object) fields preserve integral
+				// numbers
+				// as Long
+				.setObjectToNumberStrategy(ToNumberPolicy.LONG_OR_DOUBLE)
+				.setNumberToNumberStrategy(ToNumberPolicy.LONG_OR_DOUBLE).create());
 	}
 
 	public GsonMcpJsonMapper(Gson gson) {

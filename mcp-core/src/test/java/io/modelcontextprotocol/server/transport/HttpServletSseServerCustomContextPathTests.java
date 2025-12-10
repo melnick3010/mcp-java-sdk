@@ -39,11 +39,8 @@ class HttpServletSseServerCustomContextPathTests {
 	public void before() {
 
 		// Create and configure the transport provider
-		mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
-			.baseUrl(CUSTOM_CONTEXT_PATH)
-			.messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
-			.sseEndpoint(CUSTOM_SSE_ENDPOINT)
-			.build();
+		mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder().baseUrl(CUSTOM_CONTEXT_PATH)
+				.messageEndpoint(CUSTOM_MESSAGE_ENDPOINT).sseEndpoint(CUSTOM_SSE_ENDPOINT).build();
 
 		tomcat = TomcatTestUtil.createTomcatServer(CUSTOM_CONTEXT_PATH, PORT, mcpServerTransportProvider);
 
@@ -56,8 +53,7 @@ class HttpServletSseServerCustomContextPathTests {
 		}
 
 		this.clientBuilder = McpClient.sync(HttpClientSseClientTransport.builder("http://localhost:" + PORT)
-			.sseEndpoint(CUSTOM_CONTEXT_PATH + CUSTOM_SSE_ENDPOINT)
-			.build());
+				.sseEndpoint(CUSTOM_CONTEXT_PATH + CUSTOM_SSE_ENDPOINT).build());
 	}
 
 	@AfterEach

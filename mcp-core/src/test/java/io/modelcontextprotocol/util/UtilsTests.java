@@ -63,8 +63,7 @@ class UtilsTests {
 			"http://localhost:8080/root, http://localhost:9090/root/api" })
 	void testAbsoluteUriNotMatchingBase(String baseUrl, String endpoint) {
 		assertThatThrownBy(() -> Utils.resolveUri(URI.create(baseUrl), endpoint))
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessageContaining("does not match the base URL");
+				.isInstanceOf(IllegalArgumentException.class).hasMessageContaining("does not match the base URL");
 	}
 
 }

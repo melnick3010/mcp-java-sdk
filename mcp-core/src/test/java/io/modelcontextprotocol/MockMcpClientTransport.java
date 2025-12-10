@@ -83,10 +83,8 @@ public class MockMcpClientTransport implements McpClientTransport {
 			return Mono.error(new IllegalStateException("Already connected"));
 		}
 		connected = true;
-		return inbound.asFlux()
-			.flatMap(message -> Mono.just(message).transform(handler))
-			.doFinally(signal -> connected = false)
-			.then();
+		return inbound.asFlux().flatMap(message -> Mono.just(message).transform(handler))
+				.doFinally(signal -> connected = false).then();
 	}
 
 	@Override

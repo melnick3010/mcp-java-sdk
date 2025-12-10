@@ -20,12 +20,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 /**
- * Default implementation of the MCP (Model Context Protocol) session that
- * manages bidirectional JSON-RPC communication between clients and servers.
+ * Default implementation of the MCP (Model Context Protocol) session that manages
+ * bidirectional JSON-RPC communication between clients and servers.
  *
- * The session manages: - Request/response handling with unique message IDs -
- * Notification processing - Message timeout management - Transport layer
- * abstraction
+ * The session manages: - Request/response handling with unique message IDs - Notification
+ * processing - Message timeout management - Transport layer abstraction
  */
 public class McpClientSession implements McpSession {
 
@@ -72,10 +71,9 @@ public class McpClientSession implements McpSession {
 
 	/**
 	 * Creates a new McpClientSession with the specified configuration and handlers.
-	 * 
 	 * @deprecated Use
-	 *             {@link #McpClientSession(Duration, McpClientTransport, Map, Map, Function)}
-	 *             instead.
+	 * {@link #McpClientSession(Duration, McpClientTransport, Map, Map, Function)}
+	 * instead.
 	 */
 	@Deprecated
 	public McpClientSession(Duration requestTimeout, McpClientTransport transport,
@@ -91,13 +89,12 @@ public class McpClientSession implements McpSession {
 
 	/**
 	 * Creates a new McpClientSession with the specified configuration and handlers.
-	 * 
-	 * @param requestTimeout       Duration to wait for responses
-	 * @param transport            Transport implementation for message exchange
-	 * @param requestHandlers      Map of method names to request handlers
+	 * @param requestTimeout Duration to wait for responses
+	 * @param transport Transport implementation for message exchange
+	 * @param requestHandlers Map of method names to request handlers
 	 * @param notificationHandlers Map of method names to notification handlers
-	 * @param connectHook          Hook that allows transforming the connection
-	 *                             Publisher prior to subscribing
+	 * @param connectHook Hook that allows transforming the connection Publisher prior to
+	 * subscribing
 	 */
 
 	public McpClientSession(Duration requestTimeout, McpClientTransport transport,
@@ -121,8 +118,10 @@ public class McpClientSession implements McpSession {
 						// Genera la RESPONSE e RITORNALA (NO invio qui)
 						return handleIncomingRequest((McpSchema.JSONRPCRequest) msg)
 								.cast(McpSchema.JSONRPCMessage.class);
-					} else {
-						// RESPONSE/NOTIFICATION: gestisci localmente (pending/notify) e non postare
+					}
+					else {
+						// RESPONSE/NOTIFICATION: gestisci localmente (pending/notify) e
+						// non postare
 						McpClientSession.this.handle(msg);
 						return Mono.just(msg);
 					}
@@ -149,15 +148,18 @@ public class McpClientSession implements McpSession {
 				MonoSink<McpSchema.JSONRPCResponse> sink = pendingResponses.remove(response.id());
 				if (sink == null) {
 					logger.warn("Unexpected response for unknown id {}", response.id());
-				} else {
+				}
+				else {
 					sink.success(response);
 				}
-			} else {
+			}
+			else {
 				logger.error("Discarded MCP request response without session id. "
 						+ "This is an indication of a bug in the request sender code that can lead to memory "
 						+ "leaks as pending requests will never be completed.");
 			}
-		} else if (message instanceof McpSchema.JSONRPCRequest) {
+		}
+		else if (message instanceof McpSchema.JSONRPCRequest) {
 			McpSchema.JSONRPCRequest request = (McpSchema.JSONRPCRequest) message;
 			// Nessun invio della response qui:
 			handleIncomingRequest(request).onErrorResume(error -> {
@@ -168,16 +170,19 @@ public class McpClientSession implements McpSession {
 				return Mono.just(
 						new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, request.id(), null, jsonRpcError));
 			})
-					// 👉 Non inviare: la response verrà resa al transport via handler.apply(...)
+					// 👉 Non inviare: la response verrà resa al transport via
+					// handler.apply(...)
 					.subscribe(); // solo per completare eventuali side-effect; opzionale
-		} else if (message instanceof McpSchema.JSONRPCNotification) {
+		}
+		else if (message instanceof McpSchema.JSONRPCNotification) {
 			McpSchema.JSONRPCNotification notification = (McpSchema.JSONRPCNotification) message;
 			logger.debug("Received notification: {}", notification);
 			handleIncomingNotification(notification).onErrorComplete(t -> {
 				logger.error("Error handling notification: {}", t.getMessage());
 				return true;
 			}).subscribe();
-		} else {
+		}
+		else {
 			logger.warn("Received unknown message type: {}", message);
 		}
 	}
@@ -236,8 +241,7 @@ public class McpClientSession implements McpSession {
 	}
 
 	/**
-	 * Handles an incoming JSON-RPC notification by routing it to the appropriate
-	 * handler.
+	 * Handles an incoming JSON-RPC notification by routing it to the appropriate handler.
 	 */
 	private Mono<Void> handleIncomingNotification(McpSchema.JSONRPCNotification notification) {
 		return Mono.defer(() -> {
@@ -286,10 +290,12 @@ public class McpClientSession implements McpSession {
 					if (jsonRpcResponse.error() != null) {
 						logger.error("Error handling request: {}", jsonRpcResponse.error());
 						deliveredResponseSink.error(new McpError(jsonRpcResponse.error()));
-					} else {
+					}
+					else {
 						if (typeRef.getType().equals(Void.class)) {
 							deliveredResponseSink.complete();
-						} else {
+						}
+						else {
 							deliveredResponseSink.next(transport.unmarshalFrom(jsonRpcResponse.result(), typeRef));
 						}
 					}

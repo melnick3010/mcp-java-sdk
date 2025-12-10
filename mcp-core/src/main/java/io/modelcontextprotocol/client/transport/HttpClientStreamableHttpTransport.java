@@ -83,10 +83,8 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 		this.activeSession.set(new DefaultMcpTransportSession(sessionId -> Mono.empty()));
 		this.httpRequestCustomizer = httpRequestCustomizer;
 		this.supportedProtocolVersions = Collections.unmodifiableList(supportedProtocolVersions);
-		this.latestSupportedProtocolVersion = this.supportedProtocolVersions.stream()
-			.sorted(Comparator.reverseOrder())
-			.findFirst()
-			.get();
+		this.latestSupportedProtocolVersion = this.supportedProtocolVersions.stream().sorted(Comparator.reverseOrder())
+				.findFirst().get();
 	}
 
 	@Override

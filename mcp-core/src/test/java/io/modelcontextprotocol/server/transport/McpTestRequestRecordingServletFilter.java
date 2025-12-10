@@ -64,13 +64,13 @@ public class McpTestRequestRecordingServletFilter implements Filter {
 			List<String> headerNames = toList(req.getHeaderNames());
 
 			Map<String, String> headersMutable = headerNames.stream()
-				.collect(Collectors.toMap(Function.identity(), new Function<String, String>() {
-					@Override
-					public String apply(String name) {
-						List<String> values = toList(req.getHeaders(name));
-						return String.join(",", values);
-					}
-				}));
+					.collect(Collectors.toMap(Function.identity(), new Function<String, String>() {
+						@Override
+						public String apply(String name) {
+							List<String> values = toList(req.getHeaders(name));
+							return String.join(",", values);
+						}
+					}));
 
 			Map<String, String> headers = Collections.unmodifiableMap(headersMutable);
 

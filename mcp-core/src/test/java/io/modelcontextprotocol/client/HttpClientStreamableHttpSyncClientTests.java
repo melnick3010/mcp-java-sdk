@@ -34,10 +34,9 @@ public class HttpClientStreamableHttpSyncClientTests extends AbstractMcpSyncClie
 	// Uses the https://github.com/tzolov/mcp-everything-server-docker-image
 	@SuppressWarnings("resource")
 	static GenericContainer<?> container = new GenericContainer<>("docker.io/tzolov/mcp-everything-server:v3")
-		.withCommand("node dist/index.js streamableHttp")
-		.withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String()))
-		.withExposedPorts(3001)
-		.waitingFor(Wait.forHttp("/").forStatusCode(404));
+			.withCommand("node dist/index.js streamableHttp")
+			.withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String())).withExposedPorts(3001)
+			.waitingFor(Wait.forHttp("/").forStatusCode(404));
 
 	private final McpSyncHttpClientRequestCustomizer requestCustomizer = mock(McpSyncHttpClientRequestCustomizer.class);
 
@@ -61,7 +60,7 @@ public class HttpClientStreamableHttpSyncClientTests extends AbstractMcpSyncClie
 	@Test
 	void customizesRequests() {
 		McpTransportContext mcpTransportContext = McpTransportContext
-			.create(Collections.singletonMap("some-key", "some-value"));
+				.create(Collections.singletonMap("some-key", "some-value"));
 		withClient(createMcpTransport(), syncSpec -> syncSpec.transportContextProvider(() -> mcpTransportContext),
 				mcpSyncClient -> {
 					mcpSyncClient.initialize();

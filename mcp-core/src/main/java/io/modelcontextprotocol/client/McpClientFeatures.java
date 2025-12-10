@@ -88,45 +88,40 @@ public final class McpClientFeatures {
 			List<Function<List<McpSchema.Resource>, Mono<Void>>> resourcesChangeConsumers = new ArrayList<>();
 			for (Consumer<List<McpSchema.Resource>> consumer : syncSpec.getResourcesChangeConsumers()) {
 				resourcesChangeConsumers.add(r -> Mono.fromRunnable(() -> consumer.accept(r))
-					.subscribeOn(Schedulers.boundedElastic())
-					.then());
+						.subscribeOn(Schedulers.boundedElastic()).then());
 			}
 
 			List<Function<List<McpSchema.ResourceContents>, Mono<Void>>> resourcesUpdateConsumers = new ArrayList<>();
 			for (Consumer<List<McpSchema.ResourceContents>> consumer : syncSpec.getResourcesUpdateConsumers()) {
 				resourcesUpdateConsumers.add(r -> Mono.fromRunnable(() -> consumer.accept(r))
-					.subscribeOn(Schedulers.boundedElastic())
-					.then());
+						.subscribeOn(Schedulers.boundedElastic()).then());
 			}
 
 			List<Function<List<McpSchema.Prompt>, Mono<Void>>> promptsChangeConsumers = new ArrayList<>();
 			for (Consumer<List<McpSchema.Prompt>> consumer : syncSpec.getPromptsChangeConsumers()) {
 				promptsChangeConsumers.add(p -> Mono.fromRunnable(() -> consumer.accept(p))
-					.subscribeOn(Schedulers.boundedElastic())
-					.then());
+						.subscribeOn(Schedulers.boundedElastic()).then());
 			}
 
 			List<Function<McpSchema.LoggingMessageNotification, Mono<Void>>> loggingConsumers = new ArrayList<>();
 			for (Consumer<McpSchema.LoggingMessageNotification> consumer : syncSpec.getLoggingConsumers()) {
 				loggingConsumers.add(l -> Mono.fromRunnable(() -> consumer.accept(l))
-					.subscribeOn(Schedulers.boundedElastic())
-					.then());
+						.subscribeOn(Schedulers.boundedElastic()).then());
 			}
 
 			List<Function<McpSchema.ProgressNotification, Mono<Void>>> progressConsumers = new ArrayList<>();
 			for (Consumer<McpSchema.ProgressNotification> consumer : syncSpec.getProgressConsumers()) {
 				progressConsumers.add(l -> Mono.fromRunnable(() -> consumer.accept(l))
-					.subscribeOn(Schedulers.boundedElastic())
-					.then());
+						.subscribeOn(Schedulers.boundedElastic()).then());
 			}
 
 			Function<McpSchema.CreateMessageRequest, Mono<McpSchema.CreateMessageResult>> samplingHandler = r -> Mono
-				.fromCallable(() -> syncSpec.getSamplingHandler().apply(r))
-				.subscribeOn(Schedulers.boundedElastic());
+					.fromCallable(() -> syncSpec.getSamplingHandler().apply(r))
+					.subscribeOn(Schedulers.boundedElastic());
 
 			Function<McpSchema.ElicitRequest, Mono<McpSchema.ElicitResult>> elicitationHandler = r -> Mono
-				.fromCallable(() -> syncSpec.getElicitationHandler().apply(r))
-				.subscribeOn(Schedulers.boundedElastic());
+					.fromCallable(() -> syncSpec.getElicitationHandler().apply(r))
+					.subscribeOn(Schedulers.boundedElastic());
 
 			return new Async(syncSpec.getClientInfo(), syncSpec.getClientCapabilities(), syncSpec.getRoots(),
 					toolsChangeConsumers, resourcesChangeConsumers, resourcesUpdateConsumers, promptsChangeConsumers,

@@ -32,10 +32,8 @@ class McpClientProtocolVersionTests {
 	@Test
 	void shouldUseLatestVersionByDefault() {
 		MockMcpClientTransport transport = new MockMcpClientTransport();
-		McpAsyncClient client = McpClient.async(transport)
-			.clientInfo(CLIENT_INFO)
-			.requestTimeout(REQUEST_TIMEOUT)
-			.build();
+		McpAsyncClient client = McpClient.async(transport).clientInfo(CLIENT_INFO).requestTimeout(REQUEST_TIMEOUT)
+				.build();
 
 		try {
 			Mono<InitializeResult> initializeResultMono = client.initialize();
@@ -66,10 +64,8 @@ class McpClientProtocolVersionTests {
 	void shouldNegotiateSpecificVersion() {
 		String oldVersion = "0.1.0";
 		MockMcpClientTransport transport = new MockMcpClientTransport();
-		McpAsyncClient client = McpClient.async(transport)
-			.clientInfo(CLIENT_INFO)
-			.requestTimeout(REQUEST_TIMEOUT)
-			.build();
+		McpAsyncClient client = McpClient.async(transport).clientInfo(CLIENT_INFO).requestTimeout(REQUEST_TIMEOUT)
+				.build();
 
 		client.setProtocolVersions(java.util.Arrays.asList(oldVersion, McpSchema.LATEST_PROTOCOL_VERSION));
 
@@ -81,7 +77,7 @@ class McpClientProtocolVersionTests {
 				assertThat(request.params()).isInstanceOf(McpSchema.InitializeRequest.class);
 				McpSchema.InitializeRequest initRequest = (McpSchema.InitializeRequest) request.params();
 				assertThat(initRequest.protocolVersion())
-					.isIn(java.util.Arrays.asList(oldVersion, McpSchema.LATEST_PROTOCOL_VERSION));
+						.isIn(java.util.Arrays.asList(oldVersion, McpSchema.LATEST_PROTOCOL_VERSION));
 
 				transport.simulateIncomingMessage(new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, request.id(),
 						new McpSchema.InitializeResult(oldVersion, ServerCapabilities.builder().build(),
@@ -100,10 +96,8 @@ class McpClientProtocolVersionTests {
 	void shouldFailForUnsupportedVersion() {
 		String unsupportedVersion = "999.999.999";
 		MockMcpClientTransport transport = new MockMcpClientTransport();
-		McpAsyncClient client = McpClient.async(transport)
-			.clientInfo(CLIENT_INFO)
-			.requestTimeout(REQUEST_TIMEOUT)
-			.build();
+		McpAsyncClient client = McpClient.async(transport).clientInfo(CLIENT_INFO).requestTimeout(REQUEST_TIMEOUT)
+				.build();
 
 		try {
 			Mono<InitializeResult> initializeResultMono = client.initialize();
@@ -130,10 +124,8 @@ class McpClientProtocolVersionTests {
 		String latestVersion = McpSchema.LATEST_PROTOCOL_VERSION;
 
 		MockMcpClientTransport transport = new MockMcpClientTransport();
-		McpAsyncClient client = McpClient.async(transport)
-			.clientInfo(CLIENT_INFO)
-			.requestTimeout(REQUEST_TIMEOUT)
-			.build();
+		McpAsyncClient client = McpClient.async(transport).clientInfo(CLIENT_INFO).requestTimeout(REQUEST_TIMEOUT)
+				.build();
 
 		client.setProtocolVersions(java.util.Arrays.asList(oldVersion, middleVersion, latestVersion));
 

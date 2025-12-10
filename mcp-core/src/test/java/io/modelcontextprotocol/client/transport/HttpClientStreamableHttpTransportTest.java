@@ -41,14 +41,13 @@ class HttpClientStreamableHttpTransportTest {
 	static String host = "http://localhost:3001";
 
 	private McpTransportContext context = McpTransportContext
-		.create(Collections.singletonMap("test-transport-context-key", "some-value"));
+			.create(Collections.singletonMap("test-transport-context-key", "some-value"));
 
 	@SuppressWarnings("resource")
 	static GenericContainer<?> container = new GenericContainer<>("docker.io/tzolov/mcp-everything-server:v3")
-		.withCommand("node dist/index.js streamableHttp")
-		.withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String()))
-		.withExposedPorts(3001)
-		.waitingFor(Wait.forHttp("/").forStatusCode(404));
+			.withCommand("node dist/index.js streamableHttp")
+			.withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String())).withExposedPorts(3001)
+			.waitingFor(Wait.forHttp("/").forStatusCode(404));
 
 	@BeforeAll
 	static void startContainer() {
@@ -77,8 +76,7 @@ class HttpClientStreamableHttpTransportTest {
 		McpSyncHttpClientRequestCustomizer mockRequestCustomizer = mock(McpSyncHttpClientRequestCustomizer.class);
 
 		HttpClientStreamableHttpTransport transport = HttpClientStreamableHttpTransport.builder(host)
-			.httpRequestCustomizer(mockRequestCustomizer)
-			.build();
+				.httpRequestCustomizer(mockRequestCustomizer).build();
 
 		withTransport(transport, (t) -> {
 			// Send test message
@@ -89,8 +87,8 @@ class HttpClientStreamableHttpTransportTest {
 					McpSchema.METHOD_INITIALIZE, "test-id", initializeRequest);
 
 			StepVerifier
-				.create(t.sendMessage(testMessage).contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context)))
-				.verifyComplete();
+					.create(t.sendMessage(testMessage).contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context)))
+					.verifyComplete();
 
 			// Verify the customizer was called
 			verify(mockRequestCustomizer, atLeastOnce()).customize(any(), eq("POST"), eq(uri), eq(
@@ -104,11 +102,10 @@ class HttpClientStreamableHttpTransportTest {
 		URI uri = new URI(host + "/mcp");
 		McpAsyncHttpClientRequestCustomizer mockRequestCustomizer = mock(McpAsyncHttpClientRequestCustomizer.class);
 		when(mockRequestCustomizer.customize(any(), any(), any(), any(), any()))
-			.thenAnswer(invocation -> Mono.just(invocation.getArguments()[0]));
+				.thenAnswer(invocation -> Mono.just(invocation.getArguments()[0]));
 
 		HttpClientStreamableHttpTransport transport = HttpClientStreamableHttpTransport.builder(host)
-			.asyncHttpRequestCustomizer(mockRequestCustomizer)
-			.build();
+				.asyncHttpRequestCustomizer(mockRequestCustomizer).build();
 
 		withTransport(transport, (t) -> {
 			// Send test message
@@ -119,8 +116,8 @@ class HttpClientStreamableHttpTransportTest {
 					McpSchema.METHOD_INITIALIZE, "test-id", initializeRequest);
 
 			StepVerifier
-				.create(t.sendMessage(testMessage).contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context)))
-				.verifyComplete();
+					.create(t.sendMessage(testMessage).contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context)))
+					.verifyComplete();
 
 			// Verify the customizer was called
 			verify(mockRequestCustomizer, atLeastOnce()).customize(any(), eq("POST"), eq(uri), eq(
@@ -141,9 +138,8 @@ class HttpClientStreamableHttpTransportTest {
 		JSONRPCRequest testMessage = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION,
 				McpSchema.METHOD_INITIALIZE, "test-id", initializeRequest);
 
-		StepVerifier.create(transport.sendMessage(testMessage))
-			.expectErrorMessage("MCP session has been closed")
-			.verify();
+		StepVerifier.create(transport.sendMessage(testMessage)).expectErrorMessage("MCP session has been closed")
+				.verify();
 	}
 
 	@Test
@@ -159,9 +155,8 @@ class HttpClientStreamableHttpTransportTest {
 		StepVerifier.create(transport.sendMessage(testMessage)).verifyComplete();
 		StepVerifier.create(transport.closeGracefully()).verifyComplete();
 
-		StepVerifier.create(transport.sendMessage(testMessage))
-			.expectErrorMatches(err -> err.getMessage().matches("MCP session with ID [a-zA-Z0-9-]* has been closed"))
-			.verify();
+		StepVerifier.create(transport.sendMessage(testMessage)).expectErrorMatches(
+				err -> err.getMessage().matches("MCP session with ID [a-zA-Z0-9-]* has been closed")).verify();
 	}
 
 }

@@ -32,20 +32,14 @@ class AsyncToolSpecificationBuilderTest {
 	@Test
 	void builderShouldCreateValidAsyncToolSpecification() {
 
-		Tool tool = McpSchema.Tool.builder()
-			.name("test-tool")
-			.title("A test tool")
-			.inputSchema(EMPTY_JSON_SCHEMA)
-			.build();
+		Tool tool = McpSchema.Tool.builder().name("test-tool").title("A test tool").inputSchema(EMPTY_JSON_SCHEMA)
+				.build();
 
 		McpServerFeatures.AsyncToolSpecification specification = McpServerFeatures.AsyncToolSpecification.builder()
-			.tool(tool)
-			.callHandler((exchange,
-					request) -> Mono.just(CallToolResult.builder()
-						.content(Collections.singletonList(new TextContent("Test result")))
-						.isError(false)
-						.build()))
-			.build();
+				.tool(tool)
+				.callHandler((exchange, request) -> Mono.just(CallToolResult.builder()
+						.content(Collections.singletonList(new TextContent("Test result"))).isError(false).build()))
+				.build();
 
 		assertThat(specification).isNotNull();
 		assertThat(specification.tool()).isEqualTo(tool);
@@ -56,57 +50,45 @@ class AsyncToolSpecificationBuilderTest {
 	@Test
 	void builderShouldThrowExceptionWhenToolIsNull() {
 		assertThatThrownBy(() -> McpServerFeatures.AsyncToolSpecification.builder()
-			.callHandler((exchange, request) -> Mono
-				.just(CallToolResult.builder().content(Collections.emptyList()).isError(false).build()))
-			.build()).isInstanceOf(IllegalArgumentException.class).hasMessage("Tool must not be null");
+				.callHandler((exchange, request) -> Mono
+						.just(CallToolResult.builder().content(Collections.emptyList()).isError(false).build()))
+				.build()).isInstanceOf(IllegalArgumentException.class).hasMessage("Tool must not be null");
 	}
 
 	@Test
 	void builderShouldThrowExceptionWhenCallToolIsNull() {
-		Tool tool = McpSchema.Tool.builder()
-			.name("test-tool")
-			.title("A test tool")
-			.inputSchema(EMPTY_JSON_SCHEMA)
-			.build();
+		Tool tool = McpSchema.Tool.builder().name("test-tool").title("A test tool").inputSchema(EMPTY_JSON_SCHEMA)
+				.build();
 
 		assertThatThrownBy(() -> McpServerFeatures.AsyncToolSpecification.builder().tool(tool).build())
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessage("Call handler function must not be null");
+				.isInstanceOf(IllegalArgumentException.class).hasMessage("Call handler function must not be null");
 	}
 
 	@Test
 	void builderShouldAllowMethodChaining() {
-		Tool tool = McpSchema.Tool.builder()
-			.name("test-tool")
-			.title("A test tool")
-			.inputSchema(EMPTY_JSON_SCHEMA)
-			.build();
+		Tool tool = McpSchema.Tool.builder().name("test-tool").title("A test tool").inputSchema(EMPTY_JSON_SCHEMA)
+				.build();
 		McpServerFeatures.AsyncToolSpecification.Builder builder = McpServerFeatures.AsyncToolSpecification.builder();
 
 		// Then - verify method chaining returns the same builder instance
 		assertThat(builder.tool(tool)).isSameAs(builder);
 		assertThat(builder.callHandler((exchange, request) -> Mono
-			.just(CallToolResult.builder().content(Collections.emptyList()).isError(false).build()))).isSameAs(builder);
+				.just(CallToolResult.builder().content(Collections.emptyList()).isError(false).build())))
+						.isSameAs(builder);
 	}
 
 	@Test
 	void builtSpecificationShouldExecuteCallToolCorrectly() {
-		Tool tool = McpSchema.Tool.builder()
-			.name("calculator")
-			.title("Simple calculator")
-			.inputSchema(EMPTY_JSON_SCHEMA)
-			.build();
+		Tool tool = McpSchema.Tool.builder().name("calculator").title("Simple calculator")
+				.inputSchema(EMPTY_JSON_SCHEMA).build();
 		String expectedResult = "42";
 
 		McpServerFeatures.AsyncToolSpecification specification = McpServerFeatures.AsyncToolSpecification.builder()
-			.tool(tool)
-			.callHandler((exchange, request) -> {
-				return Mono.just(CallToolResult.builder()
-					.content(Collections.singletonList(new TextContent(expectedResult)))
-					.isError(false)
-					.build());
-			})
-			.build();
+				.tool(tool).callHandler((exchange, request) -> {
+					return Mono.just(
+							CallToolResult.builder().content(Collections.singletonList(new TextContent(expectedResult)))
+									.isError(false).build());
+				}).build();
 
 		CallToolRequest request = new CallToolRequest("calculator", Collections.emptyMap());
 		Mono<CallToolResult> resultMono = specification.callHandler().apply(null, request);
@@ -123,20 +105,14 @@ class AsyncToolSpecificationBuilderTest {
 	@Test
 	@SuppressWarnings("deprecation")
 	void deprecatedConstructorShouldWorkCorrectly() {
-		Tool tool = McpSchema.Tool.builder()
-			.name("deprecated-tool")
-			.title("A deprecated tool")
-			.inputSchema(EMPTY_JSON_SCHEMA)
-			.build();
+		Tool tool = McpSchema.Tool.builder().name("deprecated-tool").title("A deprecated tool")
+				.inputSchema(EMPTY_JSON_SCHEMA).build();
 		String expectedResult = "deprecated result";
 
 		// Test the deprecated constructor that takes a 'call' function
 		McpServerFeatures.AsyncToolSpecification specification = new McpServerFeatures.AsyncToolSpecification(tool,
-				(exchange,
-						arguments) -> Mono.just(CallToolResult.builder()
-							.content(Collections.singletonList(new TextContent(expectedResult)))
-							.isError(false)
-							.build()));
+				(exchange, arguments) -> Mono.just(CallToolResult.builder()
+						.content(Collections.singletonList(new TextContent(expectedResult))).isError(false).build()));
 
 		assertThat(specification).isNotNull();
 		assertThat(specification.tool()).isEqualTo(tool);
@@ -170,25 +146,19 @@ class AsyncToolSpecificationBuilderTest {
 
 	@Test
 	void fromSyncShouldConvertSyncToolSpecificationCorrectly() {
-		Tool tool = McpSchema.Tool.builder()
-			.name("sync-tool")
-			.title("A sync tool")
-			.inputSchema(EMPTY_JSON_SCHEMA)
-			.build();
+		Tool tool = McpSchema.Tool.builder().name("sync-tool").title("A sync tool").inputSchema(EMPTY_JSON_SCHEMA)
+				.build();
 		String expectedResult = "sync result";
 
 		// Create a sync tool specification
-		McpServerFeatures.SyncToolSpecification syncSpec = McpServerFeatures.SyncToolSpecification.builder()
-			.tool(tool)
-			.callHandler((exchange, request) -> CallToolResult.builder()
-				.content(Collections.singletonList(new TextContent(expectedResult)))
-				.isError(false)
-				.build())
-			.build();
+		McpServerFeatures.SyncToolSpecification syncSpec = McpServerFeatures.SyncToolSpecification.builder().tool(tool)
+				.callHandler((exchange, request) -> CallToolResult.builder()
+						.content(Collections.singletonList(new TextContent(expectedResult))).isError(false).build())
+				.build();
 
 		// Convert to async using fromSync
 		McpServerFeatures.AsyncToolSpecification asyncSpec = McpServerFeatures.AsyncToolSpecification
-			.fromSync(syncSpec);
+				.fromSync(syncSpec);
 
 		assertThat(asyncSpec).isNotNull();
 		assertThat(asyncSpec.tool()).isEqualTo(tool);
@@ -212,11 +182,8 @@ class AsyncToolSpecificationBuilderTest {
 	@Test
 	@SuppressWarnings("deprecation")
 	void fromSyncShouldConvertSyncToolSpecificationWithDeprecatedCallCorrectly() {
-		Tool tool = McpSchema.Tool.builder()
-			.name("sync-deprecated-tool")
-			.title("A sync tool with deprecated call")
-			.inputSchema(EMPTY_JSON_SCHEMA)
-			.build();
+		Tool tool = McpSchema.Tool.builder().name("sync-deprecated-tool").title("A sync tool with deprecated call")
+				.inputSchema(EMPTY_JSON_SCHEMA).build();
 		String expectedResult = "sync deprecated result";
 		McpAsyncServerExchange nullExchange = null; // Mock or create a suitable exchange
 													// if needed
@@ -224,13 +191,11 @@ class AsyncToolSpecificationBuilderTest {
 		// Create a sync tool specification using the deprecated constructor
 		McpServerFeatures.SyncToolSpecification syncSpec = new McpServerFeatures.SyncToolSpecification(tool,
 				(exchange, arguments) -> CallToolResult.builder()
-					.content(Collections.singletonList(new TextContent(expectedResult)))
-					.isError(false)
-					.build());
+						.content(Collections.singletonList(new TextContent(expectedResult))).isError(false).build());
 
 		// Convert to async using fromSync
 		McpServerFeatures.AsyncToolSpecification asyncSpec = McpServerFeatures.AsyncToolSpecification
-			.fromSync(syncSpec);
+				.fromSync(syncSpec);
 
 		assertThat(asyncSpec).isNotNull();
 		assertThat(asyncSpec.tool()).isEqualTo(tool);

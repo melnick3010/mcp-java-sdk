@@ -25,12 +25,11 @@ import io.modelcontextprotocol.util.Assert;
 public class ServerParameters {
 
 	// Environment variables to inherit by default
-	private static final List<String> DEFAULT_INHERITED_ENV_VARS = System.getProperty("os.name")
-		.toLowerCase()
-		.contains("win")
-				? Arrays.asList("APPDATA", "HOMEDRIVE", "HOMEPATH", "LOCALAPPDATA", "PATH", "PROCESSOR_ARCHITECTURE",
-						"SYSTEMDRIVE", "SYSTEMROOT", "TEMP", "USERNAME", "USERPROFILE")
-				: Arrays.asList("HOME", "LOGNAME", "PATH", "SHELL", "TERM", "USER");
+	private static final List<String> DEFAULT_INHERITED_ENV_VARS = System.getProperty("os.name").toLowerCase()
+			.contains("win")
+					? Arrays.asList("APPDATA", "HOMEDRIVE", "HOMEPATH", "LOCALAPPDATA", "PATH",
+							"PROCESSOR_ARCHITECTURE", "SYSTEMDRIVE", "SYSTEMROOT", "TEMP", "USERNAME", "USERPROFILE")
+					: Arrays.asList("HOME", "LOGNAME", "PATH", "SHELL", "TERM", "USER");
 
 	@JsonProperty("command")
 	private String command;
@@ -125,13 +124,9 @@ public class ServerParameters {
 	 * safe to inherit.
 	 */
 	private static Map<String, String> getDefaultEnvironment() {
-		return System.getenv()
-			.entrySet()
-			.stream()
-			.filter(entry -> DEFAULT_INHERITED_ENV_VARS.contains(entry.getKey()))
-			.filter(entry -> entry.getValue() != null)
-			.filter(entry -> !entry.getValue().startsWith("()"))
-			.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+		return System.getenv().entrySet().stream().filter(entry -> DEFAULT_INHERITED_ENV_VARS.contains(entry.getKey()))
+				.filter(entry -> entry.getValue() != null).filter(entry -> !entry.getValue().startsWith("()"))
+				.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 	}
 
 }

@@ -142,30 +142,30 @@ public class McpStreamableServerSession implements McpLoggableSession {
 			McpTransportContext transportContext = ctx.getOrDefault(McpTransportContext.KEY, McpTransportContext.EMPTY);
 			McpStreamableServerSessionStream stream = new McpStreamableServerSessionStream(transport);
 			McpRequestHandler<?> requestHandler = McpStreamableServerSession.this.requestHandlers
-				.get(jsonrpcRequest.method());
+					.get(jsonrpcRequest.method());
 			if (requestHandler == null) {
 				MethodNotFoundError error = getMethodNotFoundError(jsonrpcRequest.method());
 				return transport
-					.sendMessage(new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, jsonrpcRequest.id(), null,
-							new McpSchema.JSONRPCResponse.JSONRPCError(McpSchema.ErrorCodes.METHOD_NOT_FOUND,
-									error.message(), error.data())));
+						.sendMessage(new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, jsonrpcRequest.id(), null,
+								new McpSchema.JSONRPCResponse.JSONRPCError(McpSchema.ErrorCodes.METHOD_NOT_FOUND,
+										error.message(), error.data())));
 			}
 			return requestHandler
-				.handle(new McpAsyncServerExchange(this.id, stream, clientCapabilities.get(), clientInfo.get(),
-						transportContext), jsonrpcRequest.params())
-				.map(result -> new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, jsonrpcRequest.id(), result,
-						null))
-				.onErrorResume(e -> {
-					McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError = (e instanceof McpError
-							&& ((McpError) e).getJsonRpcError() != null) ? ((McpError) e).getJsonRpcError()
-									: new McpSchema.JSONRPCResponse.JSONRPCError(McpSchema.ErrorCodes.INTERNAL_ERROR,
-											e.getMessage(), McpError.aggregateExceptionMessages(e));
-					McpSchema.JSONRPCResponse errorResponse = new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION,
-							jsonrpcRequest.id(), null, jsonRpcError);
-					return Mono.just(errorResponse);
-				})
-				.flatMap(transport::sendMessage)
-				.then(transport.closeGracefully());
+					.handle(new McpAsyncServerExchange(this.id, stream, clientCapabilities.get(), clientInfo.get(),
+							transportContext), jsonrpcRequest.params())
+					.map(result -> new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, jsonrpcRequest.id(), result,
+							null))
+					.onErrorResume(e -> {
+						McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError = (e instanceof McpError
+								&& ((McpError) e).getJsonRpcError() != null)
+										? ((McpError) e).getJsonRpcError()
+										: new McpSchema.JSONRPCResponse.JSONRPCError(
+												McpSchema.ErrorCodes.INTERNAL_ERROR, e.getMessage(),
+												McpError.aggregateExceptionMessages(e));
+						McpSchema.JSONRPCResponse errorResponse = new McpSchema.JSONRPCResponse(
+								McpSchema.JSONRPC_VERSION, jsonrpcRequest.id(), null, jsonRpcError);
+						return Mono.just(errorResponse);
+					}).flatMap(transport::sendMessage).then(transport.closeGracefully());
 		});
 	}
 
@@ -192,15 +192,13 @@ public class McpStreamableServerSession implements McpLoggableSession {
 				McpStreamableServerSessionStream stream = this.requestIdToStream.get(response.id());
 				if (stream == null) {
 					return Mono.error(McpError.builder(ErrorCodes.INTERNAL_ERROR)
-						.message("Unexpected response for unknown id " + response.id())
-						.build());
+							.message("Unexpected response for unknown id " + response.id()).build());
 				}
 				// TODO: encapsulate this inside the stream itself
 				MonoSink<McpSchema.JSONRPCResponse> sink = stream.pendingResponses.remove(response.id());
 				if (sink == null) {
 					return Mono.error(McpError.builder(ErrorCodes.INTERNAL_ERROR)
-						.message("Unexpected response for unknown id " + response.id())
-						.build());
+							.message("Unexpected response for unknown id " + response.id()).build());
 				}
 				else {
 					sink.success(response);

@@ -50,13 +50,12 @@ public class ResourceTemplateListingTest {
 
 		// Apply the filter logic from McpAsyncServer line 438
 		List<McpSchema.Resource> filteredResources = allResources.stream()
-			.filter(resource -> !resource.uri().contains("{"))
-			.collect(Collectors.toList());
+				.filter(resource -> !resource.uri().contains("{")).collect(Collectors.toList());
 
 		// Verify only regular resources are included
 		assertThat(filteredResources).hasSize(2);
 		assertThat(filteredResources).extracting(McpSchema.Resource::uri)
-			.containsExactlyInAnyOrder("file:///test/doc1.txt", "file:///test/doc2.txt");
+				.containsExactlyInAnyOrder("file:///test/doc1.txt", "file:///test/doc2.txt");
 	}
 
 	@Test
@@ -72,16 +71,15 @@ public class ResourceTemplateListingTest {
 				"file:///test/document/{docId}/content.txt", "Document Template", null, "text/plain", null);
 
 		// Filter regular resources (those without template parameters)
-		List<McpSchema.Resource> regularResources = resources.stream()
-			.filter(resource -> !resource.uri().contains("{"))
-			.collect(Collectors.toList());
+		List<McpSchema.Resource> regularResources = resources.stream().filter(resource -> !resource.uri().contains("{"))
+				.collect(Collectors.toList());
 
 		// Extract template resources (those with template parameters)
 		List<McpSchema.ResourceTemplate> templateResources = resources.stream()
-			.filter(resource -> resource.uri().contains("{"))
-			.map(resource -> new McpSchema.ResourceTemplate(resource.uri(), resource.name(), resource.description(),
-					resource.mimeType(), resource.annotations()))
-			.collect(Collectors.toList());
+				.filter(resource -> resource.uri().contains("{"))
+				.map(resource -> new McpSchema.ResourceTemplate(resource.uri(), resource.name(), resource.description(),
+						resource.mimeType(), resource.annotations()))
+				.collect(Collectors.toList());
 
 		// Verify regular resources list
 		assertThat(regularResources).hasSize(1);
@@ -95,9 +93,8 @@ public class ResourceTemplateListingTest {
 		List<McpSchema.ResourceTemplate> allTemplates = java.util.Arrays.asList(templateResources.get(0),
 				explicitTemplate);
 		assertThat(allTemplates).hasSize(2);
-		assertThat(allTemplates).extracting(McpSchema.ResourceTemplate::uriTemplate)
-			.containsExactlyInAnyOrder("file:///test/user/{userId}/profile.txt",
-					"file:///test/document/{docId}/content.txt");
+		assertThat(allTemplates).extracting(McpSchema.ResourceTemplate::uriTemplate).containsExactlyInAnyOrder(
+				"file:///test/user/{userId}/profile.txt", "file:///test/document/{docId}/content.txt");
 	}
 
 }

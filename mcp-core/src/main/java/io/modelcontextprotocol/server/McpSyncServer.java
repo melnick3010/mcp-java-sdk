@@ -85,8 +85,8 @@ public class McpSyncServer {
 	 */
 	public void addTool(McpServerFeatures.SyncToolSpecification toolHandler) {
 		this.asyncServer
-			.addTool(McpServerFeatures.AsyncToolSpecification.fromSync(toolHandler, this.immediateExecution))
-			.block();
+				.addTool(McpServerFeatures.AsyncToolSpecification.fromSync(toolHandler, this.immediateExecution))
+				.block();
 	}
 
 	/**
@@ -110,10 +110,9 @@ public class McpSyncServer {
 	 * @param resourceSpecification The resource specification to add
 	 */
 	public void addResource(McpServerFeatures.SyncResourceSpecification resourceSpecification) {
-		this.asyncServer
-			.addResource(McpServerFeatures.AsyncResourceSpecification.fromSync(resourceSpecification,
-					this.immediateExecution))
-			.block();
+		this.asyncServer.addResource(
+				McpServerFeatures.AsyncResourceSpecification.fromSync(resourceSpecification, this.immediateExecution))
+				.block();
 	}
 
 	/**
@@ -137,10 +136,8 @@ public class McpSyncServer {
 	 * @param resourceTemplateSpecification The resource template specification to add
 	 */
 	public void addResourceTemplate(McpServerFeatures.SyncResourceTemplateSpecification resourceTemplateSpecification) {
-		this.asyncServer
-			.addResourceTemplate(McpServerFeatures.AsyncResourceTemplateSpecification
-				.fromSync(resourceTemplateSpecification, this.immediateExecution))
-			.block();
+		this.asyncServer.addResourceTemplate(McpServerFeatures.AsyncResourceTemplateSpecification
+				.fromSync(resourceTemplateSpecification, this.immediateExecution)).block();
 	}
 
 	/**
@@ -164,10 +161,9 @@ public class McpSyncServer {
 	 * @param promptSpecification The prompt specification to add
 	 */
 	public void addPrompt(McpServerFeatures.SyncPromptSpecification promptSpecification) {
-		this.asyncServer
-			.addPrompt(
-					McpServerFeatures.AsyncPromptSpecification.fromSync(promptSpecification, this.immediateExecution))
-			.block();
+		this.asyncServer.addPrompt(
+				McpServerFeatures.AsyncPromptSpecification.fromSync(promptSpecification, this.immediateExecution))
+				.block();
 	}
 
 	/**

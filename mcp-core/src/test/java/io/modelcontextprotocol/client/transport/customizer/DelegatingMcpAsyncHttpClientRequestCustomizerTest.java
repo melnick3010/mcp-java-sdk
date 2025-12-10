@@ -45,7 +45,7 @@ class DelegatingMcpAsyncHttpClientRequestCustomizerTest {
 		McpAsyncHttpClientRequestCustomizer mockCustomizer = mock(McpAsyncHttpClientRequestCustomizer.class);
 		when(mockCustomizer.customize(any(RequestBuilder.class), any(String.class), any(URI.class), any(String.class),
 				any(McpTransportContext.class)))
-			.thenAnswer(invocation -> Mono.just((RequestBuilder) invocation.getArguments()[0]));
+						.thenAnswer(invocation -> Mono.just((RequestBuilder) invocation.getArguments()[0]));
 
 		DelegatingMcpAsyncHttpClientRequestCustomizer customizer = new DelegatingMcpAsyncHttpClientRequestCustomizer(
 				Arrays.asList(mockCustomizer));
@@ -53,9 +53,10 @@ class DelegatingMcpAsyncHttpClientRequestCustomizerTest {
 		McpTransportContext context = McpTransportContext.EMPTY;
 
 		StepVerifier
-			.create(customizer.customize(TEST_BUILDER, "GET", TEST_URI, "{\"everybody\": \"needs somebody\"}", context))
-			.expectNext(TEST_BUILDER) // stesso instance reference del builder
-			.verifyComplete();
+				.create(customizer.customize(TEST_BUILDER, "GET", TEST_URI, "{\"everybody\": \"needs somebody\"}",
+						context))
+				.expectNext(TEST_BUILDER) // stesso instance reference del builder
+				.verifyComplete();
 
 		verify(mockCustomizer).customize(TEST_BUILDER, "GET", TEST_URI, "{\"everybody\": \"needs somebody\"}", context);
 	}
@@ -70,22 +71,22 @@ class DelegatingMcpAsyncHttpClientRequestCustomizerTest {
 		DelegatingMcpAsyncHttpClientRequestCustomizer customizer = new DelegatingMcpAsyncHttpClientRequestCustomizer(
 				Arrays.asList(
 						(builder, method, uri, body, ctx) -> Mono
-							.just(RequestBuilder.copy(builder.build()).addHeader(headerName, "one")),
+								.just(RequestBuilder.copy(builder.build()).addHeader(headerName, "one")),
 						(builder, method, uri, body, ctx) -> Mono
-							.just(RequestBuilder.copy(builder.build()).addHeader(headerName, "two"))));
+								.just(RequestBuilder.copy(builder.build()).addHeader(headerName, "two"))));
 
 		Flux<String> valuesStream = Mono
-			.from(customizer.customize(TEST_BUILDER, "GET", TEST_URI, "{\"everybody\": \"needs somebody\"}",
-					McpTransportContext.EMPTY))
-			.map(RequestBuilder::build) // -> HttpUriRequest
-			.flatMapIterable(req -> {
-				Header[] headers = req.getHeaders(headerName);
-				List<String> values = new ArrayList<String>(headers.length);
-				for (Header h : headers) {
-					values.add(h.getValue());
-				}
-				return values;
-			});
+				.from(customizer.customize(TEST_BUILDER, "GET", TEST_URI, "{\"everybody\": \"needs somebody\"}",
+						McpTransportContext.EMPTY))
+				.map(RequestBuilder::build) // -> HttpUriRequest
+				.flatMapIterable(req -> {
+					Header[] headers = req.getHeaders(headerName);
+					List<String> values = new ArrayList<String>(headers.length);
+					for (Header h : headers) {
+						values.add(h.getValue());
+					}
+					return values;
+				});
 
 		StepVerifier.create(valuesStream).expectNext("one").expectNext("two").verifyComplete();
 	}
@@ -93,8 +94,7 @@ class DelegatingMcpAsyncHttpClientRequestCustomizerTest {
 	@Test
 	void constructorRequiresNonNull() {
 		assertThatThrownBy(() -> new DelegatingMcpAsyncHttpClientRequestCustomizer(null))
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessage("Customizers must not be null");
+				.isInstanceOf(IllegalArgumentException.class).hasMessage("Customizers must not be null");
 	}
 
 }

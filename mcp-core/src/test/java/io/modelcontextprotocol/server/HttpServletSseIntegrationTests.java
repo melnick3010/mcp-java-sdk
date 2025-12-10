@@ -32,6 +32,7 @@ import org.junit.jupiter.params.provider.Arguments;
 class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationTests {
 
 	private static final String CUSTOM_SSE_ENDPOINT = "/somePath/sse";
+
 	private static final String CUSTOM_MESSAGE_ENDPOINT = "/otherPath/mcp/message";
 
 	static Stream<Arguments> clientsForTesting() {
@@ -39,10 +40,15 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 	}
 
 	private HttpServletSseServerTransportProvider mcpServerTransportProvider;
+
 	private Tomcat tomcat;
+
 	private McpAsyncServer asyncServer;
+
 	private HttpClientSseClientTransport transport;
+
 	private McpSyncClient client;
+
 	private int port;
 
 	@BeforeEach
@@ -59,7 +65,8 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 			tomcat.start();
 			assertThat(tomcat.getServer().getState()).isEqualTo(LifecycleState.STARTED);
 			System.out.println("Tomcat avviato su porta " + port);
-		} catch (Exception e) {
+		}
+		catch (Exception e) {
 			throw new RuntimeException("Failed to start embedded Tomcat", e);
 		}
 
@@ -115,9 +122,11 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 				tomcat.stop();
 				tomcat.destroy();
 			}
-		} catch (LifecycleException e) {
+		}
+		catch (LifecycleException e) {
 			throw new RuntimeException("Failed to stop Tomcat", e);
-		} finally {
+		}
+		finally {
 			client = null;
 			transport = null;
 			mcpServerTransportProvider = null;
@@ -154,10 +163,12 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		while (System.nanoTime() < end) {
 			try (Socket s = new Socket()) {
 				s.connect(new InetSocketAddress("localhost", port), 500);
-			} catch (IOException e) {
+			}
+			catch (IOException e) {
 				try {
 					Thread.sleep(50);
-				} catch (InterruptedException ignored) {
+				}
+				catch (InterruptedException ignored) {
 				}
 				continue;
 			}
@@ -167,11 +178,13 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 				conn.disconnect();
 				if (code >= 200 && code < 500)
 					return true;
-			} catch (IOException ignored) {
+			}
+			catch (IOException ignored) {
 			}
 			try {
 				Thread.sleep(50);
-			} catch (InterruptedException ignored) {
+			}
+			catch (InterruptedException ignored) {
 			}
 		}
 		return false;
@@ -194,11 +207,13 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 			java.util.concurrent.atomic.AtomicReference<String> ref = (java.util.concurrent.atomic.AtomicReference<String>) f
 					.get(transport);
 			return ref.get();
-		} catch (Exception e) {
+		}
+		catch (Exception e) {
 			return null;
 		}
 	}
 
 	static io.modelcontextprotocol.server.McpTransportContextExtractor<HttpServletRequest> TEST_CONTEXT_EXTRACTOR = (
 			r) -> McpTransportContext.create(Collections.singletonMap("important", "value"));
+
 }

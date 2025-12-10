@@ -106,9 +106,8 @@ class McpClientSessionTests {
 		Mono<String> responseMono = session.sendRequest(TEST_METHOD, "test", responseType);
 
 		// Verify timeout
-		StepVerifier.create(responseMono)
-			.expectError(java.util.concurrent.TimeoutException.class)
-			.verify(TIMEOUT.plusSeconds(1));
+		StepVerifier.create(responseMono).expectError(java.util.concurrent.TimeoutException.class)
+				.verify(TIMEOUT.plusSeconds(1));
 
 		session.close();
 	}
@@ -165,8 +164,9 @@ class McpClientSessionTests {
 		Sinks.One<Object> receivedParams = Sinks.one();
 
 		MockMcpClientTransport transport = new MockMcpClientTransport();
-		McpClientSession session = new McpClientSession(TIMEOUT, transport, Collections.emptyMap(), Collections
-			.singletonMap(TEST_NOTIFICATION, params -> Mono.fromRunnable(() -> receivedParams.tryEmitValue(params))),
+		McpClientSession session = new McpClientSession(TIMEOUT, transport, Collections.emptyMap(),
+				Collections.singletonMap(TEST_NOTIFICATION,
+						params -> Mono.fromRunnable(() -> receivedParams.tryEmitValue(params))),
 				Function.identity());
 
 		// Simulate incoming notification from the server
@@ -214,7 +214,7 @@ class McpClientSessionTests {
 		String testMethod = "test.customError";
 		Map<String, Object> errorData = Collections.singletonMap("customField", "customValue");
 		McpClientSession.RequestHandler<?> failingHandler = params -> Mono
-			.error(McpError.builder(123).message("Custom error message").data(errorData).build());
+				.error(McpError.builder(123).message("Custom error message").data(errorData).build());
 
 		MockMcpClientTransport transport = new MockMcpClientTransport();
 		McpClientSession session = new McpClientSession(TIMEOUT, transport,

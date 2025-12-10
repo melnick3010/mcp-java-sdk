@@ -76,8 +76,7 @@ class HttpServletStatelessIntegrationTests {
 	@BeforeEach
 	public void before() {
 		this.mcpStatelessServerTransport = HttpServletStatelessServerTransport.builder()
-			.messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
-			.build();
+				.messageEndpoint(CUSTOM_MESSAGE_ENDPOINT).build();
 
 		tomcat = TomcatTestUtil.createTomcatServer("", PORT, mcpStatelessServerTransport);
 		try {
@@ -88,11 +87,11 @@ class HttpServletStatelessIntegrationTests {
 			throw new RuntimeException("Failed to start Tomcat", e);
 		}
 
-		clientBuilders
-			.put("httpclient",
-					McpClient.sync(HttpClientStreamableHttpTransport.builder("http://localhost:" + PORT)
-						.endpoint(CUSTOM_MESSAGE_ENDPOINT)
-						.build()).initializationTimeout(Duration.ofHours(10)).requestTimeout(Duration.ofHours(10)));
+		clientBuilders.put("httpclient",
+				McpClient
+						.sync(HttpClientStreamableHttpTransport.builder("http://localhost:" + PORT)
+								.endpoint(CUSTOM_MESSAGE_ENDPOINT).build())
+						.initializationTimeout(Duration.ofHours(10)).requestTimeout(Duration.ofHours(10)));
 	}
 
 	@AfterEach
@@ -121,16 +120,14 @@ class HttpServletStatelessIntegrationTests {
 		SyncSpec clientBuilder = clientBuilders.get(clientType);
 
 		CallToolResult callResponse = CallToolResult.builder()
-			.content(Collections.singletonList(new McpSchema.TextContent("CALL RESPONSE")))
-			.isError(false)
-			.build();
+				.content(Collections.singletonList(new McpSchema.TextContent("CALL RESPONSE"))).isError(false).build();
 
 		McpStatelessServerFeatures.SyncToolSpecification tool1 = new McpStatelessServerFeatures.SyncToolSpecification(
 				Tool.builder().name("tool1").title("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build(),
 				(transportContext, request) -> {
 					// chiamata HTTP bloccante con Apache HttpClient (Java 8)
 					try (org.apache.http.impl.client.CloseableHttpClient httpClient = org.apache.http.impl.client.HttpClients
-						.createDefault()) {
+							.createDefault()) {
 
 						org.apache.http.client.methods.HttpGet get = new org.apache.http.client.methods.HttpGet(
 								"https://raw.githubusercontent.com/modelcontextprotocol/java-sdk/refs/heads/main/README.md");
@@ -151,9 +148,7 @@ class HttpServletStatelessIntegrationTests {
 				});
 
 		McpStatelessSyncServer mcpServer = McpServer.sync(mcpStatelessServerTransport)
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool1)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool1).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 
@@ -163,7 +158,7 @@ class HttpServletStatelessIntegrationTests {
 			assertThat(mcpClient.listTools().getTools()).contains(tool1.tool());
 
 			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
+					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
 			assertThat(response).isNotNull();
 			assertThat(response).isEqualTo(callResponse);
@@ -211,16 +206,16 @@ class HttpServletStatelessIntegrationTests {
 		};
 
 		McpStatelessSyncServer mcpServer = McpServer.sync(mcpStatelessServerTransport)
-			.capabilities(ServerCapabilities.builder().completions().build())
-			.prompts(
-					new McpStatelessServerFeatures.SyncPromptSpecification(
-							new Prompt("code_review", "Code review", "this is code review prompt",
-									Collections
-										.singletonList(new PromptArgument("language", "Language", "string", false))),
-							(transportContext, getPromptRequest) -> null))
-			.completions(new McpStatelessServerFeatures.SyncCompletionSpecification(
-					new PromptReference(PromptReference.TYPE, "code_review", "Code review"), completionHandler))
-			.build();
+				.capabilities(ServerCapabilities.builder().completions().build())
+				.prompts(
+						new McpStatelessServerFeatures.SyncPromptSpecification(
+								new Prompt("code_review", "Code review", "this is code review prompt",
+										Collections.singletonList(
+												new PromptArgument("language", "Language", "string", false))),
+								(transportContext, getPromptRequest) -> null))
+				.completions(new McpStatelessServerFeatures.SyncCompletionSpecification(
+						new PromptReference(PromptReference.TYPE, "code_review", "Code review"), completionHandler))
+				.build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 
@@ -278,11 +273,8 @@ class HttpServletStatelessIntegrationTests {
 		// Lista required
 		outputSchema.put("required", Arrays.asList("result", "operation"));
 
-		Tool calculatorTool = Tool.builder()
-			.name("calculator")
-			.description("Performs mathematical calculations")
-			.outputSchema(outputSchema)
-			.build();
+		Tool calculatorTool = Tool.builder().name("calculator").description("Performs mathematical calculations")
+				.outputSchema(outputSchema).build();
 
 		McpStatelessServerFeatures.SyncToolSpecification tool = new McpStatelessServerFeatures.SyncToolSpecification(
 				calculatorTool, (transportContext, request) -> {
@@ -299,10 +291,8 @@ class HttpServletStatelessIntegrationTests {
 				});
 
 		McpStatelessSyncServer mcpServer = McpServer.sync(mcpStatelessServerTransport)
-			.serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.serverInfo("test-server", "1.0.0").capabilities(ServerCapabilities.builder().tools(true).build())
+				.tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			InitializeResult initResult = mcpClient.initialize();
@@ -315,8 +305,8 @@ class HttpServletStatelessIntegrationTests {
 			// Note: outputSchema might be null in sync server, but validation still works
 
 			// Call tool with valid structured output
-			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
+			CallToolResult response = mcpClient.callTool(
+					new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isFalse();
@@ -324,16 +314,13 @@ class HttpServletStatelessIntegrationTests {
 			assertThat(response.getContent().get(0)).isInstanceOf(McpSchema.TextContent.class);
 
 			assertThatJson(((McpSchema.TextContent) response.getContent().get(0)).getText())
-				.when(Option.IGNORING_ARRAY_ORDER)
-				.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-				.isObject()
-				.isEqualTo(json("{\"result\":5.0,\"operation\":\"2 + 3\",\"timestamp\":\"2024-01-01T10:00:00Z\"}"));
+					.when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+					.isEqualTo(json("{\"result\":5.0,\"operation\":\"2 + 3\",\"timestamp\":\"2024-01-01T10:00:00Z\"}"));
 
 			assertThat(response.getStructuredContent()).isNotNull();
 			assertThatJson(response.getStructuredContent()).when(Option.IGNORING_ARRAY_ORDER)
-				.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-				.isObject()
-				.isEqualTo(json("{\"result\":5.0,\"operation\":\"2 + 3\",\"timestamp\":\"2024-01-01T10:00:00Z\"}"));
+					.when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+					.isEqualTo(json("{\"result\":5.0,\"operation\":\"2 + 3\",\"timestamp\":\"2024-01-01T10:00:00Z\"}"));
 		}
 		finally {
 			mcpServer.close();
@@ -376,52 +363,41 @@ class HttpServletStatelessIntegrationTests {
 		outputSchema.put("items", items);
 		// @formatter:on
 
-		Tool calculatorTool = Tool.builder()
-			.name("getMembers")
-			.description("Returns a list of members")
-			.outputSchema(outputSchema)
-			.build();
+		Tool calculatorTool = Tool.builder().name("getMembers").description("Returns a list of members")
+				.outputSchema(outputSchema).build();
 
 		McpStatelessServerFeatures.SyncToolSpecification tool = McpStatelessServerFeatures.SyncToolSpecification
-			.builder()
-			.tool(calculatorTool)
-			.callHandler((exchange, request) -> {
-				// Costruzione della lista di mappe compatibile Java 8
-				Map<String, Object> person1 = new LinkedHashMap<String, Object>();
-				person1.put("name", "John");
-				person1.put("age", 30);
+				.builder().tool(calculatorTool).callHandler((exchange, request) -> {
+					// Costruzione della lista di mappe compatibile Java 8
+					Map<String, Object> person1 = new LinkedHashMap<String, Object>();
+					person1.put("name", "John");
+					person1.put("age", 30);
 
-				Map<String, Object> person2 = new LinkedHashMap<String, Object>();
-				person2.put("name", "Peter");
-				person2.put("age", 25);
+					Map<String, Object> person2 = new LinkedHashMap<String, Object>();
+					person2.put("name", "Peter");
+					person2.put("age", 25);
 
-				return CallToolResult.builder().structuredContent(Arrays.asList(person1, person2)).build();
-			})
-			.build();
+					return CallToolResult.builder().structuredContent(Arrays.asList(person1, person2)).build();
+				}).build();
 
 		McpStatelessSyncServer mcpServer = McpServer.sync(mcpStatelessServerTransport)
-			.serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.serverInfo("test-server", "1.0.0").capabilities(ServerCapabilities.builder().tools(true).build())
+				.tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			assertThat(mcpClient.initialize()).isNotNull();
 
 			// Call tool with valid structured output of type array
 			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("getMembers", Collections.emptyMap()));
+					.callTool(new McpSchema.CallToolRequest("getMembers", Collections.emptyMap()));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isFalse();
 
 			assertThat(response.getStructuredContent()).isNotNull();
 			assertThatJson(response.getStructuredContent()).when(Option.IGNORING_ARRAY_ORDER)
-				.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-				.isArray()
-				.hasSize(2)
-				.containsExactlyInAnyOrder(json("{\"name\":\"John\",\"age\":30}"),
-						json("{\"name\":\"Peter\",\"age\":25}"));
+					.when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isArray().hasSize(2).containsExactlyInAnyOrder(
+							json("{\"name\":\"John\",\"age\":30}"), json("{\"name\":\"Peter\",\"age\":25}"));
 		}
 		finally {
 			mcpServer.closeGracefully();
@@ -459,27 +435,22 @@ class HttpServletStatelessIntegrationTests {
 		// Lista required
 		outputSchema.put("required", Arrays.asList("result", "operation"));
 
-		Tool calculatorTool = Tool.builder()
-			.name("calculator")
-			.description("Performs mathematical calculations")
-			.outputSchema(outputSchema)
-			.build();
+		Tool calculatorTool = Tool.builder().name("calculator").description("Performs mathematical calculations")
+				.outputSchema(outputSchema).build();
 
 		// Handler that returns an error result
 		McpStatelessServerFeatures.SyncToolSpecification tool = McpStatelessServerFeatures.SyncToolSpecification
-			.builder()
-			.tool(calculatorTool)
-			.callHandler((exchange, request) -> CallToolResult.builder()
-				.isError(true)
-				.content(Collections.singletonList(new TextContent("Error calling tool: Simulated in-handler error")))
-				.build())
-			.build();
+				.builder().tool(calculatorTool)
+				.callHandler(
+						(exchange, request) -> CallToolResult.builder().isError(true)
+								.content(Collections.singletonList(
+										new TextContent("Error calling tool: Simulated in-handler error")))
+								.build())
+				.build();
 
 		McpStatelessSyncServer mcpServer = McpServer.sync(mcpStatelessServerTransport)
-			.serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.serverInfo("test-server", "1.0.0").capabilities(ServerCapabilities.builder().tools(true).build())
+				.tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			InitializeResult initResult = mcpClient.initialize();
@@ -492,14 +463,14 @@ class HttpServletStatelessIntegrationTests {
 			// Note: outputSchema might be null in sync server, but validation still works
 
 			// Call tool with valid structured output
-			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
+			CallToolResult response = mcpClient.callTool(
+					new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isTrue();
 			assertThat(response.getContent()).isNotEmpty();
 			assertThat(response.getContent())
-				.containsExactly(new McpSchema.TextContent("Error calling tool: Simulated in-handler error"));
+					.containsExactly(new McpSchema.TextContent("Error calling tool: Simulated in-handler error"));
 			assertThat(response.getStructuredContent()).isNull();
 		}
 		finally {
@@ -533,11 +504,8 @@ class HttpServletStatelessIntegrationTests {
 		// Lista required
 		outputSchema.put("required", Arrays.asList("result", "operation"));
 
-		Tool calculatorTool = Tool.builder()
-			.name("calculator")
-			.description("Performs mathematical calculations")
-			.outputSchema(outputSchema)
-			.build();
+		Tool calculatorTool = Tool.builder().name("calculator").description("Performs mathematical calculations")
+				.outputSchema(outputSchema).build();
 
 		McpStatelessServerFeatures.SyncToolSpecification tool = new McpStatelessServerFeatures.SyncToolSpecification(
 				calculatorTool, (transportContext, request) -> {
@@ -547,25 +515,21 @@ class HttpServletStatelessIntegrationTests {
 					structuredContent.put("result", "not-a-number");
 					structuredContent.put("extra", "field");
 
-					return CallToolResult.builder()
-						.addTextContent("Invalid calculation")
-						.structuredContent(structuredContent)
-						.build();
+					return CallToolResult.builder().addTextContent("Invalid calculation")
+							.structuredContent(structuredContent).build();
 				});
 
 		McpStatelessSyncServer mcpServer = McpServer.sync(mcpStatelessServerTransport)
-			.serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.serverInfo("test-server", "1.0.0").capabilities(ServerCapabilities.builder().tools(true).build())
+				.tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
 
 			// Call tool with invalid structured output
-			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
+			CallToolResult response = mcpClient.callTool(
+					new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isTrue();
@@ -601,11 +565,8 @@ class HttpServletStatelessIntegrationTests {
 		outputSchema.put("properties", properties);
 		outputSchema.put("required", Collections.singletonList("result"));
 
-		Tool calculatorTool = Tool.builder()
-			.name("calculator")
-			.description("Performs mathematical calculations")
-			.outputSchema(outputSchema)
-			.build();
+		Tool calculatorTool = Tool.builder().name("calculator").description("Performs mathematical calculations")
+				.outputSchema(outputSchema).build();
 
 		McpStatelessServerFeatures.SyncToolSpecification tool = new McpStatelessServerFeatures.SyncToolSpecification(
 				calculatorTool, (transportContext, request) -> {
@@ -614,19 +575,16 @@ class HttpServletStatelessIntegrationTests {
 				});
 
 		McpStatelessSyncServer mcpServer = McpServer.sync(mcpStatelessServerTransport)
-			.serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.instructions("bla")
-			.tools(tool)
-			.build();
+				.serverInfo("test-server", "1.0.0").capabilities(ServerCapabilities.builder().tools(true).build())
+				.instructions("bla").tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
 
 			// Call tool that should return structured content but doesn't
-			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
+			CallToolResult response = mcpClient.callTool(
+					new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isTrue();
@@ -649,9 +607,8 @@ class HttpServletStatelessIntegrationTests {
 
 		// Start server without tools
 		McpStatelessSyncServer mcpServer = McpServer.sync(mcpStatelessServerTransport)
-			.serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.build();
+				.serverInfo("test-server", "1.0.0").capabilities(ServerCapabilities.builder().tools(true).build())
+				.build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			InitializeResult initResult = mcpClient.initialize();
@@ -681,11 +638,8 @@ class HttpServletStatelessIntegrationTests {
 			// Lista required
 			outputSchema.put("required", Arrays.asList("message", "count"));
 
-			Tool dynamicTool = Tool.builder()
-				.name("dynamic-tool")
-				.description("Dynamically added tool")
-				.outputSchema(outputSchema)
-				.build();
+			Tool dynamicTool = Tool.builder().name("dynamic-tool").description("Dynamically added tool")
+					.outputSchema(outputSchema).build();
 
 			McpStatelessServerFeatures.SyncToolSpecification toolSpec = new McpStatelessServerFeatures.SyncToolSpecification(
 					dynamicTool, (transportContext, request) -> {
@@ -695,10 +649,8 @@ class HttpServletStatelessIntegrationTests {
 						structuredContent.put("message", "Dynamic execution");
 						structuredContent.put("count", count);
 
-						return CallToolResult.builder()
-							.addTextContent("Dynamic tool executed " + count + " times")
-							.structuredContent(structuredContent)
-							.build();
+						return CallToolResult.builder().addTextContent("Dynamic tool executed " + count + " times")
+								.structuredContent(structuredContent).build();
 					});
 
 			// Add tool to server
@@ -717,20 +669,19 @@ class HttpServletStatelessIntegrationTests {
 
 			// Call dynamically added tool
 			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("dynamic-tool", Collections.singletonMap("count", 3)));
+					.callTool(new McpSchema.CallToolRequest("dynamic-tool", Collections.singletonMap("count", 3)));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isFalse();
 			assertThat(response.getContent()).hasSize(1);
 			assertThat(response.getContent().get(0)).isInstanceOf(McpSchema.TextContent.class);
 			assertThat(((McpSchema.TextContent) response.getContent().get(0)).getText())
-				.isEqualTo("Dynamic tool executed 3 times");
+					.isEqualTo("Dynamic tool executed 3 times");
 
 			assertThat(response.getStructuredContent()).isNotNull();
 			assertThatJson(response.getStructuredContent()).when(Option.IGNORING_ARRAY_ORDER)
-				.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-				.isObject()
-				.isEqualTo(json("{\"count\":3,\"message\":\"Dynamic execution\"}"));
+					.when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+					.isEqualTo(json("{\"count\":3,\"message\":\"Dynamic execution\"}"));
 		}
 		finally {
 			mcpServer.close();
@@ -740,9 +691,8 @@ class HttpServletStatelessIntegrationTests {
 	@Test
 	void testThrownMcpErrorAndJsonRpcError() throws Exception {
 		McpStatelessSyncServer mcpServer = McpServer.sync(mcpStatelessServerTransport)
-			.serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.build();
+				.serverInfo("test-server", "1.0.0").capabilities(ServerCapabilities.builder().tools(true).build())
+				.build();
 
 		Tool testTool = Tool.builder().name("test").description("test").build();
 
@@ -786,16 +736,16 @@ class HttpServletStatelessIntegrationTests {
 	private double evaluateExpression(String expression) {
 		// Simple expression evaluator for testing
 		switch (expression) {
-			case "2 + 3":
-				return 5.0;
-			case "10 * 2":
-				return 20.0;
-			case "7 + 8":
-				return 15.0;
-			case "5 + 3":
-				return 8.0;
-			default:
-				return 0.0;
+		case "2 + 3":
+			return 5.0;
+		case "10 * 2":
+			return 20.0;
+		case "7 + 8":
+			return 15.0;
+		case "5 + 3":
+			return 8.0;
+		default:
+			return 0.0;
 		}
 	}
 

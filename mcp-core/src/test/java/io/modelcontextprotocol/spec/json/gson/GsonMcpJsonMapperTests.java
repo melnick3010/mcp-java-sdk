@@ -142,26 +142,20 @@ public class GsonMcpJsonMapperTests {
 		GsonMcpJsonMapper gsonMapper = new GsonMcpJsonMapper();
 
 		// Tool builder parsing of input/output schema strings
-		McpSchema.Tool tool = McpSchema.Tool.builder()
-			.name("echo")
-			.description("Echo tool")
-			.inputSchema(gsonMapper,
-					"{\n" + "  \"type\": \"object\",\n" + "  \"properties\": { \"x\": { \"type\": \"integer\" } },\n"
-							+ "  \"required\": [\"x\"]\n" + "}")
-			.outputSchema(gsonMapper,
-					"{\n" + "  \"type\": \"object\",\n" + "  \"properties\": { \"y\": { \"type\": \"string\" } }\n"
-							+ "}")
-			.build();
+		McpSchema.Tool tool = McpSchema.Tool.builder().name("echo").description("Echo tool").inputSchema(gsonMapper,
+				"{\n" + "  \"type\": \"object\",\n" + "  \"properties\": { \"x\": { \"type\": \"integer\" } },\n"
+						+ "  \"required\": [\"x\"]\n" + "}")
+				.outputSchema(gsonMapper, "{\n" + "  \"type\": \"object\",\n"
+						+ "  \"properties\": { \"y\": { \"type\": \"string\" } }\n" + "}")
+				.build();
 
 		assertNotNull(tool.getInputSchema());
 		assertNotNull(tool.getOutputSchema());
 		assertTrue(tool.getOutputSchema().containsKey("properties"));
 
 		// CallToolRequest builder parsing of JSON arguments string
-		CallToolRequest call = McpSchema.CallToolRequest.builder()
-			.name("echo")
-			.arguments(gsonMapper, "{\"x\": 123}")
-			.build();
+		CallToolRequest call = McpSchema.CallToolRequest.builder().name("echo").arguments(gsonMapper, "{\"x\": 123}")
+				.build();
 
 		assertEquals("echo", call.getName());
 		assertNotNull(call.getArguments());

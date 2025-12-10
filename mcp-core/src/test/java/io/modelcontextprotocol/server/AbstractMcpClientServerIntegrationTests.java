@@ -86,14 +86,12 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		SyncSpec clientBuilder = clientBuilders.get(clientType);
 
 		McpAsyncServer server = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.requestTimeout(Duration.ofSeconds(1000))
-			.build();
+				.requestTimeout(Duration.ofSeconds(1000)).build();
 		try (
 				// Create client without sampling capabilities
 				McpSyncClient client = clientBuilder
-					.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
-					.requestTimeout(Duration.ofSeconds(1000))
-					.build()) {
+						.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
+						.requestTimeout(Duration.ofSeconds(1000)).build()) {
 
 			assertThat(client.initialize()).isNotNull();
 
@@ -112,21 +110,19 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 		SyncSpec clientBuilder = clientBuilders.get(clientType);
 
-		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder()
-			.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
-			.callHandler((exchange, request) -> {
-				return exchange.createMessage(mock(McpSchema.CreateMessageRequest.class))
-					.then(Mono.just(mock(CallToolResult.class)));
-			})
-			.build();
+		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder().tool(
+				Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((exchange, request) -> {
+					return exchange.createMessage(mock(McpSchema.CreateMessageRequest.class))
+							.then(Mono.just(mock(CallToolResult.class)));
+				}).build();
 
 		McpAsyncServer server = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0").tools(tool).build();
 
 		try (
 				// Create client without sampling capabilities
 				McpSyncClient client = clientBuilder
-					.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
-					.build()) {
+						.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0")).build()) {
 
 			assertThat(client.initialize()).isNotNull();
 
@@ -135,7 +131,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			}
 			catch (McpError e) {
 				assertThat(e).isInstanceOf(McpError.class)
-					.hasMessage("Client must be configured with sampling capabilities");
+						.hasMessage("Client must be configured with sampling capabilities");
 			}
 		}
 		finally {
@@ -158,44 +154,35 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		};
 
 		CallToolResult callResponse = McpSchema.CallToolResult.builder()
-			.addContent(new McpSchema.TextContent("CALL RESPONSE"))
-			.build();
+				.addContent(new McpSchema.TextContent("CALL RESPONSE")).build();
 
 		AtomicReference<CreateMessageResult> samplingResult = new AtomicReference<>();
 
-		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder()
-			.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
-			.callHandler((exchange, request) -> {
+		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder().tool(
+				Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((exchange, request) -> {
 
-				CreateMessageRequest createMessageRequest = McpSchema.CreateMessageRequest.builder()
-					.messages(Collections.singletonList(new McpSchema.SamplingMessage(McpSchema.Role.USER,
-							new McpSchema.TextContent("Test message"))))
-					.modelPreferences(ModelPreferences.builder()
-						.hints(Collections.emptyList())
-						.costPriority(1.0)
-						.speedPriority(1.0)
-						.intelligencePriority(1.0)
-						.build())
-					.build();
+					CreateMessageRequest createMessageRequest = McpSchema.CreateMessageRequest.builder()
+							.messages(Collections.singletonList(new McpSchema.SamplingMessage(McpSchema.Role.USER,
+									new McpSchema.TextContent("Test message"))))
+							.modelPreferences(ModelPreferences.builder().hints(Collections.emptyList())
+									.costPriority(1.0).speedPriority(1.0).intelligencePriority(1.0).build())
+							.build();
 
-				return exchange.createMessage(createMessageRequest)
-					.doOnNext(samplingResult::set)
-					.thenReturn(callResponse);
-			})
-			.build();
+					return exchange.createMessage(createMessageRequest).doOnNext(samplingResult::set)
+							.thenReturn(callResponse);
+				}).build();
 
 		McpAsyncServer mcpServer = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0").tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
-			.capabilities(ClientCapabilities.builder().sampling().build())
-			.sampling(samplingHandler)
-			.build()) {
+				.capabilities(ClientCapabilities.builder().sampling().build()).sampling(samplingHandler).build()) {
 
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
 
 			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
+					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
 			assertThat(response).isNotNull();
 			assertThat(response).isEqualTo(callResponse);
@@ -238,46 +225,35 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		// Server
 
 		CallToolResult callResponse = McpSchema.CallToolResult.builder()
-			.addContent(new McpSchema.TextContent("CALL RESPONSE"))
-			.build();
+				.addContent(new McpSchema.TextContent("CALL RESPONSE")).build();
 
 		AtomicReference<CreateMessageResult> samplingResult = new AtomicReference<>();
 
-		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder()
-			.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
-			.callHandler((exchange, request) -> {
+		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder().tool(
+				Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((exchange, request) -> {
 
-				CreateMessageRequest createMessageRequest = McpSchema.CreateMessageRequest.builder()
-					.messages(Collections.singletonList(new McpSchema.SamplingMessage(McpSchema.Role.USER,
-							new McpSchema.TextContent("Test message"))))
-					.modelPreferences(ModelPreferences.builder()
-						.hints(Collections.emptyList())
-						.costPriority(1.0)
-						.speedPriority(1.0)
-						.intelligencePriority(1.0)
-						.build())
-					.build();
+					CreateMessageRequest createMessageRequest = McpSchema.CreateMessageRequest.builder()
+							.messages(Collections.singletonList(new McpSchema.SamplingMessage(McpSchema.Role.USER,
+									new McpSchema.TextContent("Test message"))))
+							.modelPreferences(ModelPreferences.builder().hints(Collections.emptyList())
+									.costPriority(1.0).speedPriority(1.0).intelligencePriority(1.0).build())
+							.build();
 
-				return exchange.createMessage(createMessageRequest)
-					.doOnNext(samplingResult::set)
-					.thenReturn(callResponse);
-			})
-			.build();
+					return exchange.createMessage(createMessageRequest).doOnNext(samplingResult::set)
+							.thenReturn(callResponse);
+				}).build();
 
 		McpAsyncServer mcpServer = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.requestTimeout(Duration.ofSeconds(4))
-			.tools(tool)
-			.build();
+				.requestTimeout(Duration.ofSeconds(4)).tools(tool).build();
 		try (McpSyncClient mcpClient = clientBuilder.clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
-			.capabilities(ClientCapabilities.builder().sampling().build())
-			.sampling(samplingHandler)
-			.build()) {
+				.capabilities(ClientCapabilities.builder().sampling().build()).sampling(samplingHandler).build()) {
 
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
 
 			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
+					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
 			assertThat(response).isNotNull();
 			assertThat(response).isEqualTo(callResponse);
@@ -316,37 +292,27 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		};
 
 		CallToolResult callResponse = McpSchema.CallToolResult.builder()
-			.addContent(new McpSchema.TextContent("CALL RESPONSE"))
-			.build();
+				.addContent(new McpSchema.TextContent("CALL RESPONSE")).build();
 
-		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder()
-			.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
-			.callHandler((exchange, request) -> {
+		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder().tool(
+				Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((exchange, request) -> {
 
-				CreateMessageRequest createMessageRequest = McpSchema.CreateMessageRequest.builder()
-					.messages(Collections.singletonList(new McpSchema.SamplingMessage(McpSchema.Role.USER,
-							new McpSchema.TextContent("Test message"))))
-					.modelPreferences(ModelPreferences.builder()
-						.hints(Collections.emptyList())
-						.costPriority(1.0)
-						.speedPriority(1.0)
-						.intelligencePriority(1.0)
-						.build())
-					.build();
+					CreateMessageRequest createMessageRequest = McpSchema.CreateMessageRequest.builder()
+							.messages(Collections.singletonList(new McpSchema.SamplingMessage(McpSchema.Role.USER,
+									new McpSchema.TextContent("Test message"))))
+							.modelPreferences(ModelPreferences.builder().hints(Collections.emptyList())
+									.costPriority(1.0).speedPriority(1.0).intelligencePriority(1.0).build())
+							.build();
 
-				return exchange.createMessage(createMessageRequest).thenReturn(callResponse);
-			})
-			.build();
+					return exchange.createMessage(createMessageRequest).thenReturn(callResponse);
+				}).build();
 
 		McpAsyncServer mcpServer = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.requestTimeout(Duration.ofSeconds(1))
-			.tools(tool)
-			.build();
+				.requestTimeout(Duration.ofSeconds(1)).tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
-			.capabilities(ClientCapabilities.builder().sampling().build())
-			.sampling(samplingHandler)
-			.build()) {
+				.capabilities(ClientCapabilities.builder().sampling().build()).sampling(samplingHandler).build()) {
 
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
@@ -370,16 +336,17 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		SyncSpec clientBuilder = clientBuilders.get(clientType);
 
 		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder()
-			.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
-			.callHandler((exchange, request) -> exchange.createElicitation(mock(ElicitRequest.class))
-				.then(Mono.just(mock(CallToolResult.class))))
-			.build();
+				.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA)
+						.build())
+				.callHandler((exchange, request) -> exchange.createElicitation(mock(ElicitRequest.class))
+						.then(Mono.just(mock(CallToolResult.class))))
+				.build();
 
 		McpAsyncServer server = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0").tools(tool).build();
 
 		// Create client without elicitation capabilities
 		try (McpSyncClient client = clientBuilder.clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
-			.build()) {
+				.build()) {
 
 			assertThat(client.initialize()).isNotNull();
 
@@ -388,7 +355,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			}
 			catch (McpError e) {
 				assertThat(e).isInstanceOf(McpError.class)
-					.hasMessage("Client must be configured with elicitation capabilities");
+						.hasMessage("Client must be configured with elicitation capabilities");
 			}
 		}
 		finally {
@@ -411,43 +378,38 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		};
 
 		CallToolResult callResponse = McpSchema.CallToolResult.builder()
-			.addContent(new McpSchema.TextContent("CALL RESPONSE"))
-			.build();
+				.addContent(new McpSchema.TextContent("CALL RESPONSE")).build();
 
-		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder()
-			.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
-			.callHandler((exchange, request) -> {
-				Map<String, Object> ctrmap = new HashMap<>();
-				ctrmap.put("type", "object");
-				ctrmap.put("properties",
-						Collections.singletonMap("message", Collections.singletonMap("type", "string")));
-				ElicitRequest elicitationRequest = McpSchema.ElicitRequest.builder()
-					.message("Test message")
-					.requestedSchema(ctrmap)
-					.build();
+		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder().tool(
+				Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((exchange, request) -> {
+					Map<String, Object> ctrmap = new HashMap<>();
+					ctrmap.put("type", "object");
+					ctrmap.put("properties",
+							Collections.singletonMap("message", Collections.singletonMap("type", "string")));
+					ElicitRequest elicitationRequest = McpSchema.ElicitRequest.builder().message("Test message")
+							.requestedSchema(ctrmap).build();
 
-				StepVerifier.create(exchange.createElicitation(elicitationRequest)).consumeNextWith(result -> {
-					assertThat(result).isNotNull();
-					assertThat(result.getAction()).isEqualTo(McpSchema.ElicitResult.Action.ACCEPT);
-					assertThat(result.getContent().get("message")).isEqualTo("Test message");
-				}).verifyComplete();
+					StepVerifier.create(exchange.createElicitation(elicitationRequest)).consumeNextWith(result -> {
+						assertThat(result).isNotNull();
+						assertThat(result.getAction()).isEqualTo(McpSchema.ElicitResult.Action.ACCEPT);
+						assertThat(result.getContent().get("message")).isEqualTo("Test message");
+					}).verifyComplete();
 
-				return Mono.just(callResponse);
-			})
-			.build();
+					return Mono.just(callResponse);
+				}).build();
 
 		McpAsyncServer mcpServer = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0").tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
-			.capabilities(ClientCapabilities.builder().elicitation().build())
-			.elicitation(elicitationHandler)
-			.build()) {
+				.capabilities(ClientCapabilities.builder().elicitation().build()).elicitation(elicitationHandler)
+				.build()) {
 
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
 
 			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
+					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
 			assertThat(response).isNotNull();
 			assertThat(response).isEqualTo(callResponse);
@@ -471,45 +433,37 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		};
 
 		CallToolResult callResponse = McpSchema.CallToolResult.builder()
-			.addContent(new McpSchema.TextContent("CALL RESPONSE"))
-			.build();
+				.addContent(new McpSchema.TextContent("CALL RESPONSE")).build();
 
 		AtomicReference<ElicitResult> resultRef = new AtomicReference<>();
 
-		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder()
-			.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
-			.callHandler((exchange, request) -> {
-				Map<String, Object> ctrmap = new HashMap<>();
-				ctrmap.put("type", "object");
-				ctrmap.put("properties",
-						Collections.singletonMap("message", Collections.singletonMap("type", "string")));
+		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder().tool(
+				Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((exchange, request) -> {
+					Map<String, Object> ctrmap = new HashMap<>();
+					ctrmap.put("type", "object");
+					ctrmap.put("properties",
+							Collections.singletonMap("message", Collections.singletonMap("type", "string")));
 
-				ElicitRequest elicitationRequest = McpSchema.ElicitRequest.builder()
-					.message("Test message")
-					.requestedSchema(ctrmap)
-					.build();
+					ElicitRequest elicitationRequest = McpSchema.ElicitRequest.builder().message("Test message")
+							.requestedSchema(ctrmap).build();
 
-				return exchange.createElicitation(elicitationRequest)
-					.doOnNext(resultRef::set)
-					.then(Mono.just(callResponse));
-			})
-			.build();
+					return exchange.createElicitation(elicitationRequest).doOnNext(resultRef::set)
+							.then(Mono.just(callResponse));
+				}).build();
 
 		McpAsyncServer mcpServer = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.requestTimeout(Duration.ofSeconds(3))
-			.tools(tool)
-			.build();
+				.requestTimeout(Duration.ofSeconds(3)).tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
-			.capabilities(ClientCapabilities.builder().elicitation().build())
-			.elicitation(elicitationHandler)
-			.build()) {
+				.capabilities(ClientCapabilities.builder().elicitation().build()).elicitation(elicitationHandler)
+				.build()) {
 
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
 
 			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
+					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
 			assertThat(response).isNotNull();
 			assertThat(response).isEqualTo(callResponse);
@@ -552,33 +506,27 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 		AtomicReference<ElicitResult> resultRef = new AtomicReference<>();
 
-		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder()
-			.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
-			.callHandler((exchange, request) -> {
-				Map<String, Object> ctrmap = new HashMap<>();
-				ctrmap.put("type", "object");
-				ctrmap.put("properties",
-						Collections.singletonMap("message", Collections.singletonMap("type", "string")));
-				ElicitRequest elicitationRequest = ElicitRequest.builder()
-					.message("Test message")
-					.requestedSchema(ctrmap)
-					.build();
+		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder().tool(
+				Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((exchange, request) -> {
+					Map<String, Object> ctrmap = new HashMap<>();
+					ctrmap.put("type", "object");
+					ctrmap.put("properties",
+							Collections.singletonMap("message", Collections.singletonMap("type", "string")));
+					ElicitRequest elicitationRequest = ElicitRequest.builder().message("Test message")
+							.requestedSchema(ctrmap).build();
 
-				return exchange.createElicitation(elicitationRequest)
-					.doOnNext(resultRef::set)
-					.then(Mono.just(callResponse));
-			})
-			.build();
+					return exchange.createElicitation(elicitationRequest).doOnNext(resultRef::set)
+							.then(Mono.just(callResponse));
+				}).build();
 
 		McpAsyncServer mcpServer = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.requestTimeout(Duration.ofSeconds(1)) // 1 second.
-			.tools(tool)
-			.build();
+				.requestTimeout(Duration.ofSeconds(1)) // 1 second.
+				.tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
-			.capabilities(ClientCapabilities.builder().elicitation().build())
-			.elicitation(elicitationHandler)
-			.build()) {
+				.capabilities(ClientCapabilities.builder().elicitation().build()).elicitation(elicitationHandler)
+				.build()) {
 
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
@@ -608,12 +556,10 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		AtomicReference<List<Root>> rootsRef = new AtomicReference<>();
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder()
-			.rootsChangeHandler((exchange, rootsUpdate) -> rootsRef.set(rootsUpdate))
-			.build();
+				.rootsChangeHandler((exchange, rootsUpdate) -> rootsRef.set(rootsUpdate)).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.capabilities(ClientCapabilities.builder().roots(true).build())
-			.roots(roots)
-			.build()) {
+				.roots(roots).build()) {
 
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
@@ -652,15 +598,14 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 		SyncSpec clientBuilder = clientBuilders.get(clientType);
 
-		McpServerFeatures.SyncToolSpecification tool = McpServerFeatures.SyncToolSpecification.builder()
-			.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
-			.callHandler((exchange, request) -> {
+		McpServerFeatures.SyncToolSpecification tool = McpServerFeatures.SyncToolSpecification.builder().tool(
+				Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((exchange, request) -> {
 
-				exchange.listRoots(); // try to list roots
+					exchange.listRoots(); // try to list roots
 
-				return mock(CallToolResult.class);
-			})
-			.build();
+					return mock(CallToolResult.class);
+				}).build();
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder().rootsChangeHandler((exchange, rootsUpdate) -> {
 		}).tools(tool).build();
@@ -694,12 +639,11 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		AtomicReference<List<Root>> rootsRef = new AtomicReference<>();
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder()
-			.rootsChangeHandler((exchange, rootsUpdate) -> rootsRef.set(rootsUpdate))
-			.build();
+				.rootsChangeHandler((exchange, rootsUpdate) -> rootsRef.set(rootsUpdate)).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.capabilities(ClientCapabilities.builder().roots(true).build())
-			.roots(Collections.emptyList()) // Empty roots list
-			.build()) {
+				.roots(Collections.emptyList()) // Empty roots list
+				.build()) {
 
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
@@ -727,13 +671,11 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		AtomicReference<List<Root>> rootsRef2 = new AtomicReference<>();
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder()
-			.rootsChangeHandler((exchange, rootsUpdate) -> rootsRef1.set(rootsUpdate))
-			.rootsChangeHandler((exchange, rootsUpdate) -> rootsRef2.set(rootsUpdate))
-			.build();
+				.rootsChangeHandler((exchange, rootsUpdate) -> rootsRef1.set(rootsUpdate))
+				.rootsChangeHandler((exchange, rootsUpdate) -> rootsRef2.set(rootsUpdate)).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.capabilities(ClientCapabilities.builder().roots(true).build())
-			.roots(roots)
-			.build()) {
+				.roots(roots).build()) {
 
 			assertThat(mcpClient.initialize()).isNotNull();
 
@@ -760,12 +702,10 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		AtomicReference<List<Root>> rootsRef = new AtomicReference<>();
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder()
-			.rootsChangeHandler((exchange, rootsUpdate) -> rootsRef.set(rootsUpdate))
-			.build();
+				.rootsChangeHandler((exchange, rootsUpdate) -> rootsRef.set(rootsUpdate)).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.capabilities(ClientCapabilities.builder().roots(true).build())
-			.roots(roots)
-			.build()) {
+				.roots(roots).build()) {
 
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
@@ -793,31 +733,27 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		AtomicBoolean responseBodyIsNullOrBlank = new AtomicBoolean(false);
 
 		CallToolResult callResponse = McpSchema.CallToolResult.builder()
-			.addContent(new McpSchema.TextContent("CALL RESPONSE; ctx=importantValue"))
-			.build();
+				.addContent(new McpSchema.TextContent("CALL RESPONSE; ctx=importantValue")).build();
 
-		McpServerFeatures.SyncToolSpecification tool1 = McpServerFeatures.SyncToolSpecification.builder()
-			.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
-			.callHandler((exchange, request) -> {
-				try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-					HttpGet httpGet = new HttpGet(
-							"https://raw.githubusercontent.com/modelcontextprotocol/java-sdk/refs/heads/main/README.md");
-					try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
-						String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
-						responseBodyIsNullOrBlank.set(!Utils.hasText(responseBody));
+		McpServerFeatures.SyncToolSpecification tool1 = McpServerFeatures.SyncToolSpecification.builder().tool(
+				Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((exchange, request) -> {
+					try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+						HttpGet httpGet = new HttpGet(
+								"https://raw.githubusercontent.com/modelcontextprotocol/java-sdk/refs/heads/main/README.md");
+						try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
+							String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
+							responseBodyIsNullOrBlank.set(!Utils.hasText(responseBody));
+						}
 					}
-				}
-				catch (Exception e) {
-					e.printStackTrace();
-				}
-				return callResponse;
-			})
-			.build();
+					catch (Exception e) {
+						e.printStackTrace();
+					}
+					return callResponse;
+				}).build();
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder()
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool1)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool1).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 
@@ -827,7 +763,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			assertThat(mcpClient.listTools().getTools()).contains(tool1.tool());
 
 			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
+					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
 			assertThat(responseBodyIsNullOrBlank.get()).isFalse();
 			assertThat(response).isNotNull().isEqualTo(callResponse);
@@ -844,20 +780,15 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		SyncSpec clientBuilder = clientBuilders.get(clientType);
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder()
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(McpServerFeatures.SyncToolSpecification.builder()
-				.tool(Tool.builder()
-					.name("tool1")
-					.description("tool1 description")
-					.inputSchema(EMPTY_JSON_SCHEMA)
-					.build())
-				.callHandler((exchange, request) -> {
-					// We trigger a timeout on blocking read, raising an exception
-					Mono.never().block(Duration.ofSeconds(1));
-					return null;
-				})
-				.build())
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build())
+				.tools(McpServerFeatures.SyncToolSpecification.builder().tool(Tool.builder().name("tool1")
+						.description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
+						.callHandler((exchange, request) -> {
+							// We trigger a timeout on blocking read, raising an exception
+							Mono.never().block(Duration.ofSeconds(1));
+							return null;
+						}).build())
+				.build();
 
 		try (McpSyncClient mcpClient = clientBuilder.requestTimeout(Duration.ofMillis(6666)).build()) {
 			InitializeResult initResult = mcpClient.initialize();
@@ -866,8 +797,9 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			// We expect the tool call to fail immediately with the exception raised by
 			// the offending tool instead of getting back a timeout.
 			assertThatExceptionOfType(McpError.class)
-				.isThrownBy(() -> mcpClient.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap())))
-				.withMessageContaining("Timeout on blocking read");
+					.isThrownBy(
+							() -> mcpClient.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap())))
+					.withMessageContaining("Timeout on blocking read");
 		}
 		finally {
 			mcpServer.closeGracefully();
@@ -885,35 +817,30 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		AtomicBoolean responseBodyIsNullOrBlank = new AtomicBoolean(false);
 
 		CallToolResult expectedCallResponse = McpSchema.CallToolResult.builder()
-			.addContent(new McpSchema.TextContent("CALL RESPONSE; ctx=value"))
-			.build();
-		McpServerFeatures.SyncToolSpecification tool1 = McpServerFeatures.SyncToolSpecification.builder()
-			.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
-			.callHandler((exchange, request) -> {
+				.addContent(new McpSchema.TextContent("CALL RESPONSE; ctx=value")).build();
+		McpServerFeatures.SyncToolSpecification tool1 = McpServerFeatures.SyncToolSpecification.builder().tool(
+				Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((exchange, request) -> {
 
-				McpTransportContext transportContext = exchange.transportContext();
-				transportContextIsNull.set(transportContext == null);
-				transportContextIsEmpty.set(transportContext.equals(McpTransportContext.EMPTY));
-				String ctxValue = (String) transportContext.get("important");
+					McpTransportContext transportContext = exchange.transportContext();
+					transportContextIsNull.set(transportContext == null);
+					transportContextIsEmpty.set(transportContext.equals(McpTransportContext.EMPTY));
+					String ctxValue = (String) transportContext.get("important");
 
-				try {
-					String responseBody = "TOOL RESPONSE";
-					responseBodyIsNullOrBlank.set(!Utils.hasText(responseBody));
-				}
-				catch (Exception e) {
-					e.printStackTrace();
-				}
+					try {
+						String responseBody = "TOOL RESPONSE";
+						responseBodyIsNullOrBlank.set(!Utils.hasText(responseBody));
+					}
+					catch (Exception e) {
+						e.printStackTrace();
+					}
 
-				return McpSchema.CallToolResult.builder()
-					.addContent(new McpSchema.TextContent("CALL RESPONSE; ctx=" + ctxValue))
-					.build();
-			})
-			.build();
+					return McpSchema.CallToolResult.builder()
+							.addContent(new McpSchema.TextContent("CALL RESPONSE; ctx=" + ctxValue)).build();
+				}).build();
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder()
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool1)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool1).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 
@@ -923,7 +850,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			assertThat(mcpClient.listTools().getTools()).contains(tool1.tool());
 
 			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
+					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
 			assertThat(transportContextIsNull.get()).isFalse();
 			assertThat(transportContextIsEmpty.get()).isFalse();
@@ -942,37 +869,33 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		SyncSpec clientBuilder = clientBuilders.get(clientType);
 
 		CallToolResult callResponse = McpSchema.CallToolResult.builder()
-			.addContent(new McpSchema.TextContent("CALL RESPONSE"))
-			.build();
+				.addContent(new McpSchema.TextContent("CALL RESPONSE")).build();
 
-		McpServerFeatures.SyncToolSpecification tool1 = McpServerFeatures.SyncToolSpecification.builder()
-			.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
-			.callHandler((exchange, request) -> {
-				// perform a blocking call to a remote service
-				try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-					HttpGet httpGet = new HttpGet(
-							"https://raw.githubusercontent.com/modelcontextprotocol/java-sdk/refs/heads/main/README.md");
-					try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
-						String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
-						if (responseBody == null || responseBody.trim().isEmpty()) {
-							throw new IllegalStateException("Response body is blank");
+		McpServerFeatures.SyncToolSpecification tool1 = McpServerFeatures.SyncToolSpecification.builder().tool(
+				Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((exchange, request) -> {
+					// perform a blocking call to a remote service
+					try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+						HttpGet httpGet = new HttpGet(
+								"https://raw.githubusercontent.com/modelcontextprotocol/java-sdk/refs/heads/main/README.md");
+						try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
+							String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
+							if (responseBody == null || responseBody.trim().isEmpty()) {
+								throw new IllegalStateException("Response body is blank");
+							}
+							// eventuale logica di validazione
 						}
-						// eventuale logica di validazione
 					}
-				}
-				catch (Exception e) {
-					e.printStackTrace();
-				}
-				return callResponse;
-			})
-			.build();
+					catch (Exception e) {
+						e.printStackTrace();
+					}
+					return callResponse;
+				}).build();
 
 		AtomicReference<List<Tool>> toolsRef = new AtomicReference<>();
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder()
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool1)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool1).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.toolsChangeConsumer(toolsUpdate -> {
 			// perform a blocking call to a remote service
@@ -1015,14 +938,10 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			});
 
 			// Add a new tool
-			McpServerFeatures.SyncToolSpecification tool2 = McpServerFeatures.SyncToolSpecification.builder()
-				.tool(Tool.builder()
-					.name("tool2")
-					.description("tool2 description")
-					.inputSchema(EMPTY_JSON_SCHEMA)
-					.build())
-				.callHandler((exchange, request) -> callResponse)
-				.build();
+			McpServerFeatures.SyncToolSpecification tool2 = McpServerFeatures.SyncToolSpecification
+					.builder().tool(Tool.builder().name("tool2").description("tool2 description")
+							.inputSchema(EMPTY_JSON_SCHEMA).build())
+					.callHandler((exchange, request) -> callResponse).build();
 
 			mcpServer.addTool(tool2);
 
@@ -1068,16 +987,13 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 		// Create server with a tool that sends logging notifications
 		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder()
-			.tool(Tool.builder()
-				.name("logging-test")
-				.description("Test logging notifications")
-				.inputSchema(EMPTY_JSON_SCHEMA)
-				.build())
-			.callHandler((exchange, request) -> {
+				.tool(Tool.builder().name("logging-test").description("Test logging notifications")
+						.inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((exchange, request) -> {
 
-				// Create and send notifications with different levels
+					// Create and send notifications with different levels
 
-			//@formatter:off
+				//@formatter:off
 					return exchange // This should be filtered out (DEBUG < NOTICE)
 						.loggingNotification(McpSchema.LoggingMessageNotification.builder()
 								.level(McpSchema.LoggingLevel.DEBUG)
@@ -1113,13 +1029,10 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 							.isError(false)
 							.build());
 					//@formatter:on
-			})
-			.build();
+				}).build();
 
 		McpAsyncServer mcpServer = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool).build();
 
 		try (
 				// Create client with logging notification handler
@@ -1137,11 +1050,11 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			// Call the tool that sends logging notifications
 			CallToolResult result = mcpClient
-				.callTool(new McpSchema.CallToolRequest("logging-test", Collections.emptyMap()));
+					.callTool(new McpSchema.CallToolRequest("logging-test", Collections.emptyMap()));
 			assertThat(result).isNotNull();
 			assertThat(result.getContent().get(0)).isInstanceOf(McpSchema.TextContent.class);
 			assertThat(((McpSchema.TextContent) result.getContent().get(0)).getText())
-				.isEqualTo("Logging test completed");
+					.isEqualTo("Logging test completed");
 
 			assertThat(latch.await(5, TimeUnit.SECONDS)).as("Should receive notifications in reasonable time").isTrue();
 
@@ -1149,7 +1062,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			assertThat(receivedNotifications).hasSize(expectedNotificationsCount);
 
 			Map<String, McpSchema.LoggingMessageNotification> notificationMap = receivedNotifications.stream()
-				.collect(Collectors.toMap(n -> n.getData(), n -> n));
+					.collect(Collectors.toMap(n -> n.getData(), n -> n));
 
 			// First notification should be NOTICE level
 			assertThat(notificationMap.get("Notice message").getLevel()).isEqualTo(McpSchema.LoggingLevel.NOTICE);
@@ -1186,39 +1099,34 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		SyncSpec clientBuilder = clientBuilders.get(clientType);
 
 		// Create server with a tool that sends logging notifications
-		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder()
-			.tool(McpSchema.Tool.builder()
-				.name("progress-test")
-				.description("Test progress notifications")
-				.inputSchema(EMPTY_JSON_SCHEMA)
-				.build())
-			.callHandler((exchange, request) -> {
+		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification
+				.builder().tool(McpSchema.Tool.builder().name("progress-test")
+						.description("Test progress notifications").inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((exchange, request) -> {
 
-				// Create and send notifications
-				String progressToken = (String) request.meta().get("progressToken");
+					// Create and send notifications
+					String progressToken = (String) request.meta().get("progressToken");
 
-				return exchange
-					.progressNotification(
-							new McpSchema.ProgressNotification(progressToken, 0.0, 1.0, "Processing started"))
-					.then(exchange.progressNotification(
-							new McpSchema.ProgressNotification(progressToken, 0.5, 1.0, "Processing data")))
-					.then(// Send a progress notification with another progress value
-							// should
-							exchange.progressNotification(new McpSchema.ProgressNotification("another-progress-token",
-									0.0, 1.0, "Another processing started")))
-					.then(exchange.progressNotification(
-							new McpSchema.ProgressNotification(progressToken, 1.0, 1.0, "Processing completed")))
-					.thenReturn(CallToolResult.builder()
-						.content(Collections.singletonList(new McpSchema.TextContent("Progress test completed")))
-						.isError(false)
-						.build());
-			})
-			.build();
+					return exchange
+							.progressNotification(
+									new McpSchema.ProgressNotification(progressToken, 0.0, 1.0, "Processing started"))
+							.then(exchange.progressNotification(
+									new McpSchema.ProgressNotification(progressToken, 0.5, 1.0, "Processing data")))
+							.then(// Send a progress notification with another progress
+									// value
+									// should
+									exchange.progressNotification(new McpSchema.ProgressNotification(
+											"another-progress-token", 0.0, 1.0, "Another processing started")))
+							.then(exchange.progressNotification(new McpSchema.ProgressNotification(progressToken, 1.0,
+									1.0, "Processing completed")))
+							.thenReturn(CallToolResult.builder()
+									.content(Collections
+											.singletonList(new McpSchema.TextContent("Progress test completed")))
+									.isError(false).build());
+				}).build();
 
 		McpAsyncServer mcpServer = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool).build();
 
 		try (
 				// Create client with progress notification handler
@@ -1232,15 +1140,13 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			assertThat(initResult).isNotNull();
 
 			// Call the tool that sends progress notifications
-			McpSchema.CallToolRequest callToolRequest = McpSchema.CallToolRequest.builder()
-				.name("progress-test")
-				.meta(Collections.singletonMap("progressToken", "test-progress-token"))
-				.build();
+			McpSchema.CallToolRequest callToolRequest = McpSchema.CallToolRequest.builder().name("progress-test")
+					.meta(Collections.singletonMap("progressToken", "test-progress-token")).build();
 			CallToolResult result = mcpClient.callTool(callToolRequest);
 			assertThat(result).isNotNull();
 			assertThat(result.getContent().get(0)).isInstanceOf(McpSchema.TextContent.class);
 			assertThat(((McpSchema.TextContent) result.getContent().get(0)).getText())
-				.isEqualTo("Progress test completed");
+					.isEqualTo("Progress test completed");
 
 			assertThat(latch.await(5, TimeUnit.SECONDS)).as("Should receive notifications in reasonable time").isTrue();
 
@@ -1248,7 +1154,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			assertThat(receivedNotifications).hasSize(expectedNotificationsCount);
 
 			Map<String, McpSchema.ProgressNotification> notificationMap = receivedNotifications.stream()
-				.collect(Collectors.toMap(n -> n.getMessage(), n -> n));
+					.collect(Collectors.toMap(n -> n.getMessage(), n -> n));
 
 			// First notification should be 0.0/1.0 progress
 			assertThat(notificationMap.get("Processing started").getProgressToken()).isEqualTo("test-progress-token");
@@ -1264,11 +1170,11 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			// Third notification should be another progress token with 0.0/1.0 progress
 			assertThat(notificationMap.get("Another processing started").getProgressToken())
-				.isEqualTo("another-progress-token");
+					.isEqualTo("another-progress-token");
 			assertThat(notificationMap.get("Another processing started").getProgress()).isEqualTo(0.0);
 			assertThat(notificationMap.get("Another processing started").getTotal()).isEqualTo(1.0);
 			assertThat(notificationMap.get("Another processing started").getMessage())
-				.isEqualTo("Another processing started");
+					.isEqualTo("Another processing started");
 
 			// Fourth notification should be 1.0/1.0 progress
 			assertThat(notificationMap.get("Processing completed").getProgressToken()).isEqualTo("test-progress-token");
@@ -1303,17 +1209,17 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		};
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder()
-			.capabilities(ServerCapabilities.builder().completions().build())
-			.prompts(
-					new McpServerFeatures.SyncPromptSpecification(
-							new Prompt("code_review", "Code review", "this is code review prompt",
-									Collections
-										.singletonList(new PromptArgument("language", "Language", "string", false))),
-							(mcpSyncServerExchange, getPromptRequest) -> null))
-			.completions(new McpServerFeatures.SyncCompletionSpecification(
-					new McpSchema.PromptReference(PromptReference.TYPE, "code_review", "Code review"),
-					completionHandler))
-			.build();
+				.capabilities(ServerCapabilities.builder().completions().build())
+				.prompts(
+						new McpServerFeatures.SyncPromptSpecification(
+								new Prompt("code_review", "Code review", "this is code review prompt",
+										Collections.singletonList(
+												new PromptArgument("language", "Language", "string", false))),
+								(mcpSyncServerExchange, getPromptRequest) -> null))
+				.completions(new McpServerFeatures.SyncCompletionSpecification(
+						new McpSchema.PromptReference(PromptReference.TYPE, "code_review", "Code review"),
+						completionHandler))
+				.build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 
@@ -1350,38 +1256,32 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		AtomicReference<String> executionOrder = new AtomicReference<>("");
 
 		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder()
-			.tool(Tool.builder()
-				.name("ping-async-test")
-				.description("Test ping async behavior")
-				.inputSchema(EMPTY_JSON_SCHEMA)
-				.build())
-			.callHandler((exchange, request) -> {
+				.tool(Tool.builder().name("ping-async-test").description("Test ping async behavior")
+						.inputSchema(EMPTY_JSON_SCHEMA).build())
+				.callHandler((exchange, request) -> {
 
-				executionOrder.set(executionOrder.get() + "1");
+					executionOrder.set(executionOrder.get() + "1");
 
-				// Test async ping behavior
-				return exchange.ping().doOnNext(result -> {
+					// Test async ping behavior
+					return exchange.ping().doOnNext(result -> {
 
-					assertThat(result).isNotNull();
-					// Ping should return an empty object or map
-					assertThat(result).isInstanceOf(Map.class);
+						assertThat(result).isNotNull();
+						// Ping should return an empty object or map
+						assertThat(result).isInstanceOf(Map.class);
 
-					executionOrder.set(executionOrder.get() + "2");
-					assertThat(result).isNotNull();
-				}).then(Mono.fromCallable(() -> {
-					executionOrder.set(executionOrder.get() + "3");
-					return CallToolResult.builder()
-						.content(Collections.singletonList(new McpSchema.TextContent("Async ping test completed")))
-						.isError(false)
-						.build();
-				}));
-			})
-			.build();
+						executionOrder.set(executionOrder.get() + "2");
+						assertThat(result).isNotNull();
+					}).then(Mono.fromCallable(() -> {
+						executionOrder.set(executionOrder.get() + "3");
+						return CallToolResult.builder()
+								.content(Collections
+										.singletonList(new McpSchema.TextContent("Async ping test completed")))
+								.isError(false).build();
+					}));
+				}).build();
 
 		McpAsyncServer mcpServer = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 
@@ -1391,11 +1291,11 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			// Call the tool that tests ping async behavior
 			CallToolResult result = mcpClient
-				.callTool(new McpSchema.CallToolRequest("ping-async-test", Collections.emptyMap()));
+					.callTool(new McpSchema.CallToolRequest("ping-async-test", Collections.emptyMap()));
 			assertThat(result).isNotNull();
 			assertThat(result.getContent().get(0)).isInstanceOf(McpSchema.TextContent.class);
 			assertThat(((McpSchema.TextContent) result.getContent().get(0)).getText())
-				.isEqualTo("Async ping test completed");
+					.isEqualTo("Async ping test completed");
 
 			// Verify execution order
 			assertThat(executionOrder.get()).isEqualTo("123");
@@ -1422,31 +1322,24 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		outputSchema.put("type", "object");
 		outputSchema.put("properties", propsmap);
 
-		Tool calculatorTool = Tool.builder()
-			.name("calculator")
-			.description("Performs mathematical calculations")
-			.outputSchema(outputSchema)
-			.build();
+		Tool calculatorTool = Tool.builder().name("calculator").description("Performs mathematical calculations")
+				.outputSchema(outputSchema).build();
 
 		McpServerFeatures.SyncToolSpecification tool = McpServerFeatures.SyncToolSpecification.builder()
-			.tool(calculatorTool)
-			.callHandler((exchange, request) -> {
-				String expression = (String) request.getArguments().getOrDefault("expression", "2 + 3");
-				double result = evaluateExpression(expression);
+				.tool(calculatorTool).callHandler((exchange, request) -> {
+					String expression = (String) request.getArguments().getOrDefault("expression", "2 + 3");
+					double result = evaluateExpression(expression);
 
-				Map<String, Object> structuredContent = new HashMap<>();
-				structuredContent.put("result", result);
-				structuredContent.put("operation", expression);
-				structuredContent.put("timestamp", "2024-01-01T10:00:00Z");
+					Map<String, Object> structuredContent = new HashMap<>();
+					structuredContent.put("result", result);
+					structuredContent.put("operation", expression);
+					structuredContent.put("timestamp", "2024-01-01T10:00:00Z");
 
-				return CallToolResult.builder().structuredContent(structuredContent).build();
-			})
-			.build();
+					return CallToolResult.builder().structuredContent(structuredContent).build();
+				}).build();
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			InitializeResult initResult = mcpClient.initialize();
@@ -1459,8 +1352,8 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			// Note: outputSchema might be null in sync server, but validation still works
 
 			// Call tool with valid structured output
-			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
+			CallToolResult response = mcpClient.callTool(
+					new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isFalse();
@@ -1468,8 +1361,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			// In WebMVC, structured content is returned properly
 			if (response.getStructuredContent() != null) {
 				assertThat((Map<String, Object>) response.getStructuredContent()).containsEntry("result", 5.0)
-					.containsEntry("operation", "2 + 3")
-					.containsEntry("timestamp", "2024-01-01T10:00:00Z");
+						.containsEntry("operation", "2 + 3").containsEntry("timestamp", "2024-01-01T10:00:00Z");
 			}
 			else {
 				// Fallback to checking content if structured content is not available
@@ -1478,9 +1370,8 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			assertThat(response.getStructuredContent()).isNotNull();
 			assertThatJson(response.getStructuredContent()).when(Option.IGNORING_ARRAY_ORDER)
-				.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-				.isObject()
-				.isEqualTo(json("{\"result\":5.0,\"operation\":\"2 + 3\",\"timestamp\":\"2024-01-01T10:00:00Z\"}"));
+					.when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+					.isEqualTo(json("{\"result\":5.0,\"operation\":\"2 + 3\",\"timestamp\":\"2024-01-01T10:00:00Z\"}"));
 		}
 		finally {
 			mcpServer.closeGracefully();
@@ -1509,38 +1400,31 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 		outputSchema.put("items", items);
 
-		Tool calculatorTool = Tool.builder()
-			.name("getMembers")
-			.description("Returns a list of members")
-			.outputSchema(outputSchema)
-			.build();
+		Tool calculatorTool = Tool.builder().name("getMembers").description("Returns a list of members")
+				.outputSchema(outputSchema).build();
 
 		McpServerFeatures.SyncToolSpecification tool = McpServerFeatures.SyncToolSpecification.builder()
-			.tool(calculatorTool)
-			.callHandler((exchange, request) -> {
-				Map<String, Object> person1 = new HashMap<>();
-				person1.put("name", "John");
-				person1.put("age", 30);
+				.tool(calculatorTool).callHandler((exchange, request) -> {
+					Map<String, Object> person1 = new HashMap<>();
+					person1.put("name", "John");
+					person1.put("age", 30);
 
-				Map<String, Object> person2 = new HashMap<>();
-				person2.put("name", "Peter");
-				person2.put("age", 25);
+					Map<String, Object> person2 = new HashMap<>();
+					person2.put("name", "Peter");
+					person2.put("age", 25);
 
-				return CallToolResult.builder().structuredContent(Arrays.asList(person1, person2)).build();
-			})
-			.build();
+					return CallToolResult.builder().structuredContent(Arrays.asList(person1, person2)).build();
+				}).build();
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			assertThat(mcpClient.initialize()).isNotNull();
 
 			// Call tool with valid structured output of type array
 			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("getMembers", Collections.emptyMap()));
+					.callTool(new McpSchema.CallToolRequest("getMembers", Collections.emptyMap()));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isFalse();
@@ -1548,11 +1432,8 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			assertThat(response.getStructuredContent()).isNotNull();
 
 			assertThatJson(response.getStructuredContent()).when(Option.IGNORING_ARRAY_ORDER)
-				.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-				.isArray()
-				.hasSize(2)
-				.containsExactlyInAnyOrder(json("{\"name\":\"John\",\"age\":30}"),
-						json("{\"name\":\"Peter\",\"age\":25}"));
+					.when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isArray().hasSize(2).containsExactlyInAnyOrder(
+							json("{\"name\":\"John\",\"age\":30}"), json("{\"name\":\"Peter\",\"age\":25}"));
 
 		}
 		finally {
@@ -1578,25 +1459,21 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		outputSchema.put("properties", properties);
 		outputSchema.put("required", Arrays.asList("result", "operation"));
 
-		Tool calculatorTool = Tool.builder()
-			.name("calculator")
-			.description("Performs mathematical calculations")
-			.outputSchema(outputSchema)
-			.build();
+		Tool calculatorTool = Tool.builder().name("calculator").description("Performs mathematical calculations")
+				.outputSchema(outputSchema).build();
 
 		// Handler that returns an error result
 		McpServerFeatures.SyncToolSpecification tool = McpServerFeatures.SyncToolSpecification.builder()
-			.tool(calculatorTool)
-			.callHandler((exchange, request) -> CallToolResult.builder()
-				.isError(true)
-				.content(Collections.singletonList(new TextContent("Error calling tool: Simulated in-handler error")))
-				.build())
-			.build();
+				.tool(calculatorTool)
+				.callHandler(
+						(exchange, request) -> CallToolResult.builder().isError(true)
+								.content(Collections.singletonList(
+										new TextContent("Error calling tool: Simulated in-handler error")))
+								.build())
+				.build();
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			InitializeResult initResult = mcpClient.initialize();
@@ -1609,14 +1486,14 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			// Note: outputSchema might be null in sync server, but validation still works
 
 			// Call tool with valid structured output
-			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
+			CallToolResult response = mcpClient.callTool(
+					new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isTrue();
 			assertThat(response.getContent()).isNotEmpty();
 			assertThat(response.getContent())
-				.containsExactly(new McpSchema.TextContent("Error calling tool: Simulated in-handler error"));
+					.containsExactly(new McpSchema.TextContent("Error calling tool: Simulated in-handler error"));
 			assertThat(response.getStructuredContent()).isNull();
 		}
 		finally {
@@ -1641,40 +1518,31 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 		outputSchema.put("properties", properties);
 
-		Tool calculatorTool = Tool.builder()
-			.name("calculator")
-			.description("Performs mathematical calculations")
-			.outputSchema(outputSchema)
-			.build();
+		Tool calculatorTool = Tool.builder().name("calculator").description("Performs mathematical calculations")
+				.outputSchema(outputSchema).build();
 
 		McpServerFeatures.SyncToolSpecification tool = McpServerFeatures.SyncToolSpecification.builder()
-			.tool(calculatorTool)
-			.callHandler((exchange, request) -> {
-				// Return invalid structured output. Result should be number, missing
-				// operation
-				Map<String, Object> structuredContent = new HashMap<>();
-				structuredContent.put("result", "not-a-number");
-				structuredContent.put("extra", "field");
+				.tool(calculatorTool).callHandler((exchange, request) -> {
+					// Return invalid structured output. Result should be number, missing
+					// operation
+					Map<String, Object> structuredContent = new HashMap<>();
+					structuredContent.put("result", "not-a-number");
+					structuredContent.put("extra", "field");
 
-				return CallToolResult.builder()
-					.addTextContent("Invalid calculation")
-					.structuredContent(structuredContent)
-					.build();
-			})
-			.build();
+					return CallToolResult.builder().addTextContent("Invalid calculation")
+							.structuredContent(structuredContent).build();
+				}).build();
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
 
 			// Call tool with invalid structured output
-			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
+			CallToolResult response = mcpClient.callTool(
+					new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isTrue();
@@ -1705,32 +1573,25 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 		outputSchema.put("properties", properties);
 
-		Tool calculatorTool = Tool.builder()
-			.name("calculator")
-			.description("Performs mathematical calculations")
-			.outputSchema(outputSchema)
-			.build();
+		Tool calculatorTool = Tool.builder().name("calculator").description("Performs mathematical calculations")
+				.outputSchema(outputSchema).build();
 
 		McpServerFeatures.SyncToolSpecification tool = McpServerFeatures.SyncToolSpecification.builder()
-			.tool(calculatorTool)
-			.callHandler((exchange, request) -> {
-				// Return result without structured content but tool has output schema
-				return CallToolResult.builder().addTextContent("Calculation completed").build();
-			})
-			.build();
+				.tool(calculatorTool).callHandler((exchange, request) -> {
+					// Return result without structured content but tool has output schema
+					return CallToolResult.builder().addTextContent("Calculation completed").build();
+				}).build();
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.tools(tool)
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
 
 			// Call tool that should return structured content but doesn't
-			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
+			CallToolResult response = mcpClient.callTool(
+					new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3")));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isTrue();
@@ -1754,8 +1615,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 		// Start server without tools
 		McpSyncServer mcpServer = prepareSyncServerBuilder().serverInfo("test-server", "1.0.0")
-			.capabilities(ServerCapabilities.builder().tools(true).build())
-			.build();
+				.capabilities(ServerCapabilities.builder().tools(true).build()).build();
 
 		try (McpSyncClient mcpClient = clientBuilder.build()) {
 			InitializeResult initResult = mcpClient.initialize();
@@ -1774,25 +1634,18 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			outputSchema.put("properties", properties);
 			outputSchema.put("required", Arrays.asList("message", "count"));
 
-			Tool dynamicTool = Tool.builder()
-				.name("dynamic-tool")
-				.description("Dynamically added tool")
-				.outputSchema(outputSchema)
-				.build();
+			Tool dynamicTool = Tool.builder().name("dynamic-tool").description("Dynamically added tool")
+					.outputSchema(outputSchema).build();
 
 			McpServerFeatures.SyncToolSpecification toolSpec = McpServerFeatures.SyncToolSpecification.builder()
-				.tool(dynamicTool)
-				.callHandler((exchange, request) -> {
-					int count = (Integer) request.getArguments().getOrDefault("count", 1);
-					Map<String, Object> strcont = new HashMap<>();
-					strcont.put("message", "Dynamic execution");
-					strcont.put("count", count);
-					return CallToolResult.builder()
-						.addTextContent("Dynamic tool executed " + count + " times")
-						.structuredContent(strcont)
-						.build();
-				})
-				.build();
+					.tool(dynamicTool).callHandler((exchange, request) -> {
+						int count = (Integer) request.getArguments().getOrDefault("count", 1);
+						Map<String, Object> strcont = new HashMap<>();
+						strcont.put("message", "Dynamic execution");
+						strcont.put("count", count);
+						return CallToolResult.builder().addTextContent("Dynamic tool executed " + count + " times")
+								.structuredContent(strcont).build();
+					}).build();
 
 			// Add tool to server
 			mcpServer.addTool(toolSpec);
@@ -1810,7 +1663,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			// Call dynamically added tool
 			CallToolResult response = mcpClient
-				.callTool(new McpSchema.CallToolRequest("dynamic-tool", Collections.singletonMap("count", 3)));
+					.callTool(new McpSchema.CallToolRequest("dynamic-tool", Collections.singletonMap("count", 3)));
 
 			assertThat(response).isNotNull();
 			assertThat(response.getIsError()).isFalse();
@@ -1818,13 +1671,12 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			assertThat(response.getContent()).hasSize(1);
 			assertThat(response.getContent().get(0)).isInstanceOf(McpSchema.TextContent.class);
 			assertThat(((McpSchema.TextContent) response.getContent().get(0)).getText())
-				.isEqualTo("Dynamic tool executed 3 times");
+					.isEqualTo("Dynamic tool executed 3 times");
 
 			assertThat(response.getStructuredContent()).isNotNull();
 			assertThatJson(response.getStructuredContent()).when(Option.IGNORING_ARRAY_ORDER)
-				.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-				.isObject()
-				.isEqualTo(json("{\"count\":3,\"message\":\"Dynamic execution\"}"));
+					.when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+					.isEqualTo(json("{\"count\":3,\"message\":\"Dynamic execution\"}"));
 		}
 		finally {
 			mcpServer.closeGracefully();
@@ -1834,16 +1686,16 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 	private double evaluateExpression(String expression) {
 		// Simple expression evaluator for testing
 		switch (expression) {
-			case "2 + 3":
-				return 5.0;
-			case "10 * 2":
-				return 20.0;
-			case "7 + 8":
-				return 15.0;
-			case "5 + 3":
-				return 8.0;
-			default:
-				return 0.0;
+		case "2 + 3":
+			return 5.0;
+		case "10 * 2":
+			return 20.0;
+		case "7 + 8":
+			return 15.0;
+		case "5 + 3":
+			return 8.0;
+		default:
+			return 0.0;
 		}
 	}
 

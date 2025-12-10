@@ -61,8 +61,7 @@ class McpCompletionTests {
 	public void before() {
 		// Create and con figure the transport provider
 		mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
-			.messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
-			.build();
+				.messageEndpoint(CUSTOM_MESSAGE_ENDPOINT).build();
 
 		tomcat = TomcatTestUtil.createTomcatServer("", PORT, mcpServerTransportProvider);
 		try {
@@ -103,24 +102,17 @@ class McpCompletionTests {
 
 		ResourceReference resourceRef = new ResourceReference(ResourceReference.TYPE, "test://resource/{param}");
 
-		Resource resource = Resource.builder()
-			.uri("test://resource/{param}")
-			.name("Test Resource")
-			.description("A resource for testing")
-			.mimeType("text/plain")
-			.size(123L)
-			.build();
+		Resource resource = Resource.builder().uri("test://resource/{param}").name("Test Resource")
+				.description("A resource for testing").mimeType("text/plain").size(123L).build();
 
 		McpSyncServer mcpServer = McpServer.sync(mcpServerTransportProvider)
-			.capabilities(ServerCapabilities.builder().completions().build())
-			.resources(new McpServerFeatures.SyncResourceSpecification(resource,
-					(exchange, req) -> new ReadResourceResult(Collections.emptyList())))
-			.completions(new McpServerFeatures.SyncCompletionSpecification(resourceRef, completionHandler))
-			.build();
+				.capabilities(ServerCapabilities.builder().completions().build())
+				.resources(new McpServerFeatures.SyncResourceSpecification(resource,
+						(exchange, req) -> new ReadResourceResult(Collections.emptyList())))
+				.completions(new McpServerFeatures.SyncCompletionSpecification(resourceRef, completionHandler)).build();
 
 		try (McpSyncClient mcpClient = clientBuilder
-			.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
-			.build();) {
+				.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0")).build();) {
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
 
@@ -153,16 +145,15 @@ class McpCompletionTests {
 				Collections.singletonList(new PromptArgument("arg", "string", false)));
 
 		McpSyncServer mcpServer = McpServer.sync(mcpServerTransportProvider)
-			.capabilities(ServerCapabilities.builder().completions().build())
-			.prompts(new McpServerFeatures.SyncPromptSpecification(prompt,
-					(mcpSyncServerExchange, getPromptRequest) -> null))
-			.completions(new McpServerFeatures.SyncCompletionSpecification(
-					new PromptReference(PromptReference.TYPE, "test-prompt"), completionHandler))
-			.build();
+				.capabilities(ServerCapabilities.builder().completions().build())
+				.prompts(new McpServerFeatures.SyncPromptSpecification(prompt,
+						(mcpSyncServerExchange, getPromptRequest) -> null))
+				.completions(new McpServerFeatures.SyncCompletionSpecification(
+						new PromptReference(PromptReference.TYPE, "test-prompt"), completionHandler))
+				.build();
 
 		try (McpSyncClient mcpClient = clientBuilder
-			.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
-			.build();) {
+				.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0")).build();) {
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
 
@@ -211,25 +202,20 @@ class McpCompletionTests {
 			return new CompleteResult(new CompleteResult.CompleteCompletion(Collections.emptyList(), 0, false));
 		};
 
-		McpSchema.Resource resource = Resource.builder()
-			.uri("db://{database}/{table}")
-			.name("Database Table")
-			.description("Resource representing a table in a database")
-			.mimeType("application/json")
-			.size(456L)
-			.build();
+		McpSchema.Resource resource = Resource.builder().uri("db://{database}/{table}").name("Database Table")
+				.description("Resource representing a table in a database").mimeType("application/json").size(456L)
+				.build();
 
 		McpSyncServer mcpServer = McpServer.sync(mcpServerTransportProvider)
-			.capabilities(ServerCapabilities.builder().completions().build())
-			.resources(new McpServerFeatures.SyncResourceSpecification(resource,
-					(exchange, req) -> new ReadResourceResult(Collections.emptyList())))
-			.completions(new McpServerFeatures.SyncCompletionSpecification(
-					new ResourceReference(ResourceReference.TYPE, "db://{database}/{table}"), completionHandler))
-			.build();
+				.capabilities(ServerCapabilities.builder().completions().build())
+				.resources(new McpServerFeatures.SyncResourceSpecification(resource,
+						(exchange, req) -> new ReadResourceResult(Collections.emptyList())))
+				.completions(new McpServerFeatures.SyncCompletionSpecification(
+						new ResourceReference(ResourceReference.TYPE, "db://{database}/{table}"), completionHandler))
+				.build();
 
 		try (McpSyncClient mcpClient = clientBuilder
-			.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0"))
-			.build();) {
+				.clientInfo(new McpSchema.Implementation("Sample " + "client", "0.0.0")).build();) {
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
 
@@ -275,8 +261,7 @@ class McpCompletionTests {
 								|| !request.getContext().getArguments().containsKey("database")) {
 
 							throw McpError.builder(ErrorCodes.INVALID_REQUEST)
-								.message("Please select a database first to see available tables")
-								.build();
+									.message("Please select a database first to see available tables").build();
 						}
 						// Normal completion if context is provided
 						String db = request.getContext().getArguments().get("database");
@@ -290,25 +275,20 @@ class McpCompletionTests {
 			return new CompleteResult(new CompleteResult.CompleteCompletion(Collections.emptyList(), 0, false));
 		};
 
-		McpSchema.Resource resource = Resource.builder()
-			.uri("db://{database}/{table}")
-			.name("Database Table")
-			.description("Resource representing a table in a database")
-			.mimeType("application/json")
-			.size(456L)
-			.build();
+		McpSchema.Resource resource = Resource.builder().uri("db://{database}/{table}").name("Database Table")
+				.description("Resource representing a table in a database").mimeType("application/json").size(456L)
+				.build();
 
 		McpSyncServer mcpServer = McpServer.sync(mcpServerTransportProvider)
-			.capabilities(ServerCapabilities.builder().completions().build())
-			.resources(new McpServerFeatures.SyncResourceSpecification(resource,
-					(exchange, req) -> new ReadResourceResult(Collections.emptyList())))
-			.completions(new McpServerFeatures.SyncCompletionSpecification(
-					new ResourceReference(ResourceReference.TYPE, "db://{database}/{table}"), completionHandler))
-			.build();
+				.capabilities(ServerCapabilities.builder().completions().build())
+				.resources(new McpServerFeatures.SyncResourceSpecification(resource,
+						(exchange, req) -> new ReadResourceResult(Collections.emptyList())))
+				.completions(new McpServerFeatures.SyncCompletionSpecification(
+						new ResourceReference(ResourceReference.TYPE, "db://{database}/{table}"), completionHandler))
+				.build();
 
 		try (McpSyncClient mcpClient = clientBuilder
-			.clientInfo(new McpSchema.Implementation("Sample" + "client", "0.0.0"))
-			.build();) {
+				.clientInfo(new McpSchema.Implementation("Sample" + "client", "0.0.0")).build();) {
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
 
@@ -318,8 +298,8 @@ class McpCompletionTests {
 					new CompleteRequest.CompleteArgument("table", ""));
 
 			assertThatExceptionOfType(McpError.class)
-				.isThrownBy(() -> mcpClient.completeCompletion(requestWithoutContext))
-				.withMessageContaining("Please select a database first");
+					.isThrownBy(() -> mcpClient.completeCompletion(requestWithoutContext))
+					.withMessageContaining("Please select a database first");
 
 			// Now complete with proper context - should work normally
 			CompleteRequest requestWithContext = new CompleteRequest(

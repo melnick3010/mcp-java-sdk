@@ -490,8 +490,8 @@ public interface McpServer {
 			Assert.notNull(callHandler, "Handler must not be null");
 			assertNoDuplicateTool(tool.getName());
 
-			this.tools
-				.add(McpServerFeatures.AsyncToolSpecification.builder().tool(tool).callHandler(callHandler).build());
+			this.tools.add(
+					McpServerFeatures.AsyncToolSpecification.builder().tool(tool).callHandler(callHandler).build());
 
 			return this;
 		}

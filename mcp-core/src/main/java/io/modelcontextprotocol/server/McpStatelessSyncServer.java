@@ -68,10 +68,9 @@ public class McpStatelessSyncServer {
 	 * @param toolSpecification The tool specification to add
 	 */
 	public void addTool(McpStatelessServerFeatures.SyncToolSpecification toolSpecification) {
-		this.asyncServer
-			.addTool(McpStatelessServerFeatures.AsyncToolSpecification.fromSync(toolSpecification,
-					this.immediateExecution))
-			.block();
+		this.asyncServer.addTool(
+				McpStatelessServerFeatures.AsyncToolSpecification.fromSync(toolSpecification, this.immediateExecution))
+				.block();
 	}
 
 	/**
@@ -95,10 +94,8 @@ public class McpStatelessSyncServer {
 	 * @param resourceSpecification The resource handler to add
 	 */
 	public void addResource(McpStatelessServerFeatures.SyncResourceSpecification resourceSpecification) {
-		this.asyncServer
-			.addResource(McpStatelessServerFeatures.AsyncResourceSpecification.fromSync(resourceSpecification,
-					this.immediateExecution))
-			.block();
+		this.asyncServer.addResource(McpStatelessServerFeatures.AsyncResourceSpecification
+				.fromSync(resourceSpecification, this.immediateExecution)).block();
 	}
 
 	/**
@@ -123,10 +120,8 @@ public class McpStatelessSyncServer {
 	 */
 	public void addResourceTemplate(
 			McpStatelessServerFeatures.SyncResourceTemplateSpecification resourceTemplateSpecification) {
-		this.asyncServer
-			.addResourceTemplate(McpStatelessServerFeatures.AsyncResourceTemplateSpecification
-				.fromSync(resourceTemplateSpecification, this.immediateExecution))
-			.block();
+		this.asyncServer.addResourceTemplate(McpStatelessServerFeatures.AsyncResourceTemplateSpecification
+				.fromSync(resourceTemplateSpecification, this.immediateExecution)).block();
 	}
 
 	/**
@@ -150,10 +145,8 @@ public class McpStatelessSyncServer {
 	 * @param promptSpecification The prompt handler to add
 	 */
 	public void addPrompt(McpStatelessServerFeatures.SyncPromptSpecification promptSpecification) {
-		this.asyncServer
-			.addPrompt(McpStatelessServerFeatures.AsyncPromptSpecification.fromSync(promptSpecification,
-					this.immediateExecution))
-			.block();
+		this.asyncServer.addPrompt(McpStatelessServerFeatures.AsyncPromptSpecification.fromSync(promptSpecification,
+				this.immediateExecution)).block();
 	}
 
 	/**

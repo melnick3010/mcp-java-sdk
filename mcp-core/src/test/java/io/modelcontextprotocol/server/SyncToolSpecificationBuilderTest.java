@@ -32,12 +32,10 @@ class SyncToolSpecificationBuilderTest {
 		Tool tool = Tool.builder().name("test-tool").title("A test tool").inputSchema(EMPTY_JSON_SCHEMA).build();
 
 		McpServerFeatures.SyncToolSpecification specification = McpServerFeatures.SyncToolSpecification.builder()
-			.tool(tool)
-			.callHandler((exchange, request) -> CallToolResult.builder()
-				.content(Collections.singletonList(new TextContent("Test result")))
-				.isError(false)
-				.build())
-			.build();
+				.tool(tool)
+				.callHandler((exchange, request) -> CallToolResult.builder()
+						.content(Collections.singletonList(new TextContent("Test result"))).isError(false).build())
+				.build();
 
 		assertThat(specification).isNotNull();
 		assertThat(specification.tool()).isEqualTo(tool);
@@ -48,9 +46,9 @@ class SyncToolSpecificationBuilderTest {
 	@Test
 	void builderShouldThrowExceptionWhenToolIsNull() {
 		assertThatThrownBy(() -> McpServerFeatures.SyncToolSpecification.builder()
-			.callHandler((exchange,
-					request) -> CallToolResult.builder().content(Collections.emptyList()).isError(false).build())
-			.build()).isInstanceOf(IllegalArgumentException.class).hasMessage("Tool must not be null");
+				.callHandler((exchange, request) -> CallToolResult.builder().content(Collections.emptyList())
+						.isError(false).build())
+				.build()).isInstanceOf(IllegalArgumentException.class).hasMessage("Tool must not be null");
 	}
 
 	@Test
@@ -58,8 +56,7 @@ class SyncToolSpecificationBuilderTest {
 		Tool tool = Tool.builder().name("test-tool").description("A test tool").inputSchema(EMPTY_JSON_SCHEMA).build();
 
 		assertThatThrownBy(() -> McpServerFeatures.SyncToolSpecification.builder().tool(tool).build())
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessage("CallTool function must not be null");
+				.isInstanceOf(IllegalArgumentException.class).hasMessage("CallTool function must not be null");
 	}
 
 	@Test
@@ -69,30 +66,22 @@ class SyncToolSpecificationBuilderTest {
 
 		// Then - verify method chaining returns the same builder instance
 		assertThat(builder.tool(tool)).isSameAs(builder);
-		assertThat(builder.callHandler((exchange,
-				request) -> CallToolResult.builder().content(Collections.emptyList()).isError(false).build()))
-			.isSameAs(builder);
+		assertThat(builder.callHandler((exchange, request) -> CallToolResult.builder().content(Collections.emptyList())
+				.isError(false).build())).isSameAs(builder);
 	}
 
 	@Test
 	void builtSpecificationShouldExecuteCallToolCorrectly() {
-		Tool tool = Tool.builder()
-			.name("calculator")
-			.description("Simple calculator")
-			.inputSchema(EMPTY_JSON_SCHEMA)
-			.build();
+		Tool tool = Tool.builder().name("calculator").description("Simple calculator").inputSchema(EMPTY_JSON_SCHEMA)
+				.build();
 		String expectedResult = "42";
 
 		McpServerFeatures.SyncToolSpecification specification = McpServerFeatures.SyncToolSpecification.builder()
-			.tool(tool)
-			.callHandler((exchange, request) -> {
-				// Simple test implementation
-				return CallToolResult.builder()
-					.content(Collections.singletonList(new TextContent(expectedResult)))
-					.isError(false)
-					.build();
-			})
-			.build();
+				.tool(tool).callHandler((exchange, request) -> {
+					// Simple test implementation
+					return CallToolResult.builder().content(Collections.singletonList(new TextContent(expectedResult)))
+							.isError(false).build();
+				}).build();
 
 		CallToolRequest request = new CallToolRequest("calculator", Collections.emptyMap());
 		CallToolResult result = specification.callHandler().apply(null, request);

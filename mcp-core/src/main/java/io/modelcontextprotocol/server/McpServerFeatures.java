@@ -107,15 +107,15 @@ public class McpServerFeatures {
 			}
 			Map<McpSchema.CompleteReference, McpServerFeatures.AsyncCompletionSpecification> completions = new HashMap<McpSchema.CompleteReference, McpServerFeatures.AsyncCompletionSpecification>();
 			for (Map.Entry<McpSchema.CompleteReference, SyncCompletionSpecification> e : syncSpec.completions()
-				.entrySet()) {
+					.entrySet()) {
 				completions.put(e.getKey(), AsyncCompletionSpecification.fromSync(e.getValue(), immediateExecution));
 			}
 			List<BiFunction<McpAsyncServerExchange, List<McpSchema.Root>, Mono<Void>>> rootChangeConsumers = new ArrayList<BiFunction<McpAsyncServerExchange, List<McpSchema.Root>, Mono<Void>>>();
 			for (BiConsumer<McpSyncServerExchange, List<McpSchema.Root>> rootChangeConsumer : syncSpec
-				.rootsChangeConsumers()) {
+					.rootsChangeConsumers()) {
 				rootChangeConsumers.add((exchange, list) -> Mono
-					.<Void>fromRunnable(() -> rootChangeConsumer.accept(new McpSyncServerExchange(exchange), list))
-					.subscribeOn(Schedulers.boundedElastic()));
+						.<Void>fromRunnable(() -> rootChangeConsumer.accept(new McpSyncServerExchange(exchange), list))
+						.subscribeOn(Schedulers.boundedElastic()));
 			}
 			return new Async(syncSpec.serverInfo(), syncSpec.serverCapabilities(), tools, resources, resourceTemplates,
 					prompts, completions, rootChangeConsumers, syncSpec.instructions());
@@ -293,15 +293,15 @@ public class McpServerFeatures {
 				return null;
 			}
 			BiFunction<McpAsyncServerExchange, Map<String, Object>, Mono<McpSchema.CallToolResult>> deprecatedCall = (syncToolSpec
-				.call() != null) ? (exchange, map) -> {
-					Mono<McpSchema.CallToolResult> toolResult = Mono
-						.fromCallable(() -> syncToolSpec.call().apply(new McpSyncServerExchange(exchange), map));
-					return immediate ? toolResult : toolResult.subscribeOn(Schedulers.boundedElastic());
-				} : null;
+					.call() != null) ? (exchange, map) -> {
+						Mono<McpSchema.CallToolResult> toolResult = Mono.fromCallable(
+								() -> syncToolSpec.call().apply(new McpSyncServerExchange(exchange), map));
+						return immediate ? toolResult : toolResult.subscribeOn(Schedulers.boundedElastic());
+					} : null;
 			BiFunction<McpAsyncServerExchange, McpSchema.CallToolRequest, Mono<McpSchema.CallToolResult>> callHandler = (
 					exchange, req) -> {
 				Mono<McpSchema.CallToolResult> toolResult = Mono
-					.fromCallable(() -> syncToolSpec.callHandler().apply(new McpSyncServerExchange(exchange), req));
+						.fromCallable(() -> syncToolSpec.callHandler().apply(new McpSyncServerExchange(exchange), req));
 				return immediate ? toolResult : toolResult.subscribeOn(Schedulers.boundedElastic());
 			};
 			return new AsyncToolSpecification(syncToolSpec.tool(), deprecatedCall, callHandler);
@@ -375,7 +375,7 @@ public class McpServerFeatures {
 			}
 			return new AsyncResourceSpecification(resource.resource(), (exchange, req) -> {
 				Mono<McpSchema.ReadResourceResult> resourceResult = Mono
-					.fromCallable(() -> resource.readHandler().apply(new McpSyncServerExchange(exchange), req));
+						.fromCallable(() -> resource.readHandler().apply(new McpSyncServerExchange(exchange), req));
 				return immediateExecution ? resourceResult : resourceResult.subscribeOn(Schedulers.boundedElastic());
 			});
 		}
@@ -412,7 +412,7 @@ public class McpServerFeatures {
 			}
 			return new AsyncResourceTemplateSpecification(resource.resourceTemplate(), (exchange, req) -> {
 				Mono<McpSchema.ReadResourceResult> resourceResult = Mono
-					.fromCallable(() -> resource.readHandler().apply(new McpSyncServerExchange(exchange), req));
+						.fromCallable(() -> resource.readHandler().apply(new McpSyncServerExchange(exchange), req));
 				return immediateExecution ? resourceResult : resourceResult.subscribeOn(Schedulers.boundedElastic());
 			});
 		}
@@ -448,7 +448,7 @@ public class McpServerFeatures {
 			}
 			return new AsyncPromptSpecification(prompt.prompt(), (exchange, req) -> {
 				Mono<McpSchema.GetPromptResult> promptResult = Mono
-					.fromCallable(() -> prompt.promptHandler().apply(new McpSyncServerExchange(exchange), req));
+						.fromCallable(() -> prompt.promptHandler().apply(new McpSyncServerExchange(exchange), req));
 				return immediateExecution ? promptResult : promptResult.subscribeOn(Schedulers.boundedElastic());
 			});
 		}

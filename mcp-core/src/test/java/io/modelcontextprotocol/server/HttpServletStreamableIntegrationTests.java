@@ -47,10 +47,8 @@ class HttpServletStreamableIntegrationTests extends AbstractMcpClientServerInteg
 	public void before() {
 		// Create and configure the transport provider
 		mcpServerTransportProvider = HttpServletStreamableServerTransportProvider.builder()
-			.contextExtractor(TEST_CONTEXT_EXTRACTOR)
-			.mcpEndpoint(MESSAGE_ENDPOINT)
-			.keepAliveInterval(Duration.ofSeconds(1))
-			.build();
+				.contextExtractor(TEST_CONTEXT_EXTRACTOR).mcpEndpoint(MESSAGE_ENDPOINT)
+				.keepAliveInterval(Duration.ofSeconds(1)).build();
 
 		tomcat = TomcatTestUtil.createTomcatServer("", PORT, mcpServerTransportProvider);
 		try {
@@ -61,11 +59,9 @@ class HttpServletStreamableIntegrationTests extends AbstractMcpClientServerInteg
 			throw new RuntimeException("Failed to start Tomcat", e);
 		}
 
-		clientBuilders
-			.put("httpclient",
-					McpClient.sync(HttpClientStreamableHttpTransport.builder("http://localhost:" + PORT)
-						.endpoint(MESSAGE_ENDPOINT)
-						.build()).requestTimeout(Duration.ofHours(10)));
+		clientBuilders.put("httpclient",
+				McpClient.sync(HttpClientStreamableHttpTransport.builder("http://localhost:" + PORT)
+						.endpoint(MESSAGE_ENDPOINT).build()).requestTimeout(Duration.ofHours(10)));
 	}
 
 	@Override
@@ -99,6 +95,6 @@ class HttpServletStreamableIntegrationTests extends AbstractMcpClientServerInteg
 	}
 
 	static McpTransportContextExtractor<HttpServletRequest> TEST_CONTEXT_EXTRACTOR = (r) -> McpTransportContext
-		.create(Collections.singletonMap("important", "value"));
+			.create(Collections.singletonMap("important", "value"));
 
 }

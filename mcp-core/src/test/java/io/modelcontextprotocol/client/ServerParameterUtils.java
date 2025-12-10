@@ -10,8 +10,7 @@ public final class ServerParameterUtils {
 	public static ServerParameters createServerParameters() {
 		if (System.getProperty("os.name").toLowerCase().contains("win")) {
 			return ServerParameters.builder("cmd.exe")
-				.args("/c", "npx.cmd", "-y", "@modelcontextprotocol/server-everything", "stdio")
-				.build();
+					.args("/c", "npx.cmd", "-y", "@modelcontextprotocol/server-everything", "stdio").build();
 		}
 		return ServerParameters.builder("npx").args("-y", "@modelcontextprotocol/server-everything", "stdio").build();
 	}

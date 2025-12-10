@@ -33,7 +33,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * Tests for {@link LifecycleInitializer} postInitializationHook functionality.
- * 
+ *
  * @author Christian Tzolov
  */
 class LifecycleInitializerPostInitializationHookTests {
@@ -41,7 +41,7 @@ class LifecycleInitializerPostInitializationHookTests {
 	private static final Duration INITIALIZATION_TIMEOUT = Duration.ofSeconds(5);
 
 	private static final McpSchema.ClientCapabilities CLIENT_CAPABILITIES = McpSchema.ClientCapabilities.builder()
-		.build();
+			.build();
 
 	private static final McpSchema.Implementation CLIENT_INFO = new McpSchema.Implementation("test-client", "1.0.0");
 
@@ -69,9 +69,9 @@ class LifecycleInitializerPostInitializationHookTests {
 		when(mockPostInitializationHook.apply(any(Initialization.class))).thenReturn(Mono.empty());
 		when(mockSessionSupplier.apply(any(ContextView.class))).thenReturn(mockClientSession);
 		when(mockClientSession.sendRequest(eq(McpSchema.METHOD_INITIALIZE), any(), any()))
-			.thenReturn(Mono.just(MOCK_INIT_RESULT));
+				.thenReturn(Mono.just(MOCK_INIT_RESULT));
 		when(mockClientSession.sendNotification(eq(McpSchema.METHOD_NOTIFICATION_INITIALIZED), any()))
-			.thenReturn(Mono.empty());
+				.thenReturn(Mono.empty());
 		when(mockClientSession.closeGracefully()).thenReturn(Mono.empty());
 
 		initializer = new LifecycleInitializer(CLIENT_CAPABILITIES, CLIENT_INFO, PROTOCOL_VERSIONS,
@@ -88,8 +88,7 @@ class LifecycleInitializerPostInitializationHookTests {
 		});
 
 		StepVerifier.create(initializer.withInitialization("test", init -> Mono.just(init.initializeResult())))
-			.expectNext(MOCK_INIT_RESULT)
-			.verifyComplete();
+				.expectNext(MOCK_INIT_RESULT).verifyComplete();
 
 		// Verify hook was called
 		verify(mockPostInitializationHook, times(1)).apply(any(Initialization.class));
@@ -103,14 +102,12 @@ class LifecycleInitializerPostInitializationHookTests {
 	@Test
 	void shouldInvokePostInitializationHookOnlyOnce() {
 		// First initialization
-		StepVerifier.create(initializer.withInitialization("test1", init -> Mono.just("result1")))
-			.expectNext("result1")
-			.verifyComplete();
+		StepVerifier.create(initializer.withInitialization("test1", init -> Mono.just("result1"))).expectNext("result1")
+				.verifyComplete();
 
 		// Second call should reuse initialization and NOT call hook again
-		StepVerifier.create(initializer.withInitialization("test2", init -> Mono.just("result2")))
-			.expectNext("result2")
-			.verifyComplete();
+		StepVerifier.create(initializer.withInitialization("test2", init -> Mono.just("result2"))).expectNext("result2")
+				.verifyComplete();
 
 		// Hook should only be called once
 		verify(mockPostInitializationHook, times(1)).apply(any(Initialization.class));
@@ -127,11 +124,11 @@ class LifecycleInitializerPostInitializationHookTests {
 
 		// Start multiple concurrent initializations
 		Mono<String> init1 = initializer.withInitialization("test1", init -> Mono.just("result1"))
-			.subscribeOn(Schedulers.parallel());
+				.subscribeOn(Schedulers.parallel());
 		Mono<String> init2 = initializer.withInitialization("test2", init -> Mono.just("result2"))
-			.subscribeOn(Schedulers.parallel());
+				.subscribeOn(Schedulers.parallel());
 		Mono<String> init3 = initializer.withInitialization("test3", init -> Mono.just("result3"))
-			.subscribeOn(Schedulers.parallel());
+				.subscribeOn(Schedulers.parallel());
 
 		// TODO: can we assume the order of results?
 		StepVerifier.create(Mono.zip(init1, init2, init3)).assertNext(tuple -> {
@@ -150,8 +147,7 @@ class LifecycleInitializerPostInitializationHookTests {
 		when(mockPostInitializationHook.apply(any(Initialization.class))).thenReturn(Mono.error(hookError));
 
 		StepVerifier.create(initializer.withInitialization("test", init -> Mono.just(init.initializeResult())))
-			.expectErrorMatches(ex -> ex instanceof RuntimeException && ex.getCause() == hookError)
-			.verify();
+				.expectErrorMatches(ex -> ex instanceof RuntimeException && ex.getCause() == hookError).verify();
 
 		// Verify initialization was not completed
 		assertThat(initializer.isInitialized()).isFalse();
@@ -164,11 +160,10 @@ class LifecycleInitializerPostInitializationHookTests {
 	@Test
 	void shouldNotInvokePostInitializationHookWhenInitializationFails() {
 		when(mockClientSession.sendRequest(eq(McpSchema.METHOD_INITIALIZE), any(), any()))
-			.thenReturn(Mono.error(new RuntimeException("Initialization failed")));
+				.thenReturn(Mono.error(new RuntimeException("Initialization failed")));
 
 		StepVerifier.create(initializer.withInitialization("test", init -> Mono.just(init.initializeResult())))
-			.expectError(RuntimeException.class)
-			.verify();
+				.expectError(RuntimeException.class).verify();
 
 		// Hook should NOT be called when initialization fails
 		verify(mockPostInitializationHook, never()).apply(any(Initialization.class));
@@ -177,11 +172,10 @@ class LifecycleInitializerPostInitializationHookTests {
 	@Test
 	void shouldNotInvokePostInitializationHookWhenNotificationFails() {
 		when(mockClientSession.sendNotification(eq(McpSchema.METHOD_NOTIFICATION_INITIALIZED), any()))
-			.thenReturn(Mono.error(new RuntimeException("Notification failed")));
+				.thenReturn(Mono.error(new RuntimeException("Notification failed")));
 
 		StepVerifier.create(initializer.withInitialization("test", init -> Mono.just(init.initializeResult())))
-			.expectError(RuntimeException.class)
-			.verify();
+				.expectError(RuntimeException.class).verify();
 
 		// Hook should NOT be called when notification fails
 		verify(mockPostInitializationHook, never()).apply(any(Initialization.class));
@@ -197,9 +191,8 @@ class LifecycleInitializerPostInitializationHookTests {
 		});
 
 		// First initialization
-		StepVerifier.create(initializer.withInitialization("test1", init -> Mono.just("result1")))
-			.expectNext("result1")
-			.verifyComplete();
+		StepVerifier.create(initializer.withInitialization("test1", init -> Mono.just("result1"))).expectNext("result1")
+				.verifyComplete();
 
 		assertThat(hookInvocationCount.get()).isEqualTo(1);
 
@@ -215,11 +208,10 @@ class LifecycleInitializerPostInitializationHookTests {
 		AtomicInteger operationCount = new AtomicInteger(0);
 
 		when(mockPostInitializationHook.apply(any(Initialization.class)))
-			.thenReturn(Mono.fromRunnable(() -> operationCount.incrementAndGet()).then());
+				.thenReturn(Mono.fromRunnable(() -> operationCount.incrementAndGet()).then());
 
 		StepVerifier.create(initializer.withInitialization("test", init -> Mono.just(init.initializeResult())))
-			.expectNext(MOCK_INIT_RESULT)
-			.verifyComplete();
+				.expectNext(MOCK_INIT_RESULT).verifyComplete();
 
 		// Verify the async operation was executed
 		assertThat(operationCount.get()).isEqualTo(1);
@@ -239,8 +231,7 @@ class LifecycleInitializerPostInitializationHookTests {
 		});
 
 		StepVerifier.create(initializer.withInitialization("test", init -> Mono.just(init.initializeResult())))
-			.expectNext(MOCK_INIT_RESULT)
-			.verifyComplete();
+				.expectNext(MOCK_INIT_RESULT).verifyComplete();
 
 		// Verify the hook received the correct session and result
 		assertThat(capturedSession.get()).isEqualTo(mockClientSession);
@@ -255,10 +246,10 @@ class LifecycleInitializerPostInitializationHookTests {
 		AtomicReference<Boolean> hookCalledAfterNotification = new AtomicReference<>(false);
 
 		when(mockClientSession.sendNotification(eq(McpSchema.METHOD_NOTIFICATION_INITIALIZED), any()))
-			.thenAnswer(invocation -> {
-				notificationSent.set(true);
-				return Mono.empty();
-			});
+				.thenAnswer(invocation -> {
+					notificationSent.set(true);
+					return Mono.empty();
+				});
 
 		when(mockPostInitializationHook.apply(any(Initialization.class))).thenAnswer(invocation -> {
 			// Due to flatMap chaining in doInitialize, if the hook is called,
@@ -268,8 +259,7 @@ class LifecycleInitializerPostInitializationHookTests {
 		});
 
 		StepVerifier.create(initializer.withInitialization("test", init -> Mono.just(init.initializeResult())))
-			.expectNext(MOCK_INIT_RESULT)
-			.verifyComplete();
+				.expectNext(MOCK_INIT_RESULT).verifyComplete();
 
 		// Verify the hook was called and notification was already sent at that point
 		assertThat(hookCalledAfterNotification.get()).isTrue();

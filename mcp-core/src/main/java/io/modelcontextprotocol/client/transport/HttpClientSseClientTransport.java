@@ -32,21 +32,31 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 public class HttpClientSseClientTransport implements McpClientTransport {
+
 	private static final String MCP_PROTOCOL_VERSION = ProtocolVersions.MCP_2024_11_05;
+
 	private static final String MCP_PROTOCOL_VERSION_HEADER_NAME = "MCP-Protocol-Version";
+
 	private static final Logger logger = LoggerFactory.getLogger(HttpClientSseClientTransport.class);
 
 	private static final String MESSAGE_EVENT_TYPE = "message";
+
 	private static final String ENDPOINT_EVENT_TYPE = "endpoint";
+
 	private static final String DEFAULT_SSE_ENDPOINT = "/sse";
 
 	private final URI baseUri;
+
 	private final String sseEndpoint;
+
 	private final CloseableHttpClient httpClient;
+
 	private final McpJsonMapper jsonMapper;
+
 	private final McpAsyncHttpClientRequestCustomizer httpRequestCustomizer;
 
 	private volatile boolean isClosing = false;
+
 	// NB: lasciamo la reference globale per compatibilità, ma NON la usiamo nel
 	// loop SSE
 	private final AtomicReference<String> messageEndpoint = new AtomicReference<>();
@@ -75,9 +85,13 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	}
 
 	public static class Builder {
+
 		private String baseUri;
+
 		private String sseEndpoint = DEFAULT_SSE_ENDPOINT;
+
 		private McpJsonMapper jsonMapper;
+
 		private McpAsyncHttpClientRequestCustomizer httpRequestCustomizer = McpAsyncHttpClientRequestCustomizer.NOOP;
 
 		private Builder(String baseUri) {
@@ -110,7 +124,8 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer syncCustomizer) {
 			if (syncCustomizer == null) {
 				this.httpRequestCustomizer = McpAsyncHttpClientRequestCustomizer.NOOP;
-			} else {
+			}
+			else {
 				this.httpRequestCustomizer = (rb, method, uri, body, ctx) -> {
 					syncCustomizer.customize(rb, method, uri, body, ctx);
 					return reactor.core.publisher.Mono.just(rb);
@@ -125,6 +140,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			this.clientFactory = (factory == null ? org.apache.http.impl.client.HttpClients::createDefault : factory);
 			return this;
 		}
+
 	}
 
 	@Override
@@ -179,9 +195,11 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 
 						if (ENDPOINT_EVENT_TYPE.equals(eventType)) {
 							endpointForThisStream = data; // <-- per-STREAM
-							messageEndpoint.set(data); // (compatibilità; non usato per REQUEST SSE)
+							messageEndpoint.set(data); // (compatibilità; non usato per
+														// REQUEST SSE)
 							logger.info("SSE ENDPOINT DISCOVERED (stream-local): {}", endpointForThisStream);
-						} else if (MESSAGE_EVENT_TYPE.equals(eventType)) {
+						}
+						else if (MESSAGE_EVENT_TYPE.equals(eventType)) {
 							try {
 								JSONRPCMessage incoming = McpSchema.deserializeJsonRpcMessage(jsonMapper, data);
 								String kind = (incoming instanceof McpSchema.JSONRPCRequest) ? "REQUEST"
@@ -206,7 +224,9 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 								});
 
 								if (incoming instanceof McpSchema.JSONRPCRequest) {
-									logger.info("DISPATCH: kind=REQUEST -> WILL POST response to stream endpoint, thread={}", Thread.currentThread().getName());
+									logger.info(
+											"DISPATCH: kind=REQUEST -> WILL POST response to stream endpoint, thread={}",
+											Thread.currentThread().getName());
 									final String targetEndpoint = endpointForThisStream;
 
 									out.flatMap(msg -> {
@@ -215,23 +235,30 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 											idOut = ((McpSchema.JSONRPCRequest) msg).id();
 										if (msg instanceof McpSchema.JSONRPCResponse)
 											idOut = ((McpSchema.JSONRPCResponse) msg).id();
-										logger.info("CLIENT POST PREPARED: endpoint={}, id={}, thread={} - About to POST", targetEndpoint, idOut, Thread.currentThread().getName());
+										logger.info(
+												"CLIENT POST PREPARED: endpoint={}, id={}, thread={} - About to POST",
+												targetEndpoint, idOut, Thread.currentThread().getName());
 										return postToEndpoint(msg, targetEndpoint);
-									}).doOnError(ex -> logger.error("Failed to handle/send response, thread={}: {}", Thread.currentThread().getName(), ex.getMessage(), ex))
+									}).doOnError(ex -> logger.error("Failed to handle/send response, thread={}: {}",
+											Thread.currentThread().getName(), ex.getMessage(), ex))
 											.onErrorResume(ex -> Mono.empty()).subscribe();
 
-								} else {
-									logger.info("DISPATCH: kind={} -> NO POST (handled locally), thread={}", kind, Thread.currentThread().getName());
+								}
+								else {
+									logger.info("DISPATCH: kind={} -> NO POST (handled locally), thread={}", kind,
+											Thread.currentThread().getName());
 									out.doOnError(ex -> logger.error("Failed to handle incoming message", ex))
 											.onErrorResume(ex -> Mono.empty()).subscribe();
 								}
-							} catch (IOException e) {
+							}
+							catch (IOException e) {
 								logger.error("Failed to parse SSE message", e);
 							}
 						}
 					}
 				}
-			} catch (IOException e) {
+			}
+			catch (IOException e) {
 				logger.error("Error during SSE connection", e);
 			}
 		}).subscribeOn(Schedulers.boundedElastic()).then();
@@ -248,12 +275,13 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			return Mono.fromCallable(() -> {
 				String jsonBody = jsonMapper.writeValueAsString(message);
 				URI postUri = Utils.resolveUri(this.baseUri, endpoint);
-				
+
 				Object msgId = null;
 				if (message instanceof McpSchema.JSONRPCResponse) {
 					msgId = ((McpSchema.JSONRPCResponse) message).id();
 				}
-				logger.info("CLIENT postToEndpoint: STARTING POST to endpoint={}, messageId={}, thread={}", endpoint, msgId, Thread.currentThread().getName());
+				logger.info("CLIENT postToEndpoint: STARTING POST to endpoint={}, messageId={}, thread={}", endpoint,
+						msgId, Thread.currentThread().getName());
 
 				org.apache.http.client.methods.RequestBuilder rb = org.apache.http.client.methods.RequestBuilder.post()
 						.setUri(postUri).addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
@@ -273,11 +301,13 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				try (CloseableHttpResponse response = httpClient.execute(request)) {
 					int statusCode = response.getStatusLine().getStatusCode();
 					if (statusCode < 200 || statusCode >= 300) {
-						logger.error("CLIENT postToEndpoint: POST FAILED with status={}, messageId={}, thread={}", statusCode, msgId, Thread.currentThread().getName());
+						logger.error("CLIENT postToEndpoint: POST FAILED with status={}, messageId={}, thread={}",
+								statusCode, msgId, Thread.currentThread().getName());
 						throw new McpTransportException("Failed to send message. Status: " + statusCode);
 					}
 					long elapsedMs = (System.nanoTime() - t0) / 1_000_000;
-					logger.info("CLIENT POST SUCCESS: status={}, elapsedMs={}, messageId={}, thread={}", statusCode, elapsedMs, msgId, Thread.currentThread().getName());
+					logger.info("CLIENT POST SUCCESS: status={}, elapsedMs={}, messageId={}, thread={}", statusCode,
+							elapsedMs, msgId, Thread.currentThread().getName());
 				}
 				return null;
 			}).subscribeOn(Schedulers.boundedElastic()).then();
@@ -328,4 +358,5 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	public <T> T unmarshalFrom(Object data, TypeRef<T> typeRef) {
 		return this.jsonMapper.convertValue(data, typeRef);
 	}
+
 }

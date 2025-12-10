@@ -58,28 +58,25 @@ class KeepAliveSchedulerTests {
 	@Test
 	void testBuilderWithNullSessionsSupplier() {
 		assertThatThrownBy(() -> KeepAliveScheduler.builder(null)).isInstanceOf(IllegalArgumentException.class)
-			.hasMessage("McpSessions supplier must not be null");
+				.hasMessage("McpSessions supplier must not be null");
 	}
 
 	@Test
 	void testBuilderWithNullScheduler() {
 		assertThatThrownBy(() -> KeepAliveScheduler.builder(mockSessionsSupplier).scheduler(null))
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessage("Scheduler must not be null");
+				.isInstanceOf(IllegalArgumentException.class).hasMessage("Scheduler must not be null");
 	}
 
 	@Test
 	void testBuilderWithNullInitialDelay() {
 		assertThatThrownBy(() -> KeepAliveScheduler.builder(mockSessionsSupplier).initialDelay(null))
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessage("Initial delay must not be null");
+				.isInstanceOf(IllegalArgumentException.class).hasMessage("Initial delay must not be null");
 	}
 
 	@Test
 	void testBuilderWithNullInterval() {
 		assertThatThrownBy(() -> KeepAliveScheduler.builder(mockSessionsSupplier).interval(null))
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessage("Interval must not be null");
+				.isInstanceOf(IllegalArgumentException.class).hasMessage("Interval must not be null");
 	}
 
 	@Test
@@ -94,11 +91,8 @@ class KeepAliveSchedulerTests {
 	void testStartWithMultipleSessions() {
 		mockSessionsSupplier = () -> Flux.just(mockSession1, mockSession2);
 
-		KeepAliveScheduler scheduler = KeepAliveScheduler.builder(mockSessionsSupplier)
-			.scheduler(virtualTimeScheduler)
-			.initialDelay(Duration.ofSeconds(1))
-			.interval(Duration.ofSeconds(2))
-			.build();
+		KeepAliveScheduler scheduler = KeepAliveScheduler.builder(mockSessionsSupplier).scheduler(virtualTimeScheduler)
+				.initialDelay(Duration.ofSeconds(1)).interval(Duration.ofSeconds(2)).build();
 
 		assertThat(scheduler.isRunning()).isFalse();
 
@@ -136,11 +130,8 @@ class KeepAliveSchedulerTests {
 	void testStartWithEmptySessionsList() {
 		mockSessionsSupplier = () -> Flux.empty();
 
-		KeepAliveScheduler scheduler = KeepAliveScheduler.builder(mockSessionsSupplier)
-			.scheduler(virtualTimeScheduler)
-			.initialDelay(Duration.ofSeconds(1))
-			.interval(Duration.ofSeconds(2))
-			.build();
+		KeepAliveScheduler scheduler = KeepAliveScheduler.builder(mockSessionsSupplier).scheduler(virtualTimeScheduler)
+				.initialDelay(Duration.ofSeconds(1)).interval(Duration.ofSeconds(2)).build();
 
 		// Start the scheduler
 		scheduler.start();
@@ -158,16 +149,15 @@ class KeepAliveSchedulerTests {
 
 	@Test
 	void testStartWhenAlreadyRunning() {
-		KeepAliveScheduler scheduler = KeepAliveScheduler.builder(mockSessionsSupplier)
-			.scheduler(virtualTimeScheduler)
-			.build();
+		KeepAliveScheduler scheduler = KeepAliveScheduler.builder(mockSessionsSupplier).scheduler(virtualTimeScheduler)
+				.build();
 
 		// Start the scheduler
 		scheduler.start();
 
 		// Try to start again - should throw exception
 		assertThatThrownBy(scheduler::start).isInstanceOf(IllegalStateException.class)
-			.hasMessage("KeepAlive scheduler is already running. Stop it first.");
+				.hasMessage("KeepAlive scheduler is already running. Stop it first.");
 
 		// Clean up
 		scheduler.stop();
@@ -175,9 +165,8 @@ class KeepAliveSchedulerTests {
 
 	@Test
 	void testStopWhenNotRunning() {
-		KeepAliveScheduler scheduler = KeepAliveScheduler.builder(mockSessionsSupplier)
-			.scheduler(virtualTimeScheduler)
-			.build();
+		KeepAliveScheduler scheduler = KeepAliveScheduler.builder(mockSessionsSupplier).scheduler(virtualTimeScheduler)
+				.build();
 
 		// Should not throw exception when stopping a non-running scheduler
 		assertDoesNotThrow(scheduler::stop);
@@ -188,9 +177,8 @@ class KeepAliveSchedulerTests {
 	void testShutdown() {
 		// Setup with a separate virtual time scheduler (which is disposable)
 		VirtualTimeScheduler separateScheduler = VirtualTimeScheduler.create();
-		KeepAliveScheduler scheduler = KeepAliveScheduler.builder(mockSessionsSupplier)
-			.scheduler(separateScheduler)
-			.build();
+		KeepAliveScheduler scheduler = KeepAliveScheduler.builder(mockSessionsSupplier).scheduler(separateScheduler)
+				.build();
 
 		// Start the scheduler
 		scheduler.start();
@@ -207,11 +195,8 @@ class KeepAliveSchedulerTests {
 		// Setup session that fails ping
 		mockSession1.setShouldFailPing(true);
 
-		KeepAliveScheduler scheduler = KeepAliveScheduler.builder(mockSessionsSupplier)
-			.scheduler(virtualTimeScheduler)
-			.initialDelay(Duration.ofSeconds(1))
-			.interval(Duration.ofSeconds(2))
-			.build();
+		KeepAliveScheduler scheduler = KeepAliveScheduler.builder(mockSessionsSupplier).scheduler(virtualTimeScheduler)
+				.initialDelay(Duration.ofSeconds(1)).interval(Duration.ofSeconds(2)).build();
 
 		// Start the scheduler
 		scheduler.start();
@@ -231,9 +216,8 @@ class KeepAliveSchedulerTests {
 
 	@Test
 	void testDisposableReturnedFromStart() {
-		KeepAliveScheduler scheduler = KeepAliveScheduler.builder(mockSessionsSupplier)
-			.scheduler(virtualTimeScheduler)
-			.build();
+		KeepAliveScheduler scheduler = KeepAliveScheduler.builder(mockSessionsSupplier).scheduler(virtualTimeScheduler)
+				.build();
 
 		// Start and get disposable
 		Disposable disposable = scheduler.start();

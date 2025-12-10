@@ -119,10 +119,10 @@ public class HttpClientStreamableHttpTransportErrorHandlingTest {
 		JSONRPCRequest testMessage = createTestRequestMessage();
 
 		StepVerifier.create(transport.sendMessage(testMessage))
-			.expectErrorMatches(throwable -> throwable instanceof McpTransportException
-					&& throwable.getMessage().contains("Not Found") && throwable.getMessage().contains("404")
-					&& !(throwable instanceof McpTransportSessionNotFoundException))
-			.verify();
+				.expectErrorMatches(throwable -> throwable instanceof McpTransportException
+						&& throwable.getMessage().contains("Not Found") && throwable.getMessage().contains("404")
+						&& !(throwable instanceof McpTransportSessionNotFoundException))
+				.verify();
 
 		StepVerifier.create(transport.closeGracefully()).verifyComplete();
 	}
@@ -153,9 +153,8 @@ public class HttpClientStreamableHttpTransportErrorHandlingTest {
 		serverResponseStatus.set(404);
 
 		// Send another message - should get SessionNotFoundException
-		StepVerifier.create(transport.sendMessage(testMessage))
-			.expectError(McpTransportSessionNotFoundException.class)
-			.verify();
+		StepVerifier.create(transport.sendMessage(testMessage)).expectError(McpTransportSessionNotFoundException.class)
+				.verify();
 
 		// Verify exception handler was called with SessionNotFoundException
 		verify(exceptionHandler).accept(any(McpTransportSessionNotFoundException.class));
@@ -175,10 +174,10 @@ public class HttpClientStreamableHttpTransportErrorHandlingTest {
 		JSONRPCRequest testMessage = createTestRequestMessage();
 
 		StepVerifier.create(transport.sendMessage(testMessage))
-			.expectErrorMatches(throwable -> throwable instanceof McpTransportException
-					&& throwable.getMessage().contains("Bad Request") && throwable.getMessage().contains("400")
-					&& !(throwable instanceof McpTransportSessionNotFoundException))
-			.verify();
+				.expectErrorMatches(throwable -> throwable instanceof McpTransportException
+						&& throwable.getMessage().contains("Bad Request") && throwable.getMessage().contains("400")
+						&& !(throwable instanceof McpTransportSessionNotFoundException))
+				.verify();
 
 		StepVerifier.create(transport.closeGracefully()).verifyComplete();
 	}
@@ -211,9 +210,8 @@ public class HttpClientStreamableHttpTransportErrorHandlingTest {
 		serverResponseStatus.set(400);
 
 		// Send another message - should get SessionNotFoundException
-		StepVerifier.create(transport.sendMessage(testMessage))
-			.expectError(McpTransportSessionNotFoundException.class)
-			.verify();
+		StepVerifier.create(transport.sendMessage(testMessage)).expectError(McpTransportSessionNotFoundException.class)
+				.verify();
 
 		// Verify exception handler was called
 		verify(exceptionHandler).accept(any(McpTransportSessionNotFoundException.class));
@@ -242,9 +240,8 @@ public class HttpClientStreamableHttpTransportErrorHandlingTest {
 		serverResponseStatus.set(404);
 
 		// This should fail with SessionNotFoundException
-		StepVerifier.create(transport.sendMessage(testMessage))
-			.expectError(McpTransportSessionNotFoundException.class)
-			.verify();
+		StepVerifier.create(transport.sendMessage(testMessage)).expectError(McpTransportSessionNotFoundException.class)
+				.verify();
 
 		// Now server is back with new session
 		serverResponseStatus.set(200);
@@ -315,10 +312,9 @@ public class HttpClientStreamableHttpTransportErrorHandlingTest {
 		serverResponseStatus.set(200);
 		currentServerSessionId.set("sse-session-1");
 
-		McpClientTransport transport = HttpClientStreamableHttpTransport.builder(HOST)
-			.endpoint("/mcp-sse")
-			.openConnectionOnStartup(true) // This will trigger GET request on connect
-			.build();
+		McpClientTransport transport = HttpClientStreamableHttpTransport.builder(HOST).endpoint("/mcp-sse")
+				.openConnectionOnStartup(true) // This will trigger GET request on connect
+				.build();
 
 		// First connect successfully
 		StepVerifier.create(transport.connect(msg -> msg)).verifyComplete();

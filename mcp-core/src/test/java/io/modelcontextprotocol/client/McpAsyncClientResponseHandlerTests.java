@@ -36,9 +36,9 @@ class McpAsyncClientResponseHandlerTests {
 	private static final McpSchema.Implementation SERVER_INFO = new McpSchema.Implementation("test-server", "1.0.0");
 
 	private static final McpSchema.ServerCapabilities SERVER_CAPABILITIES = McpSchema.ServerCapabilities.builder()
-		.tools(true)
-		.resources(true, true) // Enable both resources and resource templates
-		.build();
+			.tools(true).resources(true, true) // Enable both resources and resource
+												// templates
+			.build();
 
 	private static MockMcpClientTransport initializationEnabledTransport() {
 		return initializationEnabledTransport(SERVER_CAPABILITIES, SERVER_INFO);
@@ -65,10 +65,9 @@ class McpAsyncClientResponseHandlerTests {
 	@Test
 	void testSuccessfulInitialization() {
 		McpSchema.Implementation serverInfo = new McpSchema.Implementation("mcp-test-server", "0.0.1");
-		McpSchema.ServerCapabilities serverCapabilities = McpSchema.ServerCapabilities.builder()
-			.tools(false)
-			.resources(true, true) // Enable both resources and resource templates
-			.build();
+		McpSchema.ServerCapabilities serverCapabilities = McpSchema.ServerCapabilities.builder().tools(false)
+				.resources(true, true) // Enable both resources and resource templates
+				.build();
 		MockMcpClientTransport transport = initializationEnabledTransport(serverCapabilities, serverInfo);
 		McpAsyncClient asyncMcpClient = McpClient.async(transport).build();
 
@@ -109,7 +108,7 @@ class McpAsyncClientResponseHandlerTests {
 
 		// Create a consumer that will be called when tools change
 		Function<List<McpSchema.Tool>, Mono<Void>> toolsChangeConsumer = tools -> Mono
-			.fromRunnable(() -> receivedTools.addAll(tools));
+				.fromRunnable(() -> receivedTools.addAll(tools));
 
 		// Create client with tools change consumer
 		McpAsyncClient asyncMcpClient = McpClient.async(transport).toolsChangeConsumer(toolsChangeConsumer).build();
@@ -122,11 +121,8 @@ class McpAsyncClientResponseHandlerTests {
 		inputSchema.put("properties", Collections.emptyMap());
 		inputSchema.put("required", Collections.emptyList());
 
-		McpSchema.Tool mockTool = McpSchema.Tool.builder()
-			.name("test-tool-1")
-			.description("Test Tool 1 Description")
-			.inputSchema(JSON_MAPPER, JSON_MAPPER.writeValueAsString(inputSchema))
-			.build();
+		McpSchema.Tool mockTool = McpSchema.Tool.builder().name("test-tool-1").description("Test Tool 1 Description")
+				.inputSchema(JSON_MAPPER, JSON_MAPPER.writeValueAsString(inputSchema)).build();
 
 		// Create page 1 response with nextPageToken
 		String nextPageToken = "page2Token";
@@ -147,11 +143,8 @@ class McpAsyncClientResponseHandlerTests {
 		transport.simulateIncomingMessage(toolsListResponse1);
 
 		// Create mock tools for page 2
-		McpSchema.Tool mockTool2 = McpSchema.Tool.builder()
-			.name("test-tool-2")
-			.description("Test Tool 2 Description")
-			.inputSchema(JSON_MAPPER, JSON_MAPPER.writeValueAsString(inputSchema))
-			.build();
+		McpSchema.Tool mockTool2 = McpSchema.Tool.builder().name("test-tool-2").description("Test Tool 2 Description")
+				.inputSchema(JSON_MAPPER, JSON_MAPPER.writeValueAsString(inputSchema)).build();
 		// Create page 2 response with no nextPageToken (last page)
 		McpSchema.ListToolsResult mockToolsResult2 = new McpSchema.ListToolsResult(Collections.singletonList(mockTool2),
 				null);
@@ -183,9 +176,8 @@ class McpAsyncClientResponseHandlerTests {
 	void testRootsListRequestHandling() {
 		MockMcpClientTransport transport = initializationEnabledTransport();
 
-		McpAsyncClient asyncMcpClient = McpClient.async(transport)
-			.roots(new Root("file:///test/path", "test-root"))
-			.build();
+		McpAsyncClient asyncMcpClient = McpClient.async(transport).roots(new Root("file:///test/path", "test-root"))
+				.build();
 
 		assertThat(asyncMcpClient.initialize().block()).isNotNull();
 
@@ -216,12 +208,11 @@ class McpAsyncClientResponseHandlerTests {
 
 		// Create a consumer that will be called when resources change
 		Function<List<McpSchema.Resource>, Mono<Void>> resourcesChangeConsumer = resources -> Mono
-			.fromRunnable(() -> receivedResources.addAll(resources));
+				.fromRunnable(() -> receivedResources.addAll(resources));
 
 		// Create client with resources change consumer
-		McpAsyncClient asyncMcpClient = McpClient.async(transport)
-			.resourcesChangeConsumer(resourcesChangeConsumer)
-			.build();
+		McpAsyncClient asyncMcpClient = McpClient.async(transport).resourcesChangeConsumer(resourcesChangeConsumer)
+				.build();
 
 		assertThat(asyncMcpClient.initialize().block()).isNotNull();
 
@@ -262,7 +253,7 @@ class McpAsyncClientResponseHandlerTests {
 
 		// Create a consumer that will be called when prompts change
 		Function<List<McpSchema.Prompt>, Mono<Void>> promptsChangeConsumer = prompts -> Mono
-			.fromRunnable(() -> receivedPrompts.addAll(prompts));
+				.fromRunnable(() -> receivedPrompts.addAll(prompts));
 
 		// Create client with prompts change consumer
 		McpAsyncClient asyncMcpClient = McpClient.async(transport).promptsChangeConsumer(promptsChangeConsumer).build();
@@ -272,7 +263,7 @@ class McpAsyncClientResponseHandlerTests {
 		// Create a mock prompts list that the server will return
 		McpSchema.Prompt mockPrompt = new McpSchema.Prompt("test-prompt", "Test Prompt", "Test Prompt Description",
 				Collections
-					.singletonList(new McpSchema.PromptArgument("arg1", "Test argument", "Test argument", true)));
+						.singletonList(new McpSchema.PromptArgument("arg1", "Test argument", "Test argument", true)));
 		McpSchema.ListPromptsResult mockPromptsResult = new McpSchema.ListPromptsResult(
 				Collections.singletonList(mockPrompt), null);
 
@@ -312,9 +303,7 @@ class McpAsyncClientResponseHandlerTests {
 
 		// Create client with sampling capability and handler
 		McpAsyncClient asyncMcpClient = McpClient.async(transport)
-			.capabilities(ClientCapabilities.builder().sampling().build())
-			.sampling(samplingHandler)
-			.build();
+				.capabilities(ClientCapabilities.builder().sampling().build()).sampling(samplingHandler).build();
 
 		assertThat(asyncMcpClient.initialize().block()).isNotNull();
 
@@ -359,9 +348,10 @@ class McpAsyncClientResponseHandlerTests {
 		MockMcpClientTransport transport = initializationEnabledTransport();
 
 		// Create client without sampling capability
-		McpAsyncClient asyncMcpClient = McpClient.async(transport)
-			.capabilities(ClientCapabilities.builder().build()) // No sampling capability
-			.build();
+		McpAsyncClient asyncMcpClient = McpClient.async(transport).capabilities(ClientCapabilities.builder().build()) // No
+																														// sampling
+																														// capability
+				.build();
 
 		assertThat(asyncMcpClient.initialize().block()).isNotNull();
 
@@ -396,8 +386,8 @@ class McpAsyncClientResponseHandlerTests {
 		// Create client with sampling capability but null handler
 		assertThatThrownBy(
 				() -> McpClient.async(transport).capabilities(ClientCapabilities.builder().sampling().build()).build())
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessage("Sampling handler must not be null when client capabilities include sampling");
+						.isInstanceOf(IllegalArgumentException.class)
+						.hasMessage("Sampling handler must not be null when client capabilities include sampling");
 	}
 
 	// Metodo helper per costruire la mappa annidata
@@ -430,26 +420,21 @@ class McpAsyncClientResponseHandlerTests {
 			assertThat(properties).isNotNull();
 			assertThat(((Map<String, Object>) properties).get("message")).isInstanceOf(Map.class);
 
-			return Mono.just(McpSchema.ElicitResult.builder()
-				.message(McpSchema.ElicitResult.Action.ACCEPT)
-				.content(Collections.singletonMap("message", request.getMessage()))
-				.build());
+			return Mono.just(McpSchema.ElicitResult.builder().message(McpSchema.ElicitResult.Action.ACCEPT)
+					.content(Collections.singletonMap("message", request.getMessage())).build());
 		};
 
 		// Create client with elicitation capability and handler
 		McpAsyncClient asyncMcpClient = McpClient.async(transport)
-			.capabilities(ClientCapabilities.builder().elicitation().build())
-			.elicitation(elicitationHandler)
-			.build();
+				.capabilities(ClientCapabilities.builder().elicitation().build()).elicitation(elicitationHandler)
+				.build();
 
 		assertThat(asyncMcpClient.initialize().block()).isNotNull();
 
 		// Create a mock elicitation
 
-		McpSchema.ElicitRequest elicitRequest = McpSchema.ElicitRequest.builder()
-			.message("Test message")
-			.requestedSchema(createRequestedSchema3())
-			.build();
+		McpSchema.ElicitRequest elicitRequest = McpSchema.ElicitRequest.builder().message("Test message")
+				.requestedSchema(createRequestedSchema3()).build();
 
 		// Simulate incoming request
 		McpSchema.JSONRPCRequest request = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION,
@@ -495,23 +480,20 @@ class McpAsyncClientResponseHandlerTests {
 
 		// Create a test elicitation handler to decline the request
 		Function<McpSchema.ElicitRequest, Mono<McpSchema.ElicitResult>> elicitationHandler = request -> Mono
-			.just(McpSchema.ElicitResult.builder().message(action).build());
+				.just(McpSchema.ElicitResult.builder().message(action).build());
 
 		// Create client with elicitation capability and handler
 		McpAsyncClient asyncMcpClient = McpClient.async(transport)
-			.capabilities(ClientCapabilities.builder().elicitation().build())
-			.elicitation(elicitationHandler)
-			.build();
+				.capabilities(ClientCapabilities.builder().elicitation().build()).elicitation(elicitationHandler)
+				.build();
 
 		assertThat(asyncMcpClient.initialize().block()).isNotNull();
 
 		// Create a mock elicitation
 
 		// Create a mock elicitation
-		McpSchema.ElicitRequest elicitRequest = McpSchema.ElicitRequest.builder()
-			.message("Test message")
-			.requestedSchema(createRequestedSchema())
-			.build();
+		McpSchema.ElicitRequest elicitRequest = McpSchema.ElicitRequest.builder().message("Test message")
+				.requestedSchema(createRequestedSchema()).build();
 
 		// Simulate incoming request
 		McpSchema.JSONRPCRequest request = new McpSchema.JSONRPCRequest(McpSchema.JSONRPC_VERSION,
@@ -560,10 +542,10 @@ class McpAsyncClientResponseHandlerTests {
 		MockMcpClientTransport transport = initializationEnabledTransport();
 
 		// Create client without elicitation capability
-		McpAsyncClient asyncMcpClient = McpClient.async(transport)
-			.capabilities(ClientCapabilities.builder().build()) // No elicitation
-																// capability
-			.build();
+		McpAsyncClient asyncMcpClient = McpClient.async(transport).capabilities(ClientCapabilities.builder().build()) // No
+																														// elicitation
+																														// capability
+				.build();
 
 		assertThat(asyncMcpClient.initialize().block()).isNotNull();
 
@@ -594,9 +576,9 @@ class McpAsyncClientResponseHandlerTests {
 
 		// Create client with elicitation capability but null handler
 		assertThatThrownBy(() -> McpClient.async(transport)
-			.capabilities(ClientCapabilities.builder().elicitation().build())
-			.build()).isInstanceOf(IllegalArgumentException.class)
-			.hasMessage("Elicitation handler must not be null when client capabilities include elicitation");
+				.capabilities(ClientCapabilities.builder().elicitation().build()).build())
+						.isInstanceOf(IllegalArgumentException.class).hasMessage(
+								"Elicitation handler must not be null when client capabilities include elicitation");
 	}
 
 	@Test

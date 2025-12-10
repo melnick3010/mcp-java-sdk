@@ -291,20 +291,21 @@ class LifecycleInitializer {
 					? this.doInitialize(newInit, this.postInitializationHook, ctx) : previous.await();
 
 			return initializationJob
-				// Dopo l'init, usa l'Initialization installata (potrebbe essere newInit o
-				// quella preesistente)
-				.map(initializeResult -> this.initializationRef.get())
-				.timeout(this.initializationTimeout)
-				.onErrorResume(ex -> {
-					// Se l'errore è avvenuto durante la nostra inizializzazione, smonta
-					// il
-					// riferimento
-					this.initializationRef.compareAndSet(newInit, null);
-					return Mono.error(new RuntimeException("Client failed to initialize " + actionName, ex));
-				})
-				.flatMap(res -> operation.apply(res)
-					.contextWrite(c -> c.put(McpAsyncClient.NEGOTIATED_PROTOCOL_VERSION,
-							res.initializeResult().protocolVersion())));
+					// Dopo l'init, usa l'Initialization installata (potrebbe essere
+					// newInit o
+					// quella preesistente)
+					.map(initializeResult -> this.initializationRef.get()).timeout(this.initializationTimeout)
+					.onErrorResume(ex -> {
+						// Se l'errore è avvenuto durante la nostra inizializzazione,
+						// smonta
+						// il
+						// riferimento
+						this.initializationRef.compareAndSet(newInit, null);
+						return Mono.error(new RuntimeException("Client failed to initialize " + actionName, ex));
+					})
+					.flatMap(res -> operation.apply(res)
+							.contextWrite(c -> c.put(McpAsyncClient.NEGOTIATED_PROTOCOL_VERSION,
+									res.initializeResult().protocolVersion())));
 		});
 	}
 
@@ -329,16 +330,15 @@ class LifecycleInitializer {
 					initializeResult.instructions());
 
 			if (!this.protocolVersions.contains(initializeResult.protocolVersion())) {
-				return Mono.error(McpError.builder(-32602)
-					.message("Unsupported protocol version")
-					.data("Unsupported protocol version from the server: " + initializeResult.protocolVersion())
-					.build());
+				return Mono.error(McpError.builder(-32602).message("Unsupported protocol version")
+						.data("Unsupported protocol version from the server: " + initializeResult.protocolVersion())
+						.build());
 			}
 
 			return mcpClientSession.sendNotification(McpSchema.METHOD_NOTIFICATION_INITIALIZED, null)
-				.contextWrite(
-						c -> c.put(McpAsyncClient.NEGOTIATED_PROTOCOL_VERSION, initializeResult.protocolVersion()))
-				.thenReturn(initializeResult);
+					.contextWrite(
+							c -> c.put(McpAsyncClient.NEGOTIATED_PROTOCOL_VERSION, initializeResult.protocolVersion()))
+					.thenReturn(initializeResult);
 		}).flatMap(initializeResult -> {
 			initialization.cacheResult(initializeResult);
 			return postInitOperation.apply(initialization).thenReturn(initializeResult);

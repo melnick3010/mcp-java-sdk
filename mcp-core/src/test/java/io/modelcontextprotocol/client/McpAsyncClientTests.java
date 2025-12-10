@@ -33,8 +33,7 @@ class McpAsyncClientTests {
 			"1.0.0");
 
 	public static final McpSchema.ServerCapabilities MOCK_SERVER_CAPABILITIES = McpSchema.ServerCapabilities.builder()
-		.tools(true)
-		.build();
+			.tools(true).build();
 
 	public static final McpSchema.InitializeResult MOCK_INIT_RESULT = new McpSchema.InitializeResult(
 			ProtocolVersions.MCP_2024_11_05, MOCK_SERVER_CAPABILITIES, MOCK_SERVER_INFO, "Test instructions");
@@ -61,10 +60,8 @@ class McpAsyncClientTests {
 		inputSchemaMap.put("required", requiredList);
 
 		McpSchema.JsonSchema inputSchema = new McpSchema.JsonSchema("object", inputSchemaMap, null, null, null, null);
-		McpSchema.Tool.Builder toolBuilder = McpSchema.Tool.builder()
-			.name("calculator")
-			.description("Performs mathematical calculations")
-			.inputSchema(inputSchema);
+		McpSchema.Tool.Builder toolBuilder = McpSchema.Tool.builder().name("calculator")
+				.description("Performs mathematical calculations").inputSchema(inputSchema);
 
 		if (hasOutputSchema) {
 			Map<String, Object> outputSchema = new HashMap<>();
@@ -109,9 +106,7 @@ class McpAsyncClientTests {
 		}
 
 		McpSchema.CallToolResult mockCallToolResult = McpSchema.CallToolResult.builder()
-			.addTextContent("Calculation result")
-			.structuredContent(structuredContent)
-			.build();
+				.addTextContent("Calculation result").structuredContent(structuredContent).build();
 
 		return new McpClientTransport() {
 			Function<Mono<McpSchema.JSONRPCMessage>, Mono<McpSchema.JSONRPCMessage>> handler;
@@ -233,17 +228,16 @@ class McpAsyncClientTests {
 		StepVerifier.create(client.initialize()).expectNextMatches(Objects::nonNull).verifyComplete();
 
 		StepVerifier
-			.create(client
-				.callTool(new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3"))))
-			.expectNextMatches(response -> {
-				assertThat(response).isNotNull();
-				assertThat(response.getIsError()).isFalse();
-				assertThat(response.getStructuredContent()).isInstanceOf(Map.class);
-				assertThat((Map<?, ?>) response.getStructuredContent()).hasSize(2);
-				assertThat(response.getContent()).hasSize(1);
-				return true;
-			})
-			.verifyComplete();
+				.create(client.callTool(
+						new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3"))))
+				.expectNextMatches(response -> {
+					assertThat(response).isNotNull();
+					assertThat(response.getIsError()).isFalse();
+					assertThat(response.getStructuredContent()).isInstanceOf(Map.class);
+					assertThat((Map<?, ?>) response.getStructuredContent()).hasSize(2);
+					assertThat(response.getContent()).hasSize(1);
+					return true;
+				}).verifyComplete();
 
 		StepVerifier.create(client.closeGracefully()).verifyComplete();
 	}
@@ -257,17 +251,16 @@ class McpAsyncClientTests {
 		StepVerifier.create(client.initialize()).expectNextMatches(Objects::nonNull).verifyComplete();
 
 		StepVerifier
-			.create(client
-				.callTool(new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3"))))
-			.expectNextMatches(response -> {
-				assertThat(response).isNotNull();
-				assertThat(response.getIsError()).isFalse();
-				assertThat(response.getStructuredContent()).isInstanceOf(Map.class);
-				assertThat((Map<?, ?>) response.getStructuredContent()).hasSize(2);
-				assertThat(response.getContent()).hasSize(1);
-				return true;
-			})
-			.verifyComplete();
+				.create(client.callTool(
+						new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3"))))
+				.expectNextMatches(response -> {
+					assertThat(response).isNotNull();
+					assertThat(response.getIsError()).isFalse();
+					assertThat(response.getStructuredContent()).isInstanceOf(Map.class);
+					assertThat((Map<?, ?>) response.getStructuredContent()).hasSize(2);
+					assertThat(response.getContent()).hasSize(1);
+					return true;
+				}).verifyComplete();
 
 		StepVerifier.create(client.closeGracefully()).verifyComplete();
 	}
@@ -281,11 +274,11 @@ class McpAsyncClientTests {
 		StepVerifier.create(client.initialize()).expectNextMatches(Objects::nonNull).verifyComplete();
 
 		StepVerifier
-			.create(client
-				.callTool(new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3"))))
-			.expectErrorMatches(ex -> ex instanceof IllegalArgumentException
-					&& ex.getMessage().contains("Tool call result validation failed"))
-			.verify();
+				.create(client.callTool(
+						new McpSchema.CallToolRequest("calculator", Collections.singletonMap("expression", "2 + 3"))))
+				.expectErrorMatches(ex -> ex instanceof IllegalArgumentException
+						&& ex.getMessage().contains("Tool call result validation failed"))
+				.verify();
 
 		StepVerifier.create(client.closeGracefully()).verifyComplete();
 	}
@@ -293,10 +286,8 @@ class McpAsyncClientTests {
 	@Test
 	void testListToolsWithEmptyCursor() {
 		McpSchema.Tool addTool = McpSchema.Tool.builder().name("add").description("calculate add").build();
-		McpSchema.Tool subtractTool = McpSchema.Tool.builder()
-			.name("subtract")
-			.description("calculate subtract")
-			.build();
+		McpSchema.Tool subtractTool = McpSchema.Tool.builder().name("subtract").description("calculate subtract")
+				.build();
 		McpSchema.ListToolsResult mockToolsResult = new McpSchema.ListToolsResult(Arrays.asList(addTool, subtractTool),
 				"");
 

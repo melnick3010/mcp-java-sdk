@@ -35,7 +35,7 @@ public class TestTomcat {
 	private Tomcat tomcat;
 
 	static McpTransportContextExtractor<HttpServletRequest> TEST_CONTEXT_EXTRACTOR = (r) -> McpTransportContext
-		.create(Collections.singletonMap("important", "value"));
+			.create(Collections.singletonMap("important", "value"));
 
 	public static void main(String[] args) {
 		new TestTomcat().run();
@@ -48,10 +48,8 @@ public class TestTomcat {
 		try {
 			// --- Server: transport provider con endpoints custom ---
 			mcpServerTransportProvider = HttpServletSseServerTransportProvider.builder()
-				.contextExtractor(TEST_CONTEXT_EXTRACTOR)
-				.messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
-				.sseEndpoint(CUSTOM_SSE_ENDPOINT)
-				.build();
+					.contextExtractor(TEST_CONTEXT_EXTRACTOR).messageEndpoint(CUSTOM_MESSAGE_ENDPOINT)
+					.sseEndpoint(CUSTOM_SSE_ENDPOINT).build();
 
 			// Avvia Tomcat embedded e verifica stato
 			tomcat = TomcatTestUtil.createTomcatServer("", PORT, mcpServerTransportProvider);
@@ -59,15 +57,12 @@ public class TestTomcat {
 			assertThat(tomcat.getServer().getState()).isEqualTo(LifecycleState.STARTED);
 
 			// Costruisci MCP server (async)
-			server = McpServer.async(mcpServerTransportProvider)
-				.serverInfo("test-server", "1.0.0")
-				.requestTimeout(Duration.ofSeconds(1000))
-				.build();
+			server = McpServer.async(mcpServerTransportProvider).serverInfo("test-server", "1.0.0")
+					.requestTimeout(Duration.ofSeconds(1000)).build();
 
 			// --- Client: crea transport SSE e CONNETTI ---
 			HttpClientSseClientTransport transport = HttpClientSseClientTransport.builder("http://localhost:" + PORT)
-				.sseEndpoint(CUSTOM_SSE_ENDPOINT)
-				.build();
+					.sseEndpoint(CUSTOM_SSE_ENDPOINT).build();
 
 			// connect() ritorna subito; la lettura SSE prosegue in background.
 			transport.connect(msgMono -> Mono.empty()).block();
@@ -80,10 +75,8 @@ public class TestTomcat {
 			}
 
 			// Ora il client può inizializzare senza race
-			client = McpClient.sync(transport)
-				.clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
-				.requestTimeout(Duration.ofSeconds(1000))
-				.build();
+			client = McpClient.sync(transport).clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
+					.requestTimeout(Duration.ofSeconds(1000)).build();
 
 			McpSchema.InitializeResult init = client.initialize();
 			assertThat(init).isNotNull();

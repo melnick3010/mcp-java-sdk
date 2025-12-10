@@ -35,7 +35,7 @@ public class McpUriTemplateManagerTests {
 	@Test
 	void shouldExtractVariableNamesFromTemplate() {
 		List<String> variables = this.uriTemplateFactory.create("/api/users/{userId}/posts/{postId}")
-			.getVariableNames();
+				.getVariableNames();
 		assertEquals(2, variables.size());
 		assertEquals("userId", variables.get(0));
 		assertEquals("postId", variables.get(1));
@@ -66,7 +66,7 @@ public class McpUriTemplateManagerTests {
 	@Test
 	void shouldExtractVariableValuesFromRequestUri() {
 		Map<String, String> values = this.uriTemplateFactory.create("/api/users/{userId}/posts/{postId}")
-			.extractVariableValues("/api/users/123/posts/456");
+				.extractVariableValues("/api/users/123/posts/456");
 		assertEquals(2, values.size());
 		assertEquals("123", values.get("userId"));
 		assertEquals("456", values.get("postId"));
@@ -75,14 +75,14 @@ public class McpUriTemplateManagerTests {
 	@Test
 	void shouldReturnEmptyMapWhenTemplateHasNoVariables() {
 		Map<String, String> values = this.uriTemplateFactory.create("/api/users/all")
-			.extractVariableValues("/api/users/all");
+				.extractVariableValues("/api/users/all");
 		assertEquals(0, values.size());
 	}
 
 	@Test
 	void shouldReturnEmptyMapWhenRequestUriIsNull() {
 		Map<String, String> values = this.uriTemplateFactory.create("/api/users/{userId}/posts/{postId}")
-			.extractVariableValues(null);
+				.extractVariableValues(null);
 		assertEquals(0, values.size());
 	}
 

@@ -193,9 +193,8 @@ public class McpStatelessAsyncServer {
 		if (Utils.isEmpty(tools)) {
 			return tools;
 		}
-		return tools.stream()
-			.map(tool -> withStructuredOutputHandling(jsonSchemaValidator, tool))
-			.collect(Collectors.toList());
+		return tools.stream().map(tool -> withStructuredOutputHandling(jsonSchemaValidator, tool))
+				.collect(Collectors.toList());
 	}
 
 	private static McpStatelessServerFeatures.AsyncToolSpecification withStructuredOutputHandling(
@@ -257,21 +256,17 @@ public class McpStatelessAsyncServer {
 					String content = "Response missing structured content which is expected when calling tool with non-empty outputSchema";
 					logger.warn(content);
 					return CallToolResult.builder()
-						.content(Collections.singletonList(new McpSchema.TextContent(content)))
-						.isError(true)
-						.build();
+							.content(Collections.singletonList(new McpSchema.TextContent(content))).isError(true)
+							.build();
 				}
 				// Validate the result against the output schema
 				if (!jsonSchemaValidator.validate(outputSchema, result.getStructuredContent()).isValid()) {
-					logger.warn("Tool call result validation failed: {}",
-							jsonSchemaValidator.validate(outputSchema, result.getStructuredContent())
-								.getErrorMessage());
+					logger.warn("Tool call result validation failed: {}", jsonSchemaValidator
+							.validate(outputSchema, result.getStructuredContent()).getErrorMessage());
 					return CallToolResult.builder()
-						.content(Collections.singletonList(new McpSchema.TextContent(
-								jsonSchemaValidator.validate(outputSchema, result.getStructuredContent())
-									.getErrorMessage())))
-						.isError(true)
-						.build();
+							.content(Collections.singletonList(new McpSchema.TextContent(jsonSchemaValidator
+									.validate(outputSchema, result.getStructuredContent()).getErrorMessage())))
+							.isError(true).build();
 				}
 				if (Utils.isEmpty(result.getContent())) {
 					// For backwards compatibility, a tool that returns structured
@@ -280,12 +275,9 @@ public class McpStatelessAsyncServer {
 					// TextContent block.)
 					// https://modelcontextprotocol.io/specification/2025-06-18/server/tools#structured-content
 					return CallToolResult.builder()
-						.content(Collections.singletonList(new McpSchema.TextContent(
-								jsonSchemaValidator.validate(outputSchema, result.getStructuredContent())
-									.getJsonStructuredOutput())))
-						.isError(result.getIsError())
-						.structuredContent(result.getStructuredContent())
-						.build();
+							.content(Collections.singletonList(new McpSchema.TextContent(jsonSchemaValidator
+									.validate(outputSchema, result.getStructuredContent()).getJsonStructuredOutput())))
+							.isError(result.getIsError()).structuredContent(result.getStructuredContent()).build();
 				}
 				return result;
 			});
@@ -357,9 +349,8 @@ public class McpStatelessAsyncServer {
 
 	private McpStatelessRequestHandler<McpSchema.ListToolsResult> toolsListRequestHandler() {
 		return (ctx, params) -> {
-			List<Tool> tools = this.tools.stream()
-				.map(McpStatelessServerFeatures.AsyncToolSpecification::tool)
-				.collect(Collectors.toList());
+			List<Tool> tools = this.tools.stream().map(McpStatelessServerFeatures.AsyncToolSpecification::tool)
+					.collect(Collectors.toList());
 			return Mono.just(new McpSchema.ListToolsResult(tools, null));
 		};
 	}
@@ -370,13 +361,11 @@ public class McpStatelessAsyncServer {
 					new TypeRef<McpSchema.CallToolRequest>() {
 					});
 			Optional<McpStatelessServerFeatures.AsyncToolSpecification> toolSpecification = this.tools.stream()
-				.filter(tr -> callToolRequest.getName().equals(tr.tool().getName()))
-				.findAny();
+					.filter(tr -> callToolRequest.getName().equals(tr.tool().getName())).findAny();
 			if (!toolSpecification.isPresent()) {
-				return Mono.error(McpError.builder(McpSchema.ErrorCodes.INVALID_PARAMS)
-					.message("Unknown tool: invalid_tool_name")
-					.data("Tool not found: " + callToolRequest.getName())
-					.build());
+				return Mono.error(
+						McpError.builder(McpSchema.ErrorCodes.INVALID_PARAMS).message("Unknown tool: invalid_tool_name")
+								.data("Tool not found: " + callToolRequest.getName()).build());
 			}
 			return toolSpecification.get().callHandler().apply(ctx, callToolRequest);
 		};
@@ -399,7 +388,7 @@ public class McpStatelessAsyncServer {
 		}
 		return Mono.defer(() -> {
 			McpStatelessServerFeatures.AsyncResourceSpecification previous = this.resources
-				.put(resourceSpecification.resource().uri(), resourceSpecification);
+					.put(resourceSpecification.resource().uri(), resourceSpecification);
 			if (previous != null) {
 				logger.warn("Replace existing Resource with URI '{}'", resourceSpecification.resource().uri());
 			}
@@ -416,7 +405,7 @@ public class McpStatelessAsyncServer {
 	 */
 	public Flux<McpSchema.Resource> listResources() {
 		return Flux.fromIterable(this.resources.values())
-			.map(McpStatelessServerFeatures.AsyncResourceSpecification::resource);
+				.map(McpStatelessServerFeatures.AsyncResourceSpecification::resource);
 	}
 
 	/**
@@ -456,7 +445,7 @@ public class McpStatelessAsyncServer {
 		}
 		return Mono.defer(() -> {
 			McpStatelessServerFeatures.AsyncResourceTemplateSpecification previous = this.resourceTemplates
-				.put(resourceTemplateSpecification.resourceTemplate().uriTemplate(), resourceTemplateSpecification);
+					.put(resourceTemplateSpecification.resourceTemplate().uriTemplate(), resourceTemplateSpecification);
 			if (previous != null) {
 				logger.warn("Replace existing Resource Template with URI '{}'",
 						resourceTemplateSpecification.resourceTemplate().uriTemplate());
@@ -475,7 +464,7 @@ public class McpStatelessAsyncServer {
 	 */
 	public Flux<McpSchema.ResourceTemplate> listResourceTemplates() {
 		return Flux.fromIterable(this.resourceTemplates.values())
-			.map(McpStatelessServerFeatures.AsyncResourceTemplateSpecification::resourceTemplate);
+				.map(McpStatelessServerFeatures.AsyncResourceTemplateSpecification::resourceTemplate);
 	}
 
 	/**
@@ -490,7 +479,7 @@ public class McpStatelessAsyncServer {
 		}
 		return Mono.defer(() -> {
 			McpStatelessServerFeatures.AsyncResourceTemplateSpecification removed = this.resourceTemplates
-				.remove(uriTemplate);
+					.remove(uriTemplate);
 			if (removed != null) {
 				logger.debug("Removed resource template: {}", uriTemplate);
 			}
@@ -503,20 +492,16 @@ public class McpStatelessAsyncServer {
 
 	private McpStatelessRequestHandler<McpSchema.ListResourcesResult> resourcesListRequestHandler() {
 		return (ctx, params) -> {
-			List<McpSchema.Resource> resourceList = this.resources.values()
-				.stream()
-				.map(McpStatelessServerFeatures.AsyncResourceSpecification::resource)
-				.collect(Collectors.toList());
+			List<McpSchema.Resource> resourceList = this.resources.values().stream()
+					.map(McpStatelessServerFeatures.AsyncResourceSpecification::resource).collect(Collectors.toList());
 			return Mono.just(new McpSchema.ListResourcesResult(resourceList, null));
 		};
 	}
 
 	private McpStatelessRequestHandler<McpSchema.ListResourceTemplatesResult> resourceTemplateListRequestHandler() {
 		return (exchange, params) -> {
-			List<McpSchema.ResourceTemplate> resourceList = this.resourceTemplates.values()
-				.stream()
-				.map(AsyncResourceTemplateSpecification::resourceTemplate)
-				.collect(Collectors.toList());
+			List<McpSchema.ResourceTemplate> resourceList = this.resourceTemplates.values().stream()
+					.map(AsyncResourceTemplateSpecification::resourceTemplate).collect(Collectors.toList());
 			return Mono.just(new McpSchema.ListResourceTemplatesResult(resourceList, null));
 		};
 	}
@@ -530,7 +515,7 @@ public class McpStatelessAsyncServer {
 			// First try to find a static resource specification
 			// Static resources have exact URIs
 			Optional<McpStatelessServerFeatures.AsyncResourceSpecification> specOpt = this
-				.findResourceSpecification(resourceUri);
+					.findResourceSpecification(resourceUri);
 			if (specOpt.isPresent()) {
 				return specOpt.get().readHandler().apply(ctx, resourceRequest);
 			}
@@ -538,7 +523,7 @@ public class McpStatelessAsyncServer {
 				// If not found, try to find a dynamic resource specification
 				// Dynamic resources have URI templates
 				Optional<McpStatelessServerFeatures.AsyncResourceTemplateSpecification> templateOpt = this
-					.findResourceTemplateSpecification(resourceUri);
+						.findResourceTemplateSpecification(resourceUri);
 				if (templateOpt.isPresent()) {
 					return templateOpt.get().readHandler().apply(ctx, resourceRequest);
 				}
@@ -550,19 +535,16 @@ public class McpStatelessAsyncServer {
 	}
 
 	private Optional<McpStatelessServerFeatures.AsyncResourceSpecification> findResourceSpecification(String uri) {
-		Optional<McpStatelessServerFeatures.AsyncResourceSpecification> result = this.resources.values()
-			.stream()
-			.filter(spec -> this.uriTemplateManagerFactory.create(spec.resource().uri()).matches(uri))
-			.findFirst();
+		Optional<McpStatelessServerFeatures.AsyncResourceSpecification> result = this.resources.values().stream()
+				.filter(spec -> this.uriTemplateManagerFactory.create(spec.resource().uri()).matches(uri)).findFirst();
 		return result;
 	}
 
 	private Optional<McpStatelessServerFeatures.AsyncResourceTemplateSpecification> findResourceTemplateSpecification(
 			String uri) {
-		return this.resourceTemplates.values()
-			.stream()
-			.filter(spec -> this.uriTemplateManagerFactory.create(spec.resourceTemplate().uriTemplate()).matches(uri))
-			.findFirst();
+		return this.resourceTemplates.values().stream().filter(
+				spec -> this.uriTemplateManagerFactory.create(spec.resourceTemplate().uriTemplate()).matches(uri))
+				.findFirst();
 	}
 
 	// ---------------------------------------------------------
@@ -582,7 +564,7 @@ public class McpStatelessAsyncServer {
 		}
 		return Mono.defer(() -> {
 			McpStatelessServerFeatures.AsyncPromptSpecification previous = this.prompts
-				.put(promptSpecification.prompt().name(), promptSpecification);
+					.put(promptSpecification.prompt().name(), promptSpecification);
 			if (previous != null) {
 				logger.warn("Replace existing Prompt with name '{}'", promptSpecification.prompt().name());
 			}
@@ -599,7 +581,7 @@ public class McpStatelessAsyncServer {
 	 */
 	public Flux<McpSchema.Prompt> listPrompts() {
 		return Flux.fromIterable(this.prompts.values())
-			.map(McpStatelessServerFeatures.AsyncPromptSpecification::prompt);
+				.map(McpStatelessServerFeatures.AsyncPromptSpecification::prompt);
 	}
 
 	/**
@@ -633,10 +615,8 @@ public class McpStatelessAsyncServer {
 			// McpSchema.PaginatedRequest request = objectMapper.convertValue(params,
 			// new TypeReference<McpSchema.PaginatedRequest>() {
 			// });
-			List<McpSchema.Prompt> promptList = this.prompts.values()
-				.stream()
-				.map(McpStatelessServerFeatures.AsyncPromptSpecification::prompt)
-				.collect(Collectors.toList());
+			List<McpSchema.Prompt> promptList = this.prompts.values().stream()
+					.map(McpStatelessServerFeatures.AsyncPromptSpecification::prompt).collect(Collectors.toList());
 			return Mono.just(new McpSchema.ListPromptsResult(promptList, null));
 		};
 	}
@@ -648,19 +628,17 @@ public class McpStatelessAsyncServer {
 					});
 			// Implement prompt retrieval logic here
 			McpStatelessServerFeatures.AsyncPromptSpecification specification = this.prompts
-				.get(promptRequest.getName());
+					.get(promptRequest.getName());
 			if (specification == null) {
-				return Mono.error(McpError.builder(ErrorCodes.INVALID_PARAMS)
-					.message("Invalid prompt name")
-					.data("Prompt not found: " + promptRequest.getName())
-					.build());
+				return Mono.error(McpError.builder(ErrorCodes.INVALID_PARAMS).message("Invalid prompt name")
+						.data("Prompt not found: " + promptRequest.getName()).build());
 			}
 			return specification.promptHandler().apply(ctx, promptRequest);
 		};
 	}
 
 	private static final Mono<McpSchema.CompleteResult> EMPTY_COMPLETION_RESULT = Mono
-		.just(new McpSchema.CompleteResult(new CompleteCompletion(Collections.<String>emptyList(), 0, false)));
+			.just(new McpSchema.CompleteResult(new CompleteCompletion(Collections.<String>emptyList(), 0, false)));
 
 	private McpStatelessRequestHandler<McpSchema.CompleteResult> completionCompleteRequestHandler() {
 		return (ctx, params) -> {
@@ -671,8 +649,7 @@ public class McpStatelessAsyncServer {
 			}
 			if (request.getRef().type() == null) {
 				return Mono.error(McpError.builder(ErrorCodes.INVALID_PARAMS)
-					.message("Completion ref type must not be null")
-					.build());
+						.message("Completion ref type must not be null").build());
 			}
 			String type = request.getRef().type();
 			String argumentName = request.getArgument().getName();
@@ -680,18 +657,13 @@ public class McpStatelessAsyncServer {
 			if (type.equals(PromptReference.TYPE) && request.getRef() instanceof McpSchema.PromptReference) {
 				McpSchema.PromptReference promptReference = (McpSchema.PromptReference) request.getRef();
 				McpStatelessServerFeatures.AsyncPromptSpecification promptSpec = this.prompts
-					.get(promptReference.name());
+						.get(promptReference.name());
 				if (promptSpec == null) {
 					return Mono.error(McpError.builder(ErrorCodes.INVALID_PARAMS)
-						.message("Prompt not found: " + promptReference.name())
-						.build());
+							.message("Prompt not found: " + promptReference.name()).build());
 				}
-				boolean argPresent = promptSpec.prompt()
-					.arguments()
-					.stream()
-					.filter(arg -> arg.name().equals(argumentName))
-					.findFirst()
-					.isPresent();
+				boolean argPresent = promptSpec.prompt().arguments().stream()
+						.filter(arg -> arg.name().equals(argumentName)).findFirst().isPresent();
 				if (!argPresent) {
 					logger.warn("Argument not found: {} in prompt: {}", argumentName, promptReference.name());
 					return EMPTY_COMPLETION_RESULT;
@@ -708,30 +680,25 @@ public class McpStatelessAsyncServer {
 					return EMPTY_COMPLETION_RESULT;
 				}
 				McpStatelessServerFeatures.AsyncResourceSpecification resourceSpec = this
-					.findResourceSpecification(resourceReference.getUri())
-					.orElse(null);
+						.findResourceSpecification(resourceReference.getUri()).orElse(null);
 				if (resourceSpec != null) {
-					if (!uriTemplateManagerFactory.create(resourceSpec.resource().uri())
-						.getVariableNames()
-						.contains(argumentName)) {
-						return Mono.error(McpError.builder(ErrorCodes.INVALID_PARAMS)
-							.message("Argument not found: " + argumentName + " in resource: "
-									+ resourceReference.getUri())
-							.build());
+					if (!uriTemplateManagerFactory.create(resourceSpec.resource().uri()).getVariableNames()
+							.contains(argumentName)) {
+						return Mono
+								.error(McpError
+										.builder(ErrorCodes.INVALID_PARAMS).message("Argument not found: "
+												+ argumentName + " in resource: " + resourceReference.getUri())
+										.build());
 					}
 				}
 				else {
 					McpStatelessServerFeatures.AsyncResourceTemplateSpecification templateSpec = this
-						.findResourceTemplateSpecification(resourceReference.getUri())
-						.orElse(null);
+							.findResourceTemplateSpecification(resourceReference.getUri()).orElse(null);
 					if (templateSpec != null) {
 						if (!uriTemplateManagerFactory.create(templateSpec.resourceTemplate().uriTemplate())
-							.getVariableNames()
-							.contains(argumentName)) {
-							return Mono.error(McpError.builder(ErrorCodes.INVALID_PARAMS)
-								.message("Argument not found: " + argumentName + " in resource template: "
-										+ resourceReference.getUri())
-								.build());
+								.getVariableNames().contains(argumentName)) {
+							return Mono.error(McpError.builder(ErrorCodes.INVALID_PARAMS).message("Argument not found: "
+									+ argumentName + " in resource template: " + resourceReference.getUri()).build());
 						}
 					}
 					else {
@@ -740,11 +707,10 @@ public class McpStatelessAsyncServer {
 				}
 			}
 			McpStatelessServerFeatures.AsyncCompletionSpecification specification = this.completions
-				.get(request.getRef());
+					.get(request.getRef());
 			if (specification == null) {
 				return Mono.error(McpError.builder(ErrorCodes.INVALID_PARAMS)
-					.message("AsyncCompletionSpecification not found: " + request.getRef())
-					.build());
+						.message("AsyncCompletionSpecification not found: " + request.getRef()).build());
 			}
 			return specification.completionHandler().apply(ctx, request);
 		};
@@ -771,15 +737,15 @@ public class McpStatelessAsyncServer {
 		String refType = (String) refMap.get("type");
 		McpSchema.CompleteReference ref;
 		switch (refType) {
-			case PromptReference.TYPE:
-				ref = new McpSchema.PromptReference(refType, (String) refMap.get("name"),
-						refMap.get("title") != null ? (String) refMap.get("title") : null);
-				break;
-			case ResourceReference.TYPE:
-				ref = new McpSchema.ResourceReference(refType, (String) refMap.get("uri"));
-				break;
-			default:
-				throw new IllegalArgumentException("Invalid ref type: " + refType);
+		case PromptReference.TYPE:
+			ref = new McpSchema.PromptReference(refType, (String) refMap.get("name"),
+					refMap.get("title") != null ? (String) refMap.get("title") : null);
+			break;
+		case ResourceReference.TYPE:
+			ref = new McpSchema.ResourceReference(refType, (String) refMap.get("uri"));
+			break;
+		default:
+			throw new IllegalArgumentException("Invalid ref type: " + refType);
 		}
 		String argName = (String) argMap.get("name");
 		String argValue = (String) argMap.get("value");

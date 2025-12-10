@@ -65,15 +65,14 @@ class HttpClientSseClientTransportTests {
 
 	@SuppressWarnings("resource")
 	static GenericContainer<?> container = new GenericContainer<>("docker.io/tzolov/mcp-everything-server:v3")
-		.withCommand("node dist/index.js sse")
-		.withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String()))
-		.withExposedPorts(3001)
-		.waitingFor(Wait.forHttp("/").forStatusCode(404));
+			.withCommand("node dist/index.js sse")
+			.withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String())).withExposedPorts(3001)
+			.waitingFor(Wait.forHttp("/").forStatusCode(404));
 
 	private TestHttpClientSseClientTransport transport;
 
 	private final McpTransportContext context = McpTransportContext
-		.create(Collections.singletonMap("some-key", "some-value"));
+			.create(Collections.singletonMap("some-key", "some-value"));
 
 	// Test class to access protected methods
 
@@ -84,9 +83,7 @@ class HttpClientSseClientTransportTests {
 				0);
 
 		private final reactor.core.publisher.Sinks.Many<org.springframework.http.codec.ServerSentEvent<String>> events = reactor.core.publisher.Sinks
-			.many()
-			.unicast()
-			.onBackpressureBuffer();
+				.many().unicast().onBackpressureBuffer();
 
 		public TestHttpClientSseClientTransport(final String baseUri) {
 			super(org.apache.http.impl.client.HttpClients.createDefault(), baseUri, "/sse", // oppure
@@ -107,18 +104,14 @@ class HttpClientSseClientTransportTests {
 		}
 
 		public void simulateEndpointEvent(String jsonMessage) {
-			events.tryEmitNext(org.springframework.http.codec.ServerSentEvent.<String>builder()
-				.event("endpoint")
-				.data(jsonMessage)
-				.build());
+			events.tryEmitNext(org.springframework.http.codec.ServerSentEvent.<String>builder().event("endpoint")
+					.data(jsonMessage).build());
 			inboundMessageCount.incrementAndGet();
 		}
 
 		public void simulateMessageEvent(String jsonMessage) {
-			events.tryEmitNext(org.springframework.http.codec.ServerSentEvent.<String>builder()
-				.event("message")
-				.data(jsonMessage)
-				.build());
+			events.tryEmitNext(org.springframework.http.codec.ServerSentEvent.<String>builder().event("message")
+					.data(jsonMessage).build());
 			inboundMessageCount.incrementAndGet();
 		}
 
@@ -156,9 +149,8 @@ class HttpClientSseClientTransportTests {
 		JSONRPCRequest bogusMessage = new JSONRPCRequest(null, null, "test-id",
 				Collections.singletonMap("key", "value"));
 
-		StepVerifier.create(transport.sendMessage(bogusMessage))
-			.verifyErrorMessage(
-					"Sending message failed with a non-OK HTTP code: 400 - Invalid message: {\"id\":\"test-id\",\"params\":{\"key\":\"value\"}}");
+		StepVerifier.create(transport.sendMessage(bogusMessage)).verifyErrorMessage(
+				"Sending message failed with a non-OK HTTP code: 400 - Invalid message: {\"id\":\"test-id\",\"params\":{\"key\":\"value\"}}");
 	}
 
 	@Test
@@ -243,7 +235,7 @@ class HttpClientSseClientTransportTests {
 	void testRetryBehavior() {
 		// Create a client that simulates connection failures
 		HttpClientSseClientTransport failingTransport = HttpClientSseClientTransport.builder("http://non-existent-host")
-			.build();
+				.build();
 
 		// Verify that the transport attempts to reconnect
 		StepVerifier.create(Mono.delay(Duration.ofSeconds(2))).expectNextCount(1).verifyComplete();
@@ -298,12 +290,11 @@ class HttpClientSseClientTransportTests {
 		AtomicBoolean customizerCalled = new AtomicBoolean(false);
 
 		HttpClientSseClientTransport transport = HttpClientSseClientTransport.builder(host)
-			.asyncHttpRequestCustomizer((builder, method, uri, body, ctx) -> {
-				builder.addHeader("X-Test-Customized", "true");
-				customizerCalled.set(true);
-				return reactor.core.publisher.Mono.just(builder);
-			})
-			.build();
+				.asyncHttpRequestCustomizer((builder, method, uri, body, ctx) -> {
+					builder.addHeader("X-Test-Customized", "true");
+					customizerCalled.set(true);
+					return reactor.core.publisher.Mono.just(builder);
+				}).build();
 
 		// Triggera almeno una richiesta per far scattare il customizer:
 		// 1) via connect() (GET) se l'SSE è disponibile, oppure
@@ -326,22 +317,22 @@ class HttpClientSseClientTransportTests {
 
 		// Costruisci un transport con il customizer asincrono
 		HttpClientSseClientTransport customizedTransport = HttpClientSseClientTransport.builder(host)
-			.asyncHttpRequestCustomizer((builder, method, uri, body, context) -> {
-				// 'builder' è org.apache.http.client.methods.RequestBuilder (Apache)
-				builder.addHeader("X-Custom-Header", "test-value");
-				customizerCalled.set(true);
+				.asyncHttpRequestCustomizer((builder, method, uri, body, context) -> {
+					// 'builder' è org.apache.http.client.methods.RequestBuilder (Apache)
+					builder.addHeader("X-Custom-Header", "test-value");
+					customizerCalled.set(true);
 
-				// Costruisci una richiesta di verifica dal builder e leggi l'header
-				HttpUriRequest request = builder.setUri(URI.create("http://example.com")).build();
-				headerName.set("X-Custom-Header");
-				headerValue.set(request.getFirstHeader("X-Custom-Header") != null
-						? request.getFirstHeader("X-Custom-Header").getValue() : null);
+					// Costruisci una richiesta di verifica dal builder e leggi l'header
+					HttpUriRequest request = builder.setUri(URI.create("http://example.com")).build();
+					headerName.set("X-Custom-Header");
+					headerValue.set(request.getFirstHeader("X-Custom-Header") != null
+							? request.getFirstHeader("X-Custom-Header").getValue() : null);
 
-				// Il customizer deve restituire un Publisher<RequestBuilder> (Mono nel
-				// nostro caso)
-				return Mono.just(builder);
-			})
-			.build();
+					// Il customizer deve restituire un Publisher<RequestBuilder> (Mono
+					// nel
+					// nostro caso)
+					return Mono.just(builder);
+				}).build();
 
 		// Triggera il customizer avviando almeno una richiesta.
 		// Opzione A: avvia la connect() (GET SSE). Il customizer viene invocato PRIMA
@@ -370,21 +361,18 @@ class HttpClientSseClientTransportTests {
 		// Client-level: usa il factory per impostare connectTimeout (analogo al Java 17)
 		HttpClientSseClientTransport transport = HttpClientSseClientTransport.builder(host).clientFactory(() -> {
 			// timeout 30s (equivalente semantico della connectTimeout del JDK 11)
-			RequestConfig rc = RequestConfig.custom()
-				.setConnectTimeout(30_000) // ms
-				.setSocketTimeout(30_000)
-				.build();
+			RequestConfig rc = RequestConfig.custom().setConnectTimeout(30_000) // ms
+					.setSocketTimeout(30_000).build();
 			CloseableHttpClient client = HttpClientBuilder.create().setDefaultRequestConfig(rc).build();
 			clientCustomizerCalled.set(true);
 			return client;
 		})
-			// Request-level: aggiungi header
-			.asyncHttpRequestCustomizer((builder, method, uri, body, ctx) -> {
-				builder.addHeader("X-Api-Key", "test-api-key");
-				requestCustomizerCalled.set(true);
-				return Mono.just(builder);
-			})
-			.build();
+				// Request-level: aggiungi header
+				.asyncHttpRequestCustomizer((builder, method, uri, body, ctx) -> {
+					builder.addHeader("X-Api-Key", "test-api-key");
+					requestCustomizerCalled.set(true);
+					return Mono.just(builder);
+				}).build();
 
 		// Trigger: prepara una richiesta (GET connect o POST)
 		transport.connect(m -> Mono.empty()).subscribe();
@@ -404,14 +392,11 @@ class HttpClientSseClientTransportTests {
 
 		// 2) Costruisci il transport con il customizer asincrono derivato dal sync
 		HttpClientSseClientTransport customizedTransport = HttpClientSseClientTransport.builder(host)
-			.asyncHttpRequestCustomizer(McpAsyncHttpClientRequestCustomizer.fromSync(mockCustomizer))
-			.build();
+				.asyncHttpRequestCustomizer(McpAsyncHttpClientRequestCustomizer.fromSync(mockCustomizer)).build();
 
 		// 3) CONNECT: deve invocare il customizer con metodo GET su /sse
-		StepVerifier
-			.create(customizedTransport.connect(Function.identity())
-				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context)))
-			.verifyComplete();
+		StepVerifier.create(customizedTransport.connect(Function.identity())
+				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context))).verifyComplete();
 
 		// Verifica customizer su GET
 		verify(mockCustomizer).customize(any(RequestBuilder.class), eq("GET"),
@@ -427,10 +412,8 @@ class HttpClientSseClientTransportTests {
 
 		// 6) SEND: deve invocare il customizer con metodo POST verso l'endpoint, con body
 		// JSON
-		StepVerifier
-			.create(customizedTransport.sendMessage(testMessage)
-				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context)))
-			.verifyComplete();
+		StepVerifier.create(customizedTransport.sendMessage(testMessage)
+				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context))).verifyComplete();
 
 		// Cattura e verifica gli argomenti della POST
 		@SuppressWarnings("unchecked")
@@ -452,18 +435,15 @@ class HttpClientSseClientTransportTests {
 	void testAsyncRequestCustomizer() {
 		McpAsyncHttpClientRequestCustomizer mockCustomizer = mock(McpAsyncHttpClientRequestCustomizer.class);
 		when(mockCustomizer.customize(any(), any(), any(), any(), any()))
-			.thenAnswer(invocation -> Mono.just(invocation.getArguments()[0]));
+				.thenAnswer(invocation -> Mono.just(invocation.getArguments()[0]));
 
 		// Create a transport with the customizer
 		HttpClientSseClientTransport customizedTransport = HttpClientSseClientTransport.builder(host)
-			.asyncHttpRequestCustomizer(mockCustomizer)
-			.build();
+				.asyncHttpRequestCustomizer(mockCustomizer).build();
 
 		// Connect
-		StepVerifier
-			.create(customizedTransport.connect(Function.identity())
-				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context)))
-			.verifyComplete();
+		StepVerifier.create(customizedTransport.connect(Function.identity())
+				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context))).verifyComplete();
 
 		// Verify the customizer was called
 		verify(mockCustomizer).customize(any(), eq("GET"),
@@ -475,10 +455,8 @@ class HttpClientSseClientTransportTests {
 				Collections.singletonMap("key", "value"));
 
 		// Subscribe to messages and verify
-		StepVerifier
-			.create(customizedTransport.sendMessage(testMessage)
-				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context)))
-			.verifyComplete();
+		StepVerifier.create(customizedTransport.sendMessage(testMessage)
+				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, context))).verifyComplete();
 
 		// Verify the customizer was called
 		ArgumentCaptor<URI> uriArgumentCaptor = ArgumentCaptor.forClass(URI.class);

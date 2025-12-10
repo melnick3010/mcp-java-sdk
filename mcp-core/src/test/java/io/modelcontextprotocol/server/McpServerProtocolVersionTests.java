@@ -39,7 +39,7 @@ class McpServerProtocolVersionTests {
 		String requestId = UUID.randomUUID().toString();
 
 		transportProvider
-			.simulateIncomingMessage(jsonRpcInitializeRequest(requestId, McpSchema.LATEST_PROTOCOL_VERSION));
+				.simulateIncomingMessage(jsonRpcInitializeRequest(requestId, McpSchema.LATEST_PROTOCOL_VERSION));
 
 		McpSchema.JSONRPCMessage response = serverTransport.getLastSentMessage();
 		assertThat(response).isInstanceOf(McpSchema.JSONRPCResponse.class);
@@ -49,7 +49,7 @@ class McpServerProtocolVersionTests {
 		McpSchema.InitializeResult result = (McpSchema.InitializeResult) jsonResponse.result();
 
 		String protocolVersion = transportProvider.protocolVersions()
-			.get(transportProvider.protocolVersions().size() - 1);
+				.get(transportProvider.protocolVersions().size() - 1);
 		assertThat(result.protocolVersion()).isEqualTo(protocolVersion);
 
 		server.closeGracefully().subscribe();
@@ -99,7 +99,7 @@ class McpServerProtocolVersionTests {
 		assertThat(jsonResponse.result()).isInstanceOf(McpSchema.InitializeResult.class);
 		McpSchema.InitializeResult result = (McpSchema.InitializeResult) jsonResponse.result();
 		String protocolVersion = transportProvider.protocolVersions()
-			.get(transportProvider.protocolVersions().size() - 1);
+				.get(transportProvider.protocolVersions().size() - 1);
 		assertThat(result.protocolVersion()).isEqualTo(protocolVersion);
 
 		server.closeGracefully().subscribe();

@@ -102,7 +102,7 @@ public class StdioServerTransportProvider implements McpServerTransportProvider 
 			return Mono.error(new McpError("No session to close"));
 		}
 		return this.session.sendNotification(method, params)
-			.doOnError(e -> logger.error("Failed to send notification: {}", e.getMessage()));
+				.doOnError(e -> logger.error("Failed to send notification: {}", e.getMessage()));
 	}
 
 	@Override

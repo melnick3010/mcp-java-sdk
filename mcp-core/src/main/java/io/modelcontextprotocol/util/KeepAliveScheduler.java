@@ -89,22 +89,19 @@ public class KeepAliveScheduler {
 		if (this.isRunning.compareAndSet(false, true)) {
 
 			this.currentSubscription = Flux.interval(this.initialDelay, this.interval, this.scheduler)
-				.doOnNext(tick -> {
-					this.mcpSessions.get()
-						.flatMap(session -> session.sendRequest(McpSchema.METHOD_PING, null, OBJECT_TYPE_REF)
-							.doOnError(e -> logger.warn("Failed to send keep-alive ping to session {}: {}", session,
-									e.getMessage()))
-							.onErrorComplete())
-						.subscribe();
-				})
-				.doOnCancel(() -> this.isRunning.set(false))
-				.doOnComplete(() -> this.isRunning.set(false))
-				.onErrorComplete(error -> {
-					logger.error("KeepAlive scheduler error", error);
-					this.isRunning.set(false);
-					return true;
-				})
-				.subscribe();
+					.doOnNext(tick -> {
+						this.mcpSessions.get()
+								.flatMap(session -> session.sendRequest(McpSchema.METHOD_PING, null, OBJECT_TYPE_REF)
+										.doOnError(e -> logger.warn("Failed to send keep-alive ping to session {}: {}",
+												session, e.getMessage()))
+										.onErrorComplete())
+								.subscribe();
+					}).doOnCancel(() -> this.isRunning.set(false)).doOnComplete(() -> this.isRunning.set(false))
+					.onErrorComplete(error -> {
+						logger.error("KeepAlive scheduler error", error);
+						this.isRunning.set(false);
+						return true;
+					}).subscribe();
 
 			return this.currentSubscription;
 		}

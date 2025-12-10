@@ -97,7 +97,7 @@ public class McpStatelessServerFeatures {
 			}
 			Map<McpSchema.CompleteReference, McpStatelessServerFeatures.AsyncCompletionSpecification> completions = new HashMap<McpSchema.CompleteReference, McpStatelessServerFeatures.AsyncCompletionSpecification>();
 			for (Map.Entry<McpSchema.CompleteReference, SyncCompletionSpecification> e : syncSpec.completions()
-				.entrySet()) {
+					.entrySet()) {
 				completions.put(e.getKey(), AsyncCompletionSpecification.fromSync(e.getValue(), immediateExecution));
 			}
 			return new Async(syncSpec.serverInfo(), syncSpec.serverCapabilities(), tools, resources, resourceTemplates,
@@ -250,12 +250,12 @@ public class McpStatelessServerFeatures {
 				@Override
 				public Mono<McpSchema.CallToolResult> apply(McpTransportContext ctx, CallToolRequest req) {
 					Mono<McpSchema.CallToolResult> toolResult = Mono
-						.fromCallable(new java.util.concurrent.Callable<McpSchema.CallToolResult>() {
-							@Override
-							public McpSchema.CallToolResult call() {
-								return syncToolSpec.callHandler().apply(ctx, req);
-							}
-						});
+							.fromCallable(new java.util.concurrent.Callable<McpSchema.CallToolResult>() {
+								@Override
+								public McpSchema.CallToolResult call() {
+									return syncToolSpec.callHandler().apply(ctx, req);
+								}
+							});
 					return immediate ? toolResult : toolResult.subscribeOn(Schedulers.boundedElastic());
 				}
 			};
@@ -326,12 +326,12 @@ public class McpStatelessServerFeatures {
 						public Mono<McpSchema.ReadResourceResult> apply(McpTransportContext ctx,
 								McpSchema.ReadResourceRequest req) {
 							Mono<McpSchema.ReadResourceResult> resourceResult = Mono
-								.fromCallable(new java.util.concurrent.Callable<McpSchema.ReadResourceResult>() {
-									@Override
-									public McpSchema.ReadResourceResult call() {
-										return resource.readHandler().apply(ctx, req);
-									}
-								});
+									.fromCallable(new java.util.concurrent.Callable<McpSchema.ReadResourceResult>() {
+										@Override
+										public McpSchema.ReadResourceResult call() {
+											return resource.readHandler().apply(ctx, req);
+										}
+									});
 							return immediateExecution ? resourceResult
 									: resourceResult.subscribeOn(Schedulers.boundedElastic());
 						}
@@ -372,12 +372,12 @@ public class McpStatelessServerFeatures {
 						public Mono<McpSchema.ReadResourceResult> apply(McpTransportContext ctx,
 								McpSchema.ReadResourceRequest req) {
 							Mono<McpSchema.ReadResourceResult> resourceResult = Mono
-								.fromCallable(new java.util.concurrent.Callable<McpSchema.ReadResourceResult>() {
-									@Override
-									public McpSchema.ReadResourceResult call() {
-										return resource.readHandler().apply(ctx, req);
-									}
-								});
+									.fromCallable(new java.util.concurrent.Callable<McpSchema.ReadResourceResult>() {
+										@Override
+										public McpSchema.ReadResourceResult call() {
+											return resource.readHandler().apply(ctx, req);
+										}
+									});
 							return immediateExecution ? resourceResult
 									: resourceResult.subscribeOn(Schedulers.boundedElastic());
 						}
@@ -417,12 +417,12 @@ public class McpStatelessServerFeatures {
 						public Mono<McpSchema.GetPromptResult> apply(McpTransportContext ctx,
 								McpSchema.GetPromptRequest req) {
 							Mono<McpSchema.GetPromptResult> promptResult = Mono
-								.fromCallable(new java.util.concurrent.Callable<McpSchema.GetPromptResult>() {
-									@Override
-									public McpSchema.GetPromptResult call() {
-										return prompt.promptHandler().apply(ctx, req);
-									}
-								});
+									.fromCallable(new java.util.concurrent.Callable<McpSchema.GetPromptResult>() {
+										@Override
+										public McpSchema.GetPromptResult call() {
+											return prompt.promptHandler().apply(ctx, req);
+										}
+									});
 							return immediateExecution ? promptResult
 									: promptResult.subscribeOn(Schedulers.boundedElastic());
 						}
@@ -463,12 +463,12 @@ public class McpStatelessServerFeatures {
 						public Mono<McpSchema.CompleteResult> apply(McpTransportContext ctx,
 								McpSchema.CompleteRequest req) {
 							Mono<McpSchema.CompleteResult> completionResult = Mono
-								.fromCallable(new java.util.concurrent.Callable<McpSchema.CompleteResult>() {
-									@Override
-									public McpSchema.CompleteResult call() {
-										return completion.completionHandler().apply(ctx, req);
-									}
-								});
+									.fromCallable(new java.util.concurrent.Callable<McpSchema.CompleteResult>() {
+										@Override
+										public McpSchema.CompleteResult call() {
+											return completion.completionHandler().apply(ctx, req);
+										}
+									});
 							return immediateExecution ? completionResult
 									: completionResult.subscribeOn(Schedulers.boundedElastic());
 						}

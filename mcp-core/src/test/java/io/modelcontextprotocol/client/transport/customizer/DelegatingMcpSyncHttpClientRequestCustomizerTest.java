@@ -68,8 +68,7 @@ class DelegatingMcpSyncHttpClientRequestCustomizerTest {
 		// Mantengo il test così com’è; se non esiste la classe Async, sostituisci con la
 		// Sync.
 		assertThatThrownBy(() -> new DelegatingMcpAsyncHttpClientRequestCustomizer(null))
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessage("Customizers must not be null");
+				.isInstanceOf(IllegalArgumentException.class).hasMessage("Customizers must not be null");
 	}
 
 }

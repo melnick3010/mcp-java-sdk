@@ -146,9 +146,8 @@ public class HttpServletStatelessServerTransport extends HttpServlet implements 
 				McpSchema.JSONRPCRequest jsonrpcRequest = (McpSchema.JSONRPCRequest) message;
 				try {
 					McpSchema.JSONRPCResponse jsonrpcResponse = this.mcpHandler
-						.handleRequest(transportContext, jsonrpcRequest)
-						.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
-						.block();
+							.handleRequest(transportContext, jsonrpcRequest)
+							.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).block();
 
 					response.setContentType(APPLICATION_JSON);
 					// Usa costante o literal "UTF-8" se UTF_8 non è definita
@@ -178,8 +177,7 @@ public class HttpServletStatelessServerTransport extends HttpServlet implements 
 				McpSchema.JSONRPCNotification jsonrpcNotification = (McpSchema.JSONRPCNotification) message;
 				try {
 					this.mcpHandler.handleNotification(transportContext, jsonrpcNotification)
-						.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext))
-						.block();
+							.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).block();
 					response.setStatus(HttpServletResponse.SC_ACCEPTED);
 				}
 				catch (Exception e) {

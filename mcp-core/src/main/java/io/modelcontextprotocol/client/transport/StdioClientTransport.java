@@ -213,11 +213,8 @@ public class StdioClientTransport implements McpClientTransport {
 	}
 
 	private void handleIncomingMessages(Function<Mono<JSONRPCMessage>, Mono<JSONRPCMessage>> inboundMessageHandler) {
-		this.inboundSink.asFlux()
-			.flatMap(message -> Mono.just(message)
-				.transform(inboundMessageHandler)
-				.contextWrite(ctx -> ctx.put("observation", "myObservation")))
-			.subscribe();
+		this.inboundSink.asFlux().flatMap(message -> Mono.just(message).transform(inboundMessageHandler)
+				.contextWrite(ctx -> ctx.put("observation", "myObservation"))).subscribe();
 	}
 
 	private void handleIncomingErrors() {
@@ -286,32 +283,32 @@ public class StdioClientTransport implements McpClientTransport {
 	 */
 	private void startOutboundProcessing() {
 		this.handleOutbound(messages -> messages
-			// this bit is important since writes come from user threads, and we
-			// want to ensure that the actual writing happens on a dedicated thread
-			.publishOn(outboundScheduler)
-			.handle((message, s) -> {
-				if (message != null && !isClosing) {
-					try {
-						String jsonMessage = jsonMapper.writeValueAsString(message);
-						// Escape any embedded newlines in the JSON message as per spec:
-						// https://spec.modelcontextprotocol.io/specification/basic/transports/#stdio
-						// - Messages are delimited by newlines, and MUST NOT contain
-						// embedded newlines.
-						jsonMessage = jsonMessage.replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "\\n");
+				// this bit is important since writes come from user threads, and we
+				// want to ensure that the actual writing happens on a dedicated thread
+				.publishOn(outboundScheduler).handle((message, s) -> {
+					if (message != null && !isClosing) {
+						try {
+							String jsonMessage = jsonMapper.writeValueAsString(message);
+							// Escape any embedded newlines in the JSON message as per
+							// spec:
+							// https://spec.modelcontextprotocol.io/specification/basic/transports/#stdio
+							// - Messages are delimited by newlines, and MUST NOT contain
+							// embedded newlines.
+							jsonMessage = jsonMessage.replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "\\n");
 
-						OutputStream os = this.process.getOutputStream();
-						synchronized (os) {
-							os.write(jsonMessage.getBytes(StandardCharsets.UTF_8));
-							os.write("\n".getBytes(StandardCharsets.UTF_8));
-							os.flush();
+							OutputStream os = this.process.getOutputStream();
+							synchronized (os) {
+								os.write(jsonMessage.getBytes(StandardCharsets.UTF_8));
+								os.write("\n".getBytes(StandardCharsets.UTF_8));
+								os.flush();
+							}
+							s.next(message);
 						}
-						s.next(message);
+						catch (IOException e) {
+							s.error(new RuntimeException(e));
+						}
 					}
-					catch (IOException e) {
-						s.error(new RuntimeException(e));
-					}
-				}
-			}));
+				}));
 	}
 
 	protected void handleOutbound(Function<Flux<JSONRPCMessage>, Flux<JSONRPCMessage>> outboundConsumer) {
@@ -339,66 +336,64 @@ public class StdioClientTransport implements McpClientTransport {
 			isClosing = true;
 			logger.debug("Initiating graceful shutdown");
 		})
-			// step 1: chiudi i sinks per non accettare nuovi messaggi
-			.then(Mono.defer(() -> {
-				inboundSink.tryEmitComplete();
-				outboundSink.tryEmitComplete();
-				errorSink.tryEmitComplete();
-				// breve attesa per drenare code/pending
-				return Mono.delay(Duration.ofMillis(100)).then();
-			}))
-			// step 2: invia TERM e attende la terminazione del processo (Java 8: no
-			// onExit)
-			.then(Mono.defer(() -> {
-				logger.debug("Sending TERM to process");
-				if (this.process != null) {
-					// distruggi e attendi in modo non bloccante per il thread Reactor
-					return Mono.fromCallable(() -> {
-						this.process.destroy();
-						// attende la terminazione; se vuoi un timeout, vedi variante
-						// sotto
-						this.process.waitFor();
-						return this.process;
-					}).subscribeOn(Schedulers.boundedElastic());
-				}
-				else {
-					logger.warn("Process not started");
-					// nessun processo: completa subito
-					return Mono.<Process>empty();
-				}
-			}))
-			// step 3: logga il codice di uscita (se c’è un process)
-			.doOnNext(p -> {
-				try {
-					int exit = p.exitValue();
-					if (exit != 0) {
-						logger.warn("Process terminated with code {}", exit);
+				// step 1: chiudi i sinks per non accettare nuovi messaggi
+				.then(Mono.defer(() -> {
+					inboundSink.tryEmitComplete();
+					outboundSink.tryEmitComplete();
+					errorSink.tryEmitComplete();
+					// breve attesa per drenare code/pending
+					return Mono.delay(Duration.ofMillis(100)).then();
+				}))
+				// step 2: invia TERM e attende la terminazione del processo (Java 8: no
+				// onExit)
+				.then(Mono.defer(() -> {
+					logger.debug("Sending TERM to process");
+					if (this.process != null) {
+						// distruggi e attendi in modo non bloccante per il thread Reactor
+						return Mono.fromCallable(() -> {
+							this.process.destroy();
+							// attende la terminazione; se vuoi un timeout, vedi variante
+							// sotto
+							this.process.waitFor();
+							return this.process;
+						}).subscribeOn(Schedulers.boundedElastic());
 					}
 					else {
-						logger.info("MCP server process stopped");
+						logger.warn("Process not started");
+						// nessun processo: completa subito
+						return Mono.<Process>empty();
 					}
-				}
-				catch (IllegalThreadStateException e) {
-					// exitValue può lanciare se il processo non è ancora terminato,
-					// ma qui non dovrebbe accadere perché abbiamo waitFor() sopra
-					logger.warn("Process has not terminated yet", e);
-				}
-			})
-			// step 4: dispose degli scheduler
-			.then(Mono.fromRunnable(() -> {
-				try {
-					// i Threads sono bloccati su readLine: serve dispose "hard"
-					inboundScheduler.dispose();
-					errorScheduler.dispose();
-					outboundScheduler.dispose();
-					logger.debug("Graceful shutdown completed");
-				}
-				catch (Exception e) {
-					logger.error("Error during graceful shutdown", e);
-				}
-			}))
-			.then()
-			.subscribeOn(Schedulers.boundedElastic());
+				}))
+				// step 3: logga il codice di uscita (se c’è un process)
+				.doOnNext(p -> {
+					try {
+						int exit = p.exitValue();
+						if (exit != 0) {
+							logger.warn("Process terminated with code {}", exit);
+						}
+						else {
+							logger.info("MCP server process stopped");
+						}
+					}
+					catch (IllegalThreadStateException e) {
+						// exitValue può lanciare se il processo non è ancora terminato,
+						// ma qui non dovrebbe accadere perché abbiamo waitFor() sopra
+						logger.warn("Process has not terminated yet", e);
+					}
+				})
+				// step 4: dispose degli scheduler
+				.then(Mono.fromRunnable(() -> {
+					try {
+						// i Threads sono bloccati su readLine: serve dispose "hard"
+						inboundScheduler.dispose();
+						errorScheduler.dispose();
+						outboundScheduler.dispose();
+						logger.debug("Graceful shutdown completed");
+					}
+					catch (Exception e) {
+						logger.error("Error during graceful shutdown", e);
+					}
+				})).then().subscribeOn(Schedulers.boundedElastic());
 	}
 
 	public Sinks.Many<String> getErrorSink() {

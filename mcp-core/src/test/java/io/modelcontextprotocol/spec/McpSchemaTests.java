@@ -36,10 +36,8 @@ public class McpSchemaTests {
 		McpSchema.TextContent test = new McpSchema.TextContent("XXX");
 		String value = JSON_MAPPER.writeValueAsString(test);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"type\":\"text\",\"text\":\"XXX\"}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"type\":\"text\",\"text\":\"XXX\"}"));
 	}
 
 	@Test
@@ -58,11 +56,9 @@ public class McpSchemaTests {
 	@Test
 	void testContentDeserializationWrongType() throws Exception {
 
-		assertThatThrownBy(
-				() -> JSON_MAPPER.readValue("{\"type\":\"WRONG\",\"text\":\"XXX\"}", McpSchema.TextContent.class))
-			.isInstanceOf(InvalidTypeIdException.class)
-			.hasMessageContaining(
-					"Could not resolve type id 'WRONG' as a subtype of `io.modelcontextprotocol.spec.McpSchema$TextContent`: known type ids = [audio, image, resource, resource_link, text]");
+		assertThatThrownBy(() -> JSON_MAPPER.readValue("{\"type\":\"WRONG\",\"text\":\"XXX\"}",
+				McpSchema.TextContent.class)).isInstanceOf(InvalidTypeIdException.class).hasMessageContaining(
+						"Could not resolve type id 'WRONG' as a subtype of `io.modelcontextprotocol.spec.McpSchema$TextContent`: known type ids = [audio, image, resource, resource_link, text]");
 	}
 
 	@Test
@@ -70,10 +66,8 @@ public class McpSchemaTests {
 		McpSchema.ImageContent test = new McpSchema.ImageContent(null, null, "base64encodeddata", "image/png");
 		String value = JSON_MAPPER.writeValueAsString(test);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"type\":\"image\",\"data\":\"base64encodeddata\",\"mimeType\":\"image/png\"}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"type\":\"image\",\"data\":\"base64encodeddata\",\"mimeType\":\"image/png\"}"));
 
 	}
 
@@ -96,10 +90,8 @@ public class McpSchemaTests {
 		McpSchema.AudioContent audioContent = new McpSchema.AudioContent(null, "base64encodeddata", "audio/wav");
 		String value = JSON_MAPPER.writeValueAsString(audioContent);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"type\":\"audio\",\"data\":\"base64encodeddata\",\"mimeType\":\"audio/wav\"}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"type\":\"audio\",\"data\":\"base64encodeddata\",\"mimeType\":\"audio/wav\"}"));
 
 	}
 
@@ -132,22 +124,14 @@ public class McpSchemaTests {
 		meta.put("progressToken", "create-message-token-456");
 
 		McpSchema.CreateMessageRequest request = McpSchema.CreateMessageRequest.builder()
-			.messages(Collections.singletonList(message))
-			.modelPreferences(preferences)
-			.systemPrompt("You are a helpful assistant")
-			.includeContext(McpSchema.CreateMessageRequest.ContextInclusionStrategy.THIS_SERVER)
-			.temperature(0.7)
-			.maxTokens(1000)
-			.stopSequences(Arrays.asList("STOP", "END"))
-			.metadata(metadata)
-			.meta(meta)
-			.build();
+				.messages(Collections.singletonList(message)).modelPreferences(preferences)
+				.systemPrompt("You are a helpful assistant")
+				.includeContext(McpSchema.CreateMessageRequest.ContextInclusionStrategy.THIS_SERVER).temperature(0.7)
+				.maxTokens(1000).stopSequences(Arrays.asList("STOP", "END")).metadata(metadata).meta(meta).build();
 
 		String value = JSON_MAPPER.writeValueAsString(request);
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.containsEntry("_meta", Collections.singletonMap("progressToken", "create-message-token-456"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.containsEntry("_meta", Collections.singletonMap("progressToken", "create-message-token-456"));
 
 		// Test Request interface methods
 		assertThat(request.meta()).isEqualTo(meta);
@@ -163,11 +147,9 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(test);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"type\":\"resource\",\"resource\":{\"uri\":\"resource://test\",\"mimeType\":\"text/plain\",\"text\":\"Sample resource content\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"type\":\"resource\",\"resource\":{\"uri\":\"resource://test\",\"mimeType\":\"text/plain\",\"text\":\"Sample resource content\"}}"));
 	}
 
 	@Test
@@ -182,7 +164,7 @@ public class McpSchemaTests {
 		assertThat(embeddedResource.getResource().uri()).isEqualTo("resource://test");
 		assertThat(embeddedResource.getResource().mimeType()).isEqualTo("text/plain");
 		assertThat(((TextResourceContents) embeddedResource.getResource()).getText())
-			.isEqualTo("Sample resource content");
+				.isEqualTo("Sample resource content");
 		assertThat(embeddedResource.meta()).containsKey("metaKey");
 	}
 
@@ -195,11 +177,9 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(test);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"type\":\"resource\",\"resource\":{\"uri\":\"resource://test\",\"mimeType\":\"application/octet-stream\",\"blob\":\"base64encodedblob\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"type\":\"resource\",\"resource\":{\"uri\":\"resource://test\",\"mimeType\":\"application/octet-stream\",\"blob\":\"base64encodedblob\"}}"));
 	}
 
 	@Test
@@ -214,7 +194,7 @@ public class McpSchemaTests {
 		assertThat(embeddedResource.getResource().uri()).isEqualTo("resource://test");
 		assertThat(embeddedResource.getResource().mimeType()).isEqualTo("application/octet-stream");
 		assertThat(((McpSchema.BlobResourceContents) embeddedResource.getResource()).getBlob())
-			.isEqualTo("base64encodedblob");
+				.isEqualTo("base64encodedblob");
 		assertThat(((McpSchema.BlobResourceContents) embeddedResource.getResource()).meta()).containsKey("metaKey");
 	}
 
@@ -225,11 +205,9 @@ public class McpSchemaTests {
 				Collections.singletonMap("metaKey", "metaValue"));
 		String value = JSON_MAPPER.writeValueAsString(resourceLink);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"type\":\"resource_link\",\"name\":\"main.rs\",\"title\":\"Main file\",\"uri\":\"file:///project/src/main.rs\",\"description\":\"Primary application entry point\",\"mimeType\":\"text/x-rust\",\"_meta\":{\"metaKey\":\"metaValue\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"type\":\"resource_link\",\"name\":\"main.rs\",\"title\":\"Main file\",\"uri\":\"file:///project/src/main.rs\",\"description\":\"Primary application entry point\",\"mimeType\":\"text/x-rust\",\"_meta\":{\"metaKey\":\"metaValue\"}}"));
 	}
 
 	@Test
@@ -259,11 +237,9 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(request);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(
-					json("{\"jsonrpc\":\"2.0\",\"method\":\"method_name\",\"id\":1,\"params\":{\"key\":\"value\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"jsonrpc\":\"2.0\",\"method\":\"method_name\",\"id\":1,\"params\":{\"key\":\"value\"}}"));
 	}
 
 	@Test
@@ -276,10 +252,9 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(notification);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"jsonrpc\":\"2.0\",\"method\":\"notification_method\",\"params\":{\"key\":\"value\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"jsonrpc\":\"2.0\",\"method\":\"notification_method\",\"params\":{\"key\":\"value\"}}"));
 	}
 
 	@Test
@@ -291,10 +266,8 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(response);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"result_key\":\"result_value\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"result_key\":\"result_value\"}}"));
 	}
 
 	@Test
@@ -306,21 +279,17 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(response);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(
-					json("{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32600,\"message\":\"Invalid request\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32600,\"message\":\"Invalid request\"}}"));
 	}
 
 	// Initialization Tests
 
 	@Test
 	void testInitializeRequest() throws Exception {
-		McpSchema.ClientCapabilities capabilities = McpSchema.ClientCapabilities.builder()
-			.roots(true)
-			.sampling()
-			.build();
+		McpSchema.ClientCapabilities capabilities = McpSchema.ClientCapabilities.builder().roots(true).sampling()
+				.build();
 
 		McpSchema.Implementation clientInfo = new McpSchema.Implementation("test-client", "1.0.0");
 		Map<String, Object> meta = Collections.singletonMap("metaKey", "metaValue");
@@ -330,21 +299,15 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(request);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"roots\":{\"listChanged\":true},\"sampling\":{}},\"clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"},\"_meta\":{\"metaKey\":\"metaValue\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"roots\":{\"listChanged\":true},\"sampling\":{}},\"clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"},\"_meta\":{\"metaKey\":\"metaValue\"}}"));
 	}
 
 	@Test
 	void testInitializeResult() throws Exception {
-		McpSchema.ServerCapabilities capabilities = McpSchema.ServerCapabilities.builder()
-			.logging()
-			.prompts(true)
-			.resources(true, true)
-			.tools(true)
-			.build();
+		McpSchema.ServerCapabilities capabilities = McpSchema.ServerCapabilities.builder().logging().prompts(true)
+				.resources(true, true).tools(true).build();
 
 		McpSchema.Implementation serverInfo = new McpSchema.Implementation("test-server", "1.0.0");
 
@@ -353,11 +316,9 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(result);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"logging\":{},\"prompts\":{\"listChanged\":true},\"resources\":{\"subscribe\":true,\"listChanged\":true},\"tools\":{\"listChanged\":true}},\"serverInfo\":{\"name\":\"test-server\",\"version\":\"1.0.0\"},\"instructions\":\"Server initialized successfully\"}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"logging\":{},\"prompts\":{\"listChanged\":true},\"resources\":{\"subscribe\":true,\"listChanged\":true},\"tools\":{\"listChanged\":true}},\"serverInfo\":{\"name\":\"test-server\",\"version\":\"1.0.0\"},\"instructions\":\"Server initialized successfully\"}"));
 	}
 
 	// Resource Tests
@@ -372,11 +333,9 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(resource);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"uri\":\"resource://test\",\"name\":\"Test Resource\",\"description\":\"A test resource\",\"mimeType\":\"text/plain\",\"annotations\":{\"audience\":[\"user\",\"assistant\"],\"priority\":0.8}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"uri\":\"resource://test\",\"name\":\"Test Resource\",\"description\":\"A test resource\",\"mimeType\":\"text/plain\",\"annotations\":{\"audience\":[\"user\",\"assistant\"],\"priority\":0.8}}"));
 	}
 
 	@Test
@@ -384,23 +343,15 @@ public class McpSchemaTests {
 		McpSchema.Annotations annotations = new McpSchema.Annotations(
 				Arrays.asList(McpSchema.Role.USER, McpSchema.Role.ASSISTANT), 0.8);
 
-		McpSchema.Resource resource = McpSchema.Resource.builder()
-			.uri("resource://test")
-			.name("Test Resource")
-			.description("A test resource")
-			.mimeType("text/plain")
-			.size(256L)
-			.annotations(annotations)
-			.meta(Collections.singletonMap("metaKey", "metaValue"))
-			.build();
+		McpSchema.Resource resource = McpSchema.Resource.builder().uri("resource://test").name("Test Resource")
+				.description("A test resource").mimeType("text/plain").size(256L).annotations(annotations)
+				.meta(Collections.singletonMap("metaKey", "metaValue")).build();
 
 		String value = JSON_MAPPER.writeValueAsString(resource);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"uri\":\"resource://test\",\"name\":\"Test Resource\",\"description\":\"A test resource\",\"mimeType\":\"text/plain\",\"size\":256,\"annotations\":{\"audience\":[\"user\",\"assistant\"],\"priority\":0.8},\"_meta\":{\"metaKey\":\"metaValue\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"uri\":\"resource://test\",\"name\":\"Test Resource\",\"description\":\"A test resource\",\"mimeType\":\"text/plain\",\"size\":256,\"annotations\":{\"audience\":[\"user\",\"assistant\"],\"priority\":0.8},\"_meta\":{\"metaKey\":\"metaValue\"}}"));
 	}
 
 	@Test
@@ -408,12 +359,8 @@ public class McpSchemaTests {
 		McpSchema.Annotations annotations = new McpSchema.Annotations(
 				Arrays.asList(McpSchema.Role.USER, McpSchema.Role.ASSISTANT), 0.8);
 
-		McpSchema.Resource.Builder resourceBuilder = McpSchema.Resource.builder()
-			.name("Test Resource")
-			.description("A test resource")
-			.mimeType("text/plain")
-			.size(256L)
-			.annotations(annotations);
+		McpSchema.Resource.Builder resourceBuilder = McpSchema.Resource.builder().name("Test Resource")
+				.description("A test resource").mimeType("text/plain").size(256L).annotations(annotations);
 
 		assertThatThrownBy(resourceBuilder::build).isInstanceOf(java.lang.IllegalArgumentException.class);
 	}
@@ -423,12 +370,8 @@ public class McpSchemaTests {
 		McpSchema.Annotations annotations = new McpSchema.Annotations(
 				Arrays.asList(McpSchema.Role.USER, McpSchema.Role.ASSISTANT), 0.8);
 
-		McpSchema.Resource.Builder resourceBuilder = McpSchema.Resource.builder()
-			.uri("resource://test")
-			.description("A test resource")
-			.mimeType("text/plain")
-			.size(256L)
-			.annotations(annotations);
+		McpSchema.Resource.Builder resourceBuilder = McpSchema.Resource.builder().uri("resource://test")
+				.description("A test resource").mimeType("text/plain").size(256L).annotations(annotations);
 
 		assertThatThrownBy(resourceBuilder::build).isInstanceOf(java.lang.IllegalArgumentException.class);
 	}
@@ -443,11 +386,9 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(template);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"uriTemplate\":\"resource://{param}/test\",\"name\":\"Test Template\",\"title\":\"Test Template\",\"description\":\"A test resource template\",\"mimeType\":\"text/plain\",\"annotations\":{\"audience\":[\"user\"],\"priority\":0.5},\"_meta\":{\"metaKey\":\"metaValue\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"uriTemplate\":\"resource://{param}/test\",\"name\":\"Test Template\",\"title\":\"Test Template\",\"description\":\"A test resource template\",\"mimeType\":\"text/plain\",\"annotations\":{\"audience\":[\"user\"],\"priority\":0.5},\"_meta\":{\"metaKey\":\"metaValue\"}}"));
 	}
 
 	@Test
@@ -465,11 +406,9 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(result);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"resources\":[{\"uri\":\"resource://test1\",\"name\":\"Test Resource 1\",\"description\":\"First test resource\",\"mimeType\":\"text/plain\"},{\"uri\":\"resource://test2\",\"name\":\"Test Resource 2\",\"description\":\"Second test resource\",\"mimeType\":\"application/json\"}],\"nextCursor\":\"next-cursor\",\"_meta\":{\"metaKey\":\"metaValue\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"resources\":[{\"uri\":\"resource://test1\",\"name\":\"Test Resource 1\",\"description\":\"First test resource\",\"mimeType\":\"text/plain\"},{\"uri\":\"resource://test2\",\"name\":\"Test Resource 2\",\"description\":\"Second test resource\",\"mimeType\":\"application/json\"}],\"nextCursor\":\"next-cursor\",\"_meta\":{\"metaKey\":\"metaValue\"}}"));
 	}
 
 	@Test
@@ -485,11 +424,9 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(result);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"resourceTemplates\":[{\"uriTemplate\":\"resource://{param}/test1\",\"name\":\"Test Template 1\",\"title\":\"Test Template 1\",\"description\":\"First test template\",\"mimeType\":\"text/plain\"},{\"uriTemplate\":\"resource://{param}/test2\",\"name\":\"Test Template 2\",\"title\":\"Test Template 2\",\"description\":\"Second test template\",\"mimeType\":\"application/json\"}],\"nextCursor\":\"next-cursor\"}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"resourceTemplates\":[{\"uriTemplate\":\"resource://{param}/test1\",\"name\":\"Test Template 1\",\"title\":\"Test Template 1\",\"description\":\"First test template\",\"mimeType\":\"text/plain\"},{\"uriTemplate\":\"resource://{param}/test2\",\"name\":\"Test Template 2\",\"title\":\"Test Template 2\",\"description\":\"Second test template\",\"mimeType\":\"application/json\"}],\"nextCursor\":\"next-cursor\"}"));
 	}
 
 	@Test
@@ -499,10 +436,8 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(request);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"uri\":\"resource://test\",\"_meta\":{\"metaKey\":\"metaValue\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"uri\":\"resource://test\",\"_meta\":{\"metaKey\":\"metaValue\"}}"));
 	}
 
 	@Test
@@ -514,10 +449,9 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(request);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"uri\":\"resource://test\",\"_meta\":{\"progressToken\":\"read-resource-token-123\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"uri\":\"resource://test\",\"_meta\":{\"progressToken\":\"read-resource-token-123\"}}"));
 		// Test Request interface methods
 		assertThat(request.meta()).isEqualTo(meta);
 		assertThat(request.progressToken()).isEqualTo("read-resource-token-123");
@@ -547,13 +481,11 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(result);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"contents\":[{\"uri\":\"resource://test1\",\"mimeType\":\"text/plain\",\"text\":\"Sample text content\"},"
-							+ "{\"uri\":\"resource://test2\",\"mimeType\":\"application/octet-stream\",\"blob\":\"base64encodedblob\"}],"
-							+ "\"_meta\":{\"metaKey\":\"metaValue\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"contents\":[{\"uri\":\"resource://test1\",\"mimeType\":\"text/plain\",\"text\":\"Sample text content\"},"
+								+ "{\"uri\":\"resource://test2\",\"mimeType\":\"application/octet-stream\",\"blob\":\"base64encodedblob\"}],"
+								+ "\"_meta\":{\"metaKey\":\"metaValue\"}}"));
 	}
 
 	// Prompt Tests
@@ -570,13 +502,11 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(prompt);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"name\":\"test-prompt\",\"title\":\"Test Prompt\",\"description\":\"A test prompt\","
-					+ "\"arguments\":[{\"name\":\"arg1\",\"title\":\"First argument\",\"description\":\"First argument\",\"required\":true},"
-					+ "{\"name\":\"arg2\",\"title\":\"Second argument\",\"description\":\"Second argument\",\"required\":false}],"
-					+ "\"_meta\":{\"metaKey\":\"metaValue\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"name\":\"test-prompt\",\"title\":\"Test Prompt\",\"description\":\"A test prompt\","
+						+ "\"arguments\":[{\"name\":\"arg1\",\"title\":\"First argument\",\"description\":\"First argument\",\"required\":true},"
+						+ "{\"name\":\"arg2\",\"title\":\"Second argument\",\"description\":\"Second argument\",\"required\":false}],"
+						+ "\"_meta\":{\"metaKey\":\"metaValue\"}}"));
 	}
 
 	@Test
@@ -587,10 +517,8 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(message);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"role\":\"user\",\"content\":{\"type\":\"text\",\"text\":\"Hello, world!\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"role\":\"user\",\"content\":{\"type\":\"text\",\"text\":\"Hello, world!\"}}"));
 	}
 
 	@Test
@@ -608,14 +536,12 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(result);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"prompts\":[{\"name\":\"prompt1\",\"title\":\"First prompt\",\"description\":\"First prompt\","
-							+ "\"arguments\":[{\"name\":\"arg\",\"title\":\"Argument\",\"description\":\"An argument\",\"required\":true}]},"
-							+ "{\"name\":\"prompt2\",\"title\":\"Second prompt\",\"description\":\"Second prompt\",\"arguments\":[]}],"
-							+ "\"nextCursor\":\"next-cursor\"}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"prompts\":[{\"name\":\"prompt1\",\"title\":\"First prompt\",\"description\":\"First prompt\","
+								+ "\"arguments\":[{\"name\":\"arg\",\"title\":\"Argument\",\"description\":\"An argument\",\"required\":true}]},"
+								+ "{\"name\":\"prompt2\",\"title\":\"Second prompt\",\"description\":\"Second prompt\",\"arguments\":[]}],"
+								+ "\"nextCursor\":\"next-cursor\"}"));
 	}
 
 	@Test
@@ -627,8 +553,7 @@ public class McpSchemaTests {
 		McpSchema.GetPromptRequest request = new McpSchema.GetPromptRequest("test-prompt", arguments);
 
 		assertThat(JSON_MAPPER.readValue("{\"name\":\"test-prompt\",\"arguments\":{\"arg1\":\"value1\",\"arg2\":42}}",
-				McpSchema.GetPromptRequest.class))
-			.isEqualTo(request);
+				McpSchema.GetPromptRequest.class)).isEqualTo(request);
 	}
 
 	@Test
@@ -644,11 +569,9 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(request);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"name\":\"test-prompt\",\"arguments\":{\"arg1\":\"value1\",\"arg2\":42},"
-					+ "\"_meta\":{\"progressToken\":\"token123\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"name\":\"test-prompt\",\"arguments\":{\"arg1\":\"value1\",\"arg2\":42},"
+						+ "\"_meta\":{\"progressToken\":\"token123\"}}"));
 		// Test that it implements Request interface methods
 		assertThat(request.meta()).isEqualTo(meta);
 		assertThat(request.progressToken()).isEqualTo("token123");
@@ -668,12 +591,10 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(result);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"description\":\"A test prompt result\",\"messages\":["
-					+ "{\"role\":\"assistant\",\"content\":{\"type\":\"text\",\"text\":\"System message\"}},"
-					+ "{\"role\":\"user\",\"content\":{\"type\":\"text\",\"text\":\"User message\"}}" + "]}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"description\":\"A test prompt result\",\"messages\":["
+						+ "{\"role\":\"assistant\",\"content\":{\"type\":\"text\",\"text\":\"System message\"}},"
+						+ "{\"role\":\"user\",\"content\":{\"type\":\"text\",\"text\":\"User message\"}}" + "]}"));
 	}
 
 	// Tool Tests
@@ -742,20 +663,15 @@ public class McpSchemaTests {
 				+ "            \"type\": \"number\"\n" + "        }\n" + "    },\n" + "    \"required\": [\"name\"]\n"
 				+ "}";
 
-		McpSchema.Tool tool = McpSchema.Tool.builder()
-			.name("test-tool")
-			.description("A test tool")
-			.inputSchema(JSON_MAPPER, schemaJson)
-			.build();
+		McpSchema.Tool tool = McpSchema.Tool.builder().name("test-tool").description("A test tool")
+				.inputSchema(JSON_MAPPER, schemaJson).build();
 
 		String value = JSON_MAPPER.writeValueAsString(tool);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"name\":\"test-tool\",\"description\":\"A test tool\","
-					+ "\"inputSchema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},"
-					+ "\"value\":{\"type\":\"number\"}},\"required\":[\"name\"]}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"name\":\"test-tool\",\"description\":\"A test tool\","
+						+ "\"inputSchema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},"
+						+ "\"value\":{\"type\":\"number\"}},\"required\":[\"name\"]}}"));
 	}
 
 	@Test
@@ -770,11 +686,8 @@ public class McpSchemaTests {
 				+ "        \"shippingAddress\": {\"$ref\": \"#/$defs/Address\"}\n" + "    },\n"
 				+ "    \"required\": [\"name\", \"shippingAddress\"]\n" + "}";
 
-		McpSchema.Tool tool = McpSchema.Tool.builder()
-			.name("addressTool")
-			.title("Handles addresses")
-			.inputSchema(JSON_MAPPER, complexSchemaJson)
-			.build();
+		McpSchema.Tool tool = McpSchema.Tool.builder().name("addressTool").title("Handles addresses")
+				.inputSchema(JSON_MAPPER, complexSchemaJson).build();
 
 		// Serialize the tool to a string
 		String serialized = JSON_MAPPER.writeValueAsString(tool);
@@ -804,13 +717,8 @@ public class McpSchemaTests {
 		McpSchema.JsonSchema schema = JSON_MAPPER.readValue(schemaJson, McpSchema.JsonSchema.class);
 		Map<String, Object> meta = Collections.singletonMap("metaKey", "metaValue");
 
-		McpSchema.Tool tool = McpSchema.Tool.builder()
-			.name("addressTool")
-			.title("addressTool")
-			.description("Handles addresses")
-			.inputSchema(schema)
-			.meta(meta)
-			.build();
+		McpSchema.Tool tool = McpSchema.Tool.builder().name("addressTool").title("addressTool")
+				.description("Handles addresses").inputSchema(schema).meta(meta).build();
 
 		// Verify that meta value was preserved
 		assertThat(tool.meta()).isNotNull();
@@ -828,25 +736,20 @@ public class McpSchemaTests {
 		McpSchema.ToolAnnotations annotations = new McpSchema.ToolAnnotations("A test tool", false, false, false, false,
 				false);
 
-		McpSchema.Tool tool = McpSchema.Tool.builder()
-			.name("test-tool")
-			.description("A test tool")
-			.inputSchema(JSON_MAPPER, schemaJson)
-			.annotations(annotations)
-			.build();
+		McpSchema.Tool tool = McpSchema.Tool.builder().name("test-tool").description("A test tool")
+				.inputSchema(JSON_MAPPER, schemaJson).annotations(annotations).build();
 
 		String value = JSON_MAPPER.writeValueAsString(tool);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\n" + "    \"name\":\"test-tool\",\n" + "    \"description\":\"A test tool\",\n"
-					+ "    \"inputSchema\":{\n" + "        \"type\":\"object\",\n" + "        \"properties\":{\n"
-					+ "            \"name\":{\"type\":\"string\"},\n" + "            \"value\":{\"type\":\"number\"}\n"
-					+ "        },\n" + "        \"required\":[\"name\"]\n" + "    },\n" + "    \"annotations\":{\n"
-					+ "        \"title\":\"A test tool\",\n" + "        \"readOnlyHint\":false,\n"
-					+ "        \"destructiveHint\":false,\n" + "        \"idempotentHint\":false,\n"
-					+ "        \"openWorldHint\":false,\n" + "        \"returnDirect\":false\n" + "    }\n" + "}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\n" + "    \"name\":\"test-tool\",\n" + "    \"description\":\"A test tool\",\n"
+						+ "    \"inputSchema\":{\n" + "        \"type\":\"object\",\n" + "        \"properties\":{\n"
+						+ "            \"name\":{\"type\":\"string\"},\n"
+						+ "            \"value\":{\"type\":\"number\"}\n" + "        },\n"
+						+ "        \"required\":[\"name\"]\n" + "    },\n" + "    \"annotations\":{\n"
+						+ "        \"title\":\"A test tool\",\n" + "        \"readOnlyHint\":false,\n"
+						+ "        \"destructiveHint\":false,\n" + "        \"idempotentHint\":false,\n"
+						+ "        \"openWorldHint\":false,\n" + "        \"returnDirect\":false\n" + "    }\n" + "}"));
 
 	}
 
@@ -864,27 +767,22 @@ public class McpSchemaTests {
 				+ "            \"enum\": [\"success\", \"error\"]\n" + "        }\n" + "    },\n"
 				+ "    \"required\": [\"result\", \"status\"]\n" + "}";
 
-		McpSchema.Tool tool = McpSchema.Tool.builder()
-			.name("test-tool")
-			.description("A test tool")
-			.inputSchema(JSON_MAPPER, inputSchemaJson)
-			.outputSchema(JSON_MAPPER, outputSchemaJson)
-			.build();
+		McpSchema.Tool tool = McpSchema.Tool.builder().name("test-tool").description("A test tool")
+				.inputSchema(JSON_MAPPER, inputSchemaJson).outputSchema(JSON_MAPPER, outputSchemaJson).build();
 
 		String value = JSON_MAPPER.writeValueAsString(tool);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\n" + "    \"name\":\"test-tool\",\n" + "    \"description\":\"A test tool\",\n"
-					+ "    \"inputSchema\":{\n" + "        \"type\":\"object\",\n" + "        \"properties\":{\n"
-					+ "            \"name\":{\"type\":\"string\"},\n" + "            \"value\":{\"type\":\"number\"}\n"
-					+ "        },\n" + "        \"required\":[\"name\"]\n" + "    },\n" + "    \"outputSchema\":{\n"
-					+ "        \"type\":\"object\",\n" + "        \"properties\":{\n"
-					+ "            \"result\":{\"type\":\"string\"},\n" + "            \"status\":{\n"
-					+ "                \"type\":\"string\",\n" + "                \"enum\":[\"success\",\"error\"]\n"
-					+ "            }\n" + "        },\n" + "        \"required\":[\"result\",\"status\"]\n" + "    }\n"
-					+ "}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\n" + "    \"name\":\"test-tool\",\n" + "    \"description\":\"A test tool\",\n"
+						+ "    \"inputSchema\":{\n" + "        \"type\":\"object\",\n" + "        \"properties\":{\n"
+						+ "            \"name\":{\"type\":\"string\"},\n"
+						+ "            \"value\":{\"type\":\"number\"}\n" + "        },\n"
+						+ "        \"required\":[\"name\"]\n" + "    },\n" + "    \"outputSchema\":{\n"
+						+ "        \"type\":\"object\",\n" + "        \"properties\":{\n"
+						+ "            \"result\":{\"type\":\"string\"},\n" + "            \"status\":{\n"
+						+ "                \"type\":\"string\",\n"
+						+ "                \"enum\":[\"success\",\"error\"]\n" + "            }\n" + "        },\n"
+						+ "        \"required\":[\"result\",\"status\"]\n" + "    }\n" + "}"));
 
 	}
 
@@ -902,29 +800,23 @@ public class McpSchemaTests {
 		McpSchema.ToolAnnotations annotations = new McpSchema.ToolAnnotations("A test tool with output", true, false,
 				true, false, true);
 
-		McpSchema.Tool tool = McpSchema.Tool.builder()
-			.name("test-tool")
-			.description("A test tool")
-			.inputSchema(JSON_MAPPER, inputSchemaJson)
-			.outputSchema(JSON_MAPPER, outputSchemaJson)
-			.annotations(annotations)
-			.build();
+		McpSchema.Tool tool = McpSchema.Tool.builder().name("test-tool").description("A test tool")
+				.inputSchema(JSON_MAPPER, inputSchemaJson).outputSchema(JSON_MAPPER, outputSchemaJson)
+				.annotations(annotations).build();
 
 		String value = JSON_MAPPER.writeValueAsString(tool);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\n" + "    \"name\":\"test-tool\",\n" + "    \"description\":\"A test tool\",\n"
-					+ "    \"inputSchema\":{\n" + "        \"type\":\"object\",\n" + "        \"properties\":{\n"
-					+ "            \"name\":{\"type\":\"string\"}\n" + "        },\n"
-					+ "        \"required\":[\"name\"]\n" + "    },\n" + "    \"outputSchema\":{\n"
-					+ "        \"type\":\"object\",\n" + "        \"properties\":{\n"
-					+ "            \"result\":{\"type\":\"string\"}\n" + "        },\n"
-					+ "        \"required\":[\"result\"]\n" + "    },\n" + "    \"annotations\":{\n"
-					+ "        \"title\":\"A test tool with output\",\n" + "        \"readOnlyHint\":true,\n"
-					+ "        \"destructiveHint\":false,\n" + "        \"idempotentHint\":true,\n"
-					+ "        \"openWorldHint\":false,\n" + "        \"returnDirect\":true\n" + "    }\n" + "}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\n" + "    \"name\":\"test-tool\",\n" + "    \"description\":\"A test tool\",\n"
+						+ "    \"inputSchema\":{\n" + "        \"type\":\"object\",\n" + "        \"properties\":{\n"
+						+ "            \"name\":{\"type\":\"string\"}\n" + "        },\n"
+						+ "        \"required\":[\"name\"]\n" + "    },\n" + "    \"outputSchema\":{\n"
+						+ "        \"type\":\"object\",\n" + "        \"properties\":{\n"
+						+ "            \"result\":{\"type\":\"string\"}\n" + "        },\n"
+						+ "        \"required\":[\"result\"]\n" + "    },\n" + "    \"annotations\":{\n"
+						+ "        \"title\":\"A test tool with output\",\n" + "        \"readOnlyHint\":true,\n"
+						+ "        \"destructiveHint\":false,\n" + "        \"idempotentHint\":true,\n"
+						+ "        \"openWorldHint\":false,\n" + "        \"returnDirect\":true\n" + "    }\n" + "}"));
 
 	}
 
@@ -988,10 +880,8 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(request);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"name\":\"test-tool\",\"arguments\":{\"name\":\"test\",\"value\":42}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"name\":\"test-tool\",\"arguments\":{\"name\":\"test\",\"value\":42}}"));
 	}
 
 	@Test
@@ -1002,10 +892,8 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(request);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"name\":\"test-tool\",\"arguments\":{\"name\":\"test\",\"value\":42}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"name\":\"test-tool\",\"arguments\":{\"name\":\"test\",\"value\":42}}"));
 
 	}
 
@@ -1017,19 +905,14 @@ public class McpSchemaTests {
 		args.put("name", "test");
 		args.put("value", Integer.valueOf(42));
 
-		McpSchema.CallToolRequest request = McpSchema.CallToolRequest.builder()
-			.name("test-tool")
-			.arguments(args)
-			.progressToken("tool-progress-123")
-			.build();
+		McpSchema.CallToolRequest request = McpSchema.CallToolRequest.builder().name("test-tool").arguments(args)
+				.progressToken("tool-progress-123").build();
 
 		String value = JSON_MAPPER.writeValueAsString(request);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"name\":\"test-tool\",\"arguments\":{\"name\":\"test\",\"value\":42},"
-					+ "\"_meta\":{\"progressToken\":\"tool-progress-123\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"name\":\"test-tool\",\"arguments\":{\"name\":\"test\",\"value\":42},"
+						+ "\"_meta\":{\"progressToken\":\"tool-progress-123\"}}"));
 
 		// Test that it implements Request interface methods
 		assertThat(request.meta()).isEqualTo(Collections.singletonMap("progressToken", "tool-progress-123"));
@@ -1041,19 +924,15 @@ public class McpSchemaTests {
 		Map<String, Object> meta = new HashMap<>();
 		meta.put("progressToken", "json-builder-789");
 
-		McpSchema.CallToolRequest request = McpSchema.CallToolRequest.builder()
-			.name("test-tool")
-			.arguments(JSON_MAPPER, "{\n" + "    \"name\": \"test\",\n" + "    \"value\": 42\n" + "}")
-			.meta(meta)
-			.build();
+		McpSchema.CallToolRequest request = McpSchema.CallToolRequest.builder().name("test-tool")
+				.arguments(JSON_MAPPER, "{\n" + "    \"name\": \"test\",\n" + "    \"value\": 42\n" + "}").meta(meta)
+				.build();
 
 		String value = JSON_MAPPER.writeValueAsString(request);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"name\":\"test-tool\",\"arguments\":{\"name\":\"test\",\"value\":42},\"_meta\":{\"progressToken\":\"json-builder-789\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"name\":\"test-tool\",\"arguments\":{\"name\":\"test\",\"value\":42},\"_meta\":{\"progressToken\":\"json-builder-789\"}}"));
 		// Test that it implements Request interface methods
 		assertThat(request.meta()).isEqualTo(meta);
 		assertThat(request.progressToken()).isEqualTo("json-builder-789");
@@ -1067,40 +946,33 @@ public class McpSchemaTests {
 		McpSchema.CallToolRequest.Builder builder = McpSchema.CallToolRequest.builder().arguments(arguments);
 
 		assertThatThrownBy(builder::build).isInstanceOf(IllegalArgumentException.class)
-			.hasMessageContaining("name must not be empty");
+				.hasMessageContaining("name must not be empty");
 	}
 
 	@Test
 	void testCallToolResult() throws Exception {
 		McpSchema.TextContent content = new McpSchema.TextContent("Tool execution result");
 
-		McpSchema.CallToolResult result = McpSchema.CallToolResult.builder()
-			.content(Collections.singletonList(content))
-			.build();
+		McpSchema.CallToolResult result = McpSchema.CallToolResult.builder().content(Collections.singletonList(content))
+				.build();
 
 		String value = JSON_MAPPER.writeValueAsString(result);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(
-					json("{\"content\":[{\"type\":\"text\",\"text\":\"Tool execution result\"}],\"isError\":false}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"content\":[{\"type\":\"text\",\"text\":\"Tool execution result\"}],\"isError\":false}"));
 	}
 
 	@Test
 	void testCallToolResultBuilder() throws Exception {
-		McpSchema.CallToolResult result = McpSchema.CallToolResult.builder()
-			.addTextContent("Tool execution result")
-			.isError(false)
-			.build();
+		McpSchema.CallToolResult result = McpSchema.CallToolResult.builder().addTextContent("Tool execution result")
+				.isError(false).build();
 
 		String value = JSON_MAPPER.writeValueAsString(result);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(
-					json("{\"content\":[{\"type\":\"text\",\"text\":\"Tool execution result\"}],\"isError\":false}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"content\":[{\"type\":\"text\",\"text\":\"Tool execution result\"}],\"isError\":false}"));
 	}
 
 	@Test
@@ -1108,19 +980,14 @@ public class McpSchemaTests {
 		McpSchema.TextContent textContent = new McpSchema.TextContent("Text result");
 		McpSchema.ImageContent imageContent = new McpSchema.ImageContent(null, null, "base64data", "image/png");
 
-		McpSchema.CallToolResult result = McpSchema.CallToolResult.builder()
-			.addContent(textContent)
-			.addContent(imageContent)
-			.isError(false)
-			.build();
+		McpSchema.CallToolResult result = McpSchema.CallToolResult.builder().addContent(textContent)
+				.addContent(imageContent).isError(false).build();
 
 		String value = JSON_MAPPER.writeValueAsString(result);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"content\":[{\"type\":\"text\",\"text\":\"Text result\"},{\"type\":\"image\",\"data\":\"base64data\",\"mimeType\":\"image/png\"}],\"isError\":false}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"content\":[{\"type\":\"text\",\"text\":\"Text result\"},{\"type\":\"image\",\"data\":\"base64data\",\"mimeType\":\"image/png\"}],\"isError\":false}"));
 	}
 
 	@Test
@@ -1133,37 +1000,29 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(result);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"content\":[{\"type\":\"text\",\"text\":\"Text result\"},{\"type\":\"image\",\"data\":\"base64data\",\"mimeType\":\"image/png\"}],\"isError\":true}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"content\":[{\"type\":\"text\",\"text\":\"Text result\"},{\"type\":\"image\",\"data\":\"base64data\",\"mimeType\":\"image/png\"}],\"isError\":true}"));
 	}
 
 	@Test
 	void testCallToolResultBuilderWithErrorResult() throws Exception {
-		McpSchema.CallToolResult result = McpSchema.CallToolResult.builder()
-			.addTextContent("Error: Operation failed")
-			.isError(true)
-			.build();
+		McpSchema.CallToolResult result = McpSchema.CallToolResult.builder().addTextContent("Error: Operation failed")
+				.isError(true).build();
 
 		String value = JSON_MAPPER.writeValueAsString(result);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(
-					json("{\"content\":[{\"type\":\"text\",\"text\":\"Error: Operation failed\"}],\"isError\":true}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"content\":[{\"type\":\"text\",\"text\":\"Error: Operation failed\"}],\"isError\":true}"));
 	}
 
 	@Test
 	void testCallToolResultStringConstructor() throws Exception {
 		// Test the existing string constructor alongside the builder
 		McpSchema.CallToolResult result1 = new McpSchema.CallToolResult("Simple result", false);
-		McpSchema.CallToolResult result2 = McpSchema.CallToolResult.builder()
-			.addTextContent("Simple result")
-			.isError(false)
-			.build();
+		McpSchema.CallToolResult result2 = McpSchema.CallToolResult.builder().addTextContent("Simple result")
+				.isError(false).build();
 
 		String value1 = JSON_MAPPER.writeValueAsString(result1);
 		String value2 = JSON_MAPPER.writeValueAsString(result2);
@@ -1171,10 +1030,8 @@ public class McpSchemaTests {
 		// Both should produce the same JSON
 		assertThat(value1).isEqualTo(value2);
 
-		assertThatJson(value1).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"content\":[{\"type\":\"text\",\"text\":\"Simple result\"}],\"isError\":false}"));
+		assertThatJson(value1).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"content\":[{\"type\":\"text\",\"text\":\"Simple result\"}],\"isError\":false}"));
 	}
 
 	// Sampling Tests
@@ -1194,47 +1051,35 @@ public class McpSchemaTests {
 		metadata.put("session", "test-session");
 
 		McpSchema.CreateMessageRequest request = McpSchema.CreateMessageRequest.builder()
-			.messages(Collections.singletonList(message))
-			.modelPreferences(preferences)
-			.systemPrompt("You are a helpful assistant")
-			.includeContext(McpSchema.CreateMessageRequest.ContextInclusionStrategy.THIS_SERVER)
-			.temperature(0.7)
-			.maxTokens(1000)
-			.stopSequences(Arrays.asList("STOP", "END"))
-			.metadata(metadata)
-			.build();
+				.messages(Collections.singletonList(message)).modelPreferences(preferences)
+				.systemPrompt("You are a helpful assistant")
+				.includeContext(McpSchema.CreateMessageRequest.ContextInclusionStrategy.THIS_SERVER).temperature(0.7)
+				.maxTokens(1000).stopSequences(Arrays.asList("STOP", "END")).metadata(metadata).build();
 
 		String value = JSON_MAPPER.writeValueAsString(request);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"messages\":[{\"role\":\"user\",\"content\":{\"type\":\"text\",\"text\":\"User message\"}}],"
-							+ "\"modelPreferences\":{\"hints\":[{\"name\":\"gpt-4\"}],\"costPriority\":0.3,\"speedPriority\":0.7,"
-							+ "\"intelligencePriority\":0.9},\"systemPrompt\":\"You are a helpful assistant\",\"includeContext\":\"thisServer\","
-							+ "\"temperature\":0.7,\"maxTokens\":1000,\"stopSequences\":[\"STOP\",\"END\"],"
-							+ "\"metadata\":{\"session\":\"test-session\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"messages\":[{\"role\":\"user\",\"content\":{\"type\":\"text\",\"text\":\"User message\"}}],"
+								+ "\"modelPreferences\":{\"hints\":[{\"name\":\"gpt-4\"}],\"costPriority\":0.3,\"speedPriority\":0.7,"
+								+ "\"intelligencePriority\":0.9},\"systemPrompt\":\"You are a helpful assistant\",\"includeContext\":\"thisServer\","
+								+ "\"temperature\":0.7,\"maxTokens\":1000,\"stopSequences\":[\"STOP\",\"END\"],"
+								+ "\"metadata\":{\"session\":\"test-session\"}}"));
 	}
 
 	@Test
 	void testCreateMessageResult() throws Exception {
 		McpSchema.TextContent content = new McpSchema.TextContent("Assistant response");
 
-		McpSchema.CreateMessageResult result = McpSchema.CreateMessageResult.builder()
-			.role(McpSchema.Role.ASSISTANT)
-			.content(content)
-			.model("gpt-4")
-			.stopReason(McpSchema.CreateMessageResult.StopReason.END_TURN)
-			.build();
+		McpSchema.CreateMessageResult result = McpSchema.CreateMessageResult.builder().role(McpSchema.Role.ASSISTANT)
+				.content(content).model("gpt-4").stopReason(McpSchema.CreateMessageResult.StopReason.END_TURN).build();
 
 		String value = JSON_MAPPER.writeValueAsString(result);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"role\":\"assistant\",\"content\":{\"type\":\"text\",\"text\":\"Assistant response\"},"
-					+ "\"model\":\"gpt-4\",\"stopReason\":\"endTurn\"}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(
+						json("{\"role\":\"assistant\",\"content\":{\"type\":\"text\",\"text\":\"Assistant response\"},"
+								+ "\"model\":\"gpt-4\",\"stopReason\":\"endTurn\"}"));
 	}
 
 	@Test
@@ -1245,12 +1090,9 @@ public class McpSchemaTests {
 		McpSchema.CreateMessageResult value = JSON_MAPPER.readValue(input, McpSchema.CreateMessageResult.class);
 
 		McpSchema.TextContent expectedContent = new McpSchema.TextContent("Assistant response");
-		McpSchema.CreateMessageResult expected = McpSchema.CreateMessageResult.builder()
-			.role(McpSchema.Role.ASSISTANT)
-			.content(expectedContent)
-			.model("gpt-4")
-			.stopReason(McpSchema.CreateMessageResult.StopReason.UNKNOWN)
-			.build();
+		McpSchema.CreateMessageResult expected = McpSchema.CreateMessageResult.builder().role(McpSchema.Role.ASSISTANT)
+				.content(expectedContent).model("gpt-4").stopReason(McpSchema.CreateMessageResult.StopReason.UNKNOWN)
+				.build();
 		assertThat(value).isEqualTo(expected);
 	}
 
@@ -1259,43 +1101,35 @@ public class McpSchemaTests {
 	@Test
 	void testCreateElicitationRequest() throws Exception {
 
-		McpSchema.ElicitRequest request = McpSchema.ElicitRequest.builder()
-			.requestedSchema(
-					// In Java 8 usiamo Collections.* e Arrays.* al posto di
-					// Map.of/List.of
-					new java.util.HashMap<String, Object>() {
-						{
-							put("type", "object");
-							put("required", java.util.Collections.singletonList("a"));
-							put("properties", java.util.Collections.singletonMap("foo",
-									java.util.Collections.singletonMap("type", "string")));
-						}
-					})
-			.build();
+		McpSchema.ElicitRequest request = McpSchema.ElicitRequest.builder().requestedSchema(
+				// In Java 8 usiamo Collections.* e Arrays.* al posto di
+				// Map.of/List.of
+				new java.util.HashMap<String, Object>() {
+					{
+						put("type", "object");
+						put("required", java.util.Collections.singletonList("a"));
+						put("properties", java.util.Collections.singletonMap("foo",
+								java.util.Collections.singletonMap("type", "string")));
+					}
+				}).build();
 
 		String value = JSON_MAPPER.writeValueAsString(request);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"requestedSchema\":{\"properties\":{\"foo\":{\"type\":\"string\"}},\"required\":[\"a\"],\"type\":\"object\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"requestedSchema\":{\"properties\":{\"foo\":{\"type\":\"string\"}},\"required\":[\"a\"],\"type\":\"object\"}}"));
 
 	}
 
 	@Test
 	void testCreateElicitationResult() throws Exception {
-		McpSchema.ElicitResult result = McpSchema.ElicitResult.builder()
-			.content(Collections.singletonMap("foo", "bar"))
-			.message(McpSchema.ElicitResult.Action.ACCEPT)
-			.build();
+		McpSchema.ElicitResult result = McpSchema.ElicitResult.builder().content(Collections.singletonMap("foo", "bar"))
+				.message(McpSchema.ElicitResult.Action.ACCEPT).build();
 
 		String value = JSON_MAPPER.writeValueAsString(result);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"action\":\"accept\",\"content\":{\"foo\":\"bar\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"action\":\"accept\",\"content\":{\"foo\":\"bar\"}}"));
 
 	}
 
@@ -1319,17 +1153,12 @@ public class McpSchemaTests {
 		Map<String, Object> meta = new HashMap<>();
 		meta.put("progressToken", "elicit-token-789");
 
-		McpSchema.ElicitRequest request = McpSchema.ElicitRequest.builder()
-			.message("Please provide your name")
-			.requestedSchema(requestedSchema)
-			.meta(meta)
-			.build();
+		McpSchema.ElicitRequest request = McpSchema.ElicitRequest.builder().message("Please provide your name")
+				.requestedSchema(requestedSchema).meta(meta).build();
 
 		String value = JSON_MAPPER.writeValueAsString(request);
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.containsEntry("_meta", Collections.singletonMap("progressToken", "elicit-token-789"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.containsEntry("_meta", Collections.singletonMap("progressToken", "elicit-token-789"));
 
 		// Test Request interface methods
 		assertThat(request.meta()).isEqualTo(meta);
@@ -1343,10 +1172,8 @@ public class McpSchemaTests {
 		McpSchema.PaginatedRequest request = new McpSchema.PaginatedRequest();
 
 		String value = JSON_MAPPER.writeValueAsString(request);
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{}"));
 
 		// Test that it implements Request interface methods
 		assertThat(request.meta()).isNull();
@@ -1358,10 +1185,8 @@ public class McpSchemaTests {
 		McpSchema.PaginatedRequest request = new McpSchema.PaginatedRequest("cursor123");
 
 		String value = JSON_MAPPER.writeValueAsString(request);
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"cursor\":\"cursor123\"}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"cursor\":\"cursor123\"}"));
 
 		// Test that it implements Request interface methods
 		assertThat(request.meta()).isNull();
@@ -1376,10 +1201,9 @@ public class McpSchemaTests {
 		McpSchema.PaginatedRequest request = new McpSchema.PaginatedRequest("cursor123", meta);
 
 		String value = JSON_MAPPER.writeValueAsString(request);
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"cursor\":\"cursor123\",\"_meta\":{\"progressToken\":\"pagination-progress-456\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(
+						json("{\"cursor\":\"cursor123\",\"_meta\":{\"progressToken\":\"pagination-progress-456\"}}"));
 
 		// Test that it implements Request interface methods
 		assertThat(request.meta()).isEqualTo(meta);
@@ -1408,11 +1232,9 @@ public class McpSchemaTests {
 		McpSchema.CompleteRequest request = new McpSchema.CompleteRequest(promptRef, argument);
 
 		String value = JSON_MAPPER.writeValueAsString(request);
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"ref\":{\"type\":\"ref/prompt\",\"name\":\"test-prompt\"},\"argument\":{\"name\":\"arg1\",\"value\":\"partial-value\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"ref\":{\"type\":\"ref/prompt\",\"name\":\"test-prompt\"},\"argument\":{\"name\":\"arg1\",\"value\":\"partial-value\"}}"));
 
 		// Test that it implements Request interface methods
 		assertThat(request.meta()).isNull();
@@ -1432,11 +1254,9 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(request);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"ref\":{\"type\":\"ref/resource\",\"uri\":\"file:///test.txt\"},\"argument\":{\"name\":\"path\",\"value\":\"/partial/path\"},\"_meta\":{\"progressToken\":\"complete-progress-789\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"ref\":{\"type\":\"ref/resource\",\"uri\":\"file:///test.txt\"},\"argument\":{\"name\":\"path\",\"value\":\"/partial/path\"},\"_meta\":{\"progressToken\":\"complete-progress-789\"}}"));
 
 		// Test that it implements Request interface methods
 		assertThat(request.meta()).isEqualTo(meta);
@@ -1452,11 +1272,9 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(root);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"uri\":\"file:///path/to/root\",\"name\":\"Test Root\",\"_meta\":{\"metaKey\":\"metaValue\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"uri\":\"file:///path/to/root\",\"name\":\"Test Root\",\"_meta\":{\"metaKey\":\"metaValue\"}}"));
 	}
 
 	@Test
@@ -1469,11 +1287,9 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(result);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"roots\":[{\"uri\":\"file:///path/to/root1\",\"name\":\"First Root\"},{\"uri\":\"file:///path/to/root2\",\"name\":\"Second Root\"}],\"nextCursor\":\"next-cursor\"}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"roots\":[{\"uri\":\"file:///path/to/root1\",\"name\":\"First Root\"},{\"uri\":\"file:///path/to/root2\",\"name\":\"Second Root\"}],\"nextCursor\":\"next-cursor\"}"));
 	}
 
 	// Progress Notification Tests
@@ -1485,11 +1301,9 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(notification);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json(
-					"{\"progressToken\":\"progress-token-123\",\"progress\":0.5,\"total\":1.0,\"message\":\"Processing file 1 of 2\",\"_meta\":{\"key\":\"value\"}}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json(
+						"{\"progressToken\":\"progress-token-123\",\"progress\":0.5,\"total\":1.0,\"message\":\"Processing file 1 of 2\",\"_meta\":{\"key\":\"value\"}}"));
 	}
 
 	@Test
@@ -1513,10 +1327,8 @@ public class McpSchemaTests {
 
 		String value = JSON_MAPPER.writeValueAsString(notification);
 
-		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER)
-			.when(Option.IGNORING_EXTRA_ARRAY_ITEMS)
-			.isObject()
-			.isEqualTo(json("{\"progressToken\":\"progress-token-789\",\"progress\":0.25}"));
+		assertThatJson(value).when(Option.IGNORING_ARRAY_ORDER).when(Option.IGNORING_EXTRA_ARRAY_ITEMS).isObject()
+				.isEqualTo(json("{\"progressToken\":\"progress-token-789\",\"progress\":0.25}"));
 	}
 
 }

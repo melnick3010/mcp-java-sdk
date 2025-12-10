@@ -169,11 +169,8 @@ class StdioServerTransportProviderTests {
 		transportProvider.setSessionFactory(sessionFactory);
 
 		// Close gracefully multiple times
-		StepVerifier
-			.create(transportProvider.closeGracefully()
-				.then(transportProvider.closeGracefully())
-				.then(transportProvider.closeGracefully()))
-			.verifyComplete();
+		StepVerifier.create(transportProvider.closeGracefully().then(transportProvider.closeGracefully())
+				.then(transportProvider.closeGracefully())).verifyComplete();
 
 		// Error log should be empty
 		assertThat(testErr.toString()).doesNotContain("Error");
@@ -185,10 +182,10 @@ class StdioServerTransportProviderTests {
 		transportProvider = new StdioServerTransportProvider(JSON_MAPPER);
 		// Send notification before setting session factory
 		StepVerifier
-			.create(transportProvider.notifyClients("testNotification", Collections.singletonMap("key", "value")))
-			.verifyErrorSatisfies(error -> {
-				assertThat(error).isInstanceOf(McpError.class);
-			});
+				.create(transportProvider.notifyClients("testNotification", Collections.singletonMap("key", "value")))
+				.verifyErrorSatisfies(error -> {
+					assertThat(error).isInstanceOf(McpError.class);
+				});
 	}
 
 	@Test
@@ -205,9 +202,9 @@ class StdioServerTransportProviderTests {
 
 		// Use StepVerifier with a timeout to wait for the error to be processed
 		StepVerifier
-			.create(Mono.delay(java.time.Duration.ofMillis(500)).then(Mono.fromCallable(() -> testErr.toString())))
-			.assertNext(errorOutput -> assertThat(errorOutput).contains("Error processing inbound message"))
-			.verifyComplete();
+				.create(Mono.delay(java.time.Duration.ofMillis(500)).then(Mono.fromCallable(() -> testErr.toString())))
+				.assertNext(errorOutput -> assertThat(errorOutput).contains("Error processing inbound message"))
+				.verifyComplete();
 	}
 
 	@Test
