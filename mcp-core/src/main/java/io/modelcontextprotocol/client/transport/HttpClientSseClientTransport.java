@@ -328,8 +328,11 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 		// arrivo
 		return Mono.defer(() -> {
 			String endpoint = messageEndpoint.get();
-			if (endpoint == null || isClosing) {
-				return Mono.error(new McpTransportException("Message endpoint not available or transport closing"));
+			if (endpoint == null) {
+				return Mono.error(new McpTransportException("Message endpoint not available"));
+			}
+			if (isClosing) {
+				return Mono.error(new McpTransportException("transport closing"));
 			}
 			return Mono.fromCallable(() -> {
 				String jsonBody = jsonMapper.writeValueAsString(message);

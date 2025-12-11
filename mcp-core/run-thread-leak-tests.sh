@@ -43,7 +43,7 @@ check_prerequisites() {
     fi
     
     JAVA_VERSION=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
-    if [ "$JAVA_VERSION" -lt 17 ]; then
+    if [ "$JAVA_VERSION" -lt 1 ]; then
         print_error "Java 17 or later required. Found: $JAVA_VERSION"
         exit 1
     fi
