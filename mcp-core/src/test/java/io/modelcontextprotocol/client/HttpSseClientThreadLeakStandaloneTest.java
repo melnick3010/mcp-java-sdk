@@ -71,12 +71,6 @@ public class HttpSseClientThreadLeakStandaloneTest {
 	static void stopServer() {
 		if (serverContainer != null) {
 			logger.info("=== Stopping server container ===");
-			try {
-				// Attendi un po' per permettere alle connessioni di chiudersi
-				Thread.sleep(2000);
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-			}
 			serverContainer.stop();
 		}
 	}
@@ -108,10 +102,10 @@ public class HttpSseClientThreadLeakStandaloneTest {
 			
 			// Chiudi il client
 			logger.info("Closing client...");
-			client.closeGracefully().block(Duration.ofSeconds(5));
+			client.closeGracefully().block(Duration.ofSeconds(10));
 			
-			// Attendi un po' per permettere la pulizia completa
-			Thread.sleep(2000);
+			// Breve attesa per permettere la pulizia
+			Thread.sleep(500);
 			
 			// Conta i thread dopo questa iterazione
 			int currentThreadCount = threadMXBean.getThreadCount();
@@ -131,11 +125,9 @@ public class HttpSseClientThreadLeakStandaloneTest {
 			}
 		}
 
-		// Forza garbage collection e attendi pulizia
+		// Forza garbage collection
 		logger.info("\nForcing garbage collection...");
 		System.gc();
-		Thread.sleep(3000);
-		System.gc(); // Secondo GC per essere sicuri
 		Thread.sleep(1000);
 
 		// Verifica finale
@@ -202,14 +194,12 @@ public class HttpSseClientThreadLeakStandaloneTest {
 
 		// Chiudi client
 		logger.info("Closing client...");
-		client.closeGracefully().block(Duration.ofSeconds(5));
+		client.closeGracefully().block(Duration.ofSeconds(10));
 		
-		// Attendi pulizia completa
-		Thread.sleep(3000);
-		System.gc();
-		Thread.sleep(2000);
-		System.gc();
+		// Attendi pulizia
 		Thread.sleep(1000);
+		System.gc();
+		Thread.sleep(500);
 		
 		int afterThreadCount = threadMXBean.getThreadCount();
 		List<String> afterThreadNames = getThreadNames(threadMXBean);
@@ -235,11 +225,8 @@ public class HttpSseClientThreadLeakStandaloneTest {
 					.capabilities(McpSchema.ClientCapabilities.builder().build())
 					.build();
 
-			// Attendi che la connessione SSE sia stabilita e l'endpoint scoperto
-			client.initialize().block(Duration.ofSeconds(15));
-			
-			// Piccola pausa per assicurarsi che tutto sia pronto
-			Thread.sleep(500);
+			// Initialize - the transport will wait for endpoint discovery internally
+			client.initialize().block(Duration.ofSeconds(30));
 			
 			clientRef.set(client);
 		}).doesNotThrowAnyException();

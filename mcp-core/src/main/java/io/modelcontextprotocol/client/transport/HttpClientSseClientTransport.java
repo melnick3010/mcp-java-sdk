@@ -7,6 +7,9 @@ import java.io.InputStreamReader;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
@@ -62,9 +65,17 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	// leaks
 	private final Scheduler dedicatedScheduler;
 
+	// Readiness signal: completed when endpoint is discovered via SSE
+	private volatile CompletableFuture<String> endpointReady = new CompletableFuture<>();
+
 	// NB: lasciamo la reference globale per compatibilità, ma NON la usiamo nel
 	// loop SSE
 	private final AtomicReference<String> messageEndpoint = new AtomicReference<>();
+	
+	// Resources to close: SSE reader thread, response, and reader
+	private volatile Thread sseReaderThread;
+	private volatile CloseableHttpResponse sseResponse;
+	private volatile BufferedReader sseReader;
 
 	protected HttpClientSseClientTransport(CloseableHttpClient httpClient, String baseUri, String sseEndpoint,
 			McpJsonMapper jsonMapper, McpAsyncHttpClientRequestCustomizer httpRequestCustomizer) {
@@ -154,6 +165,9 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	public Mono<Void> connect(Function<Mono<JSONRPCMessage>, Mono<JSONRPCMessage>> handler) {
 		URI uri = Utils.resolveUri(this.baseUri, this.sseEndpoint);
 		return Mono.fromRunnable(() -> {
+			// Store current thread for interruption during close
+			sseReaderThread = Thread.currentThread();
+			
 			org.apache.http.client.methods.RequestBuilder rb = org.apache.http.client.methods.RequestBuilder.get()
 					.setUri(uri).addHeader("Accept", "text/event-stream").addHeader("Cache-Control", "no-cache")
 					.addHeader(MCP_PROTOCOL_VERSION_HEADER_NAME, MCP_PROTOCOL_VERSION);
@@ -164,15 +178,17 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 					.block();
 
 			org.apache.http.client.methods.HttpUriRequest request = rb.build();
-			try (CloseableHttpResponse response = httpClient.execute(request);
-					BufferedReader reader = new BufferedReader(
-							new InputStreamReader(response.getEntity().getContent()))) {
+			try {
+				sseResponse = httpClient.execute(request);
+				sseReader = new BufferedReader(new InputStreamReader(sseResponse.getEntity().getContent()));
+				
+				logger.info("SSE connection established, waiting for endpoint discovery...");
 
 				// Endpoint locale per questo stream SSE
 				String endpointForThisStream = null;
 
 				String line;
-				while ((line = reader.readLine()) != null && !isClosing) {
+				while ((line = sseReader.readLine()) != null && !isClosing) {
 					if (line.startsWith("event:")) {
 						String eventType = line.substring(6).trim();
 
@@ -202,9 +218,13 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 
 						if (ENDPOINT_EVENT_TYPE.equals(eventType)) {
 							endpointForThisStream = data; // <-- per-STREAM
-							messageEndpoint.set(data); // (compatibilità; non usato per
-														// REQUEST SSE)
-							logger.info("SSE ENDPOINT DISCOVERED (stream-local): {}", endpointForThisStream);
+							messageEndpoint.set(data); // (compatibilità; non usato per REQUEST SSE)
+							
+							// Complete the readiness signal
+							if (!endpointReady.isDone()) {
+								endpointReady.complete(data);
+								logger.info("SSE ENDPOINT DISCOVERED and readiness signal completed: {}", endpointForThisStream);
+							}
 						}
 						else if (MESSAGE_EVENT_TYPE.equals(eventType)) {
 							try {
@@ -323,17 +343,40 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 
 	@Override
 	public Mono<Void> sendMessage(JSONRPCMessage message) {
-		// Manteniamo per compatibilità (es. notifiche esterne),
-		// ma il loop SSE usa postToEndpoint(endpointForThisStream) per REQUEST in
-		// arrivo
 		return Mono.defer(() -> {
-			String endpoint = messageEndpoint.get();
-			if (endpoint == null) {
-				return Mono.error(new McpTransportException("Message endpoint not available"));
-			}
+			// Check if transport is closing
 			if (isClosing) {
-				return Mono.error(new McpTransportException("transport closing"));
+				return Mono.error(new McpTransportException("Transport is closing"));
 			}
+			
+			// Wait for endpoint to be ready with timeout
+			try {
+				String endpoint = endpointReady.get(30, TimeUnit.SECONDS);
+				logger.debug("Endpoint ready for sendMessage: {}", endpoint);
+				
+				// Double-check closing state after waiting
+				if (isClosing) {
+					return Mono.error(new McpTransportException("Transport is closing"));
+				}
+				
+				return sendToEndpoint(message, endpoint);
+			}
+			catch (TimeoutException e) {
+				logger.error("Timeout waiting for endpoint discovery");
+				return Mono.error(new McpTransportException("Endpoint discovery timeout after 30 seconds"));
+			}
+			catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return Mono.error(new McpTransportException("Interrupted while waiting for endpoint"));
+			}
+			catch (Exception e) {
+				return Mono.error(new McpTransportException("Failed to get endpoint: " + e.getMessage(), e));
+			}
+		});
+	}
+	
+	private Mono<Void> sendToEndpoint(JSONRPCMessage message, String endpoint) {
+		return Mono.defer(() -> {
 			return Mono.fromCallable(() -> {
 				String jsonBody = jsonMapper.writeValueAsString(message);
 				URI postUri = Utils.resolveUri(this.baseUri, endpoint);
@@ -362,12 +405,80 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	@Override
 	public Mono<Void> closeGracefully() {
 		return Mono.fromRunnable(() -> {
+			logger.info("Starting graceful close of SSE transport...");
 			isClosing = true;
-			// Dispose the dedicated scheduler to properly cleanup threads
-			if (dedicatedScheduler != null && !dedicatedScheduler.isDisposed()) {
-				dedicatedScheduler.dispose();
+			
+			// 1. Interrupt SSE reader thread to unblock readLine()
+			if (sseReaderThread != null && sseReaderThread.isAlive()) {
+				logger.info("Interrupting SSE reader thread...");
+				sseReaderThread.interrupt();
 			}
+			
+			// 2. Close resources (will be called in finally block too, but safe to call multiple times)
+			closeResources();
+			
+			// 3. Wait for SSE thread to terminate
+			if (sseReaderThread != null && sseReaderThread.isAlive()) {
+				try {
+					logger.info("Waiting for SSE reader thread to terminate...");
+					sseReaderThread.join(5000);
+					if (sseReaderThread.isAlive()) {
+						logger.warn("SSE reader thread did not terminate within 5 seconds");
+					} else {
+						logger.info("SSE reader thread terminated successfully");
+					}
+				}
+				catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					logger.warn("Interrupted while waiting for SSE thread termination");
+				}
+			}
+			
+			// 4. Close HTTP client
+			if (httpClient != null) {
+				try {
+					logger.info("Closing HTTP client...");
+					httpClient.close();
+					logger.info("HTTP client closed successfully");
+				}
+				catch (IOException e) {
+					logger.warn("Error closing HTTP client", e);
+				}
+			}
+			
+			// 5. Dispose the dedicated scheduler
+			if (dedicatedScheduler != null && !dedicatedScheduler.isDisposed()) {
+				logger.info("Disposing dedicated scheduler...");
+				dedicatedScheduler.dispose();
+				logger.info("Dedicated scheduler disposed successfully");
+			}
+			
+			logger.info("Graceful close completed");
 		});
+	}
+	
+	private void closeResources() {
+		// Close reader
+		if (sseReader != null) {
+			try {
+				sseReader.close();
+				logger.debug("SSE reader closed");
+			}
+			catch (IOException e) {
+				logger.debug("Error closing SSE reader", e);
+			}
+		}
+		
+		// Close response
+		if (sseResponse != null) {
+			try {
+				sseResponse.close();
+				logger.debug("SSE response closed");
+			}
+			catch (IOException e) {
+				logger.debug("Error closing SSE response", e);
+			}
+		}
 	}
 
 	@Override
