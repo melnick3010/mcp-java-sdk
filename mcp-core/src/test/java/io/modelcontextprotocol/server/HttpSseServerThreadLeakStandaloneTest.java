@@ -238,7 +238,7 @@ public class HttpSseServerThreadLeakStandaloneTest {
 				.capabilities(McpSchema.ServerCapabilities.builder()
 						.tools(true)
 						.prompts(true)
-						.resources(true)
+						.resources(true, true)
 						.build())
 				.tools(new McpServerFeatures.SyncToolSpecification(
 						McpSchema.Tool.builder()
@@ -251,7 +251,7 @@ public class HttpSseServerThreadLeakStandaloneTest {
 								false)))
 				.build();
 
-		Tomcat tomcat = TomcatTestUtil.createTomcat(port, transport, mcpServer);
+		Tomcat tomcat = TomcatTestUtil.createTomcatServer("", port, transport);
 		tomcat.start();
 		
 		logger.info("Tomcat started successfully");

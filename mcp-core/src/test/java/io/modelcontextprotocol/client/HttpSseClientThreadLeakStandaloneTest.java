@@ -97,8 +97,8 @@ public class HttpSseClientThreadLeakStandaloneTest {
 			McpAsyncClient client = createAndInitializeClient();
 			
 			// Esegui una semplice operazione
-			List<McpSchema.Tool> tools = client.listTools(null).block(Duration.ofSeconds(5));
-			logger.info("Retrieved {} tools", tools != null ? tools.size() : 0);
+			McpSchema.ListToolsResult toolsResult = client.listTools(null).block(Duration.ofSeconds(5));
+			logger.info("Retrieved {} tools", toolsResult != null ? toolsResult.getTools().size() : 0);
 			
 			// Chiudi il client
 			logger.info("Closing client...");
