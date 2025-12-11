@@ -196,8 +196,8 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 						int dataLines = 0;
 						StringBuilder dataBuilder = new StringBuilder();
 						String next;
-						reader.mark(8192);
-						while ((next = reader.readLine()) != null) {
+						sseReader.mark(8192);
+						while ((next = sseReader.readLine()) != null) {
 							if (next.startsWith("data:")) {
 								if (dataLines > 0)
 									dataBuilder.append('\n');
@@ -205,7 +205,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 								dataLines++;
 								continue;
 							}
-							reader.reset();
+							sseReader.reset();
 							// riallinea la lettura sulla riga non-data
 							line = next;
 							break;
