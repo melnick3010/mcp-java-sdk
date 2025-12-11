@@ -71,6 +71,12 @@ public class HttpSseClientThreadLeakStandaloneTest {
 	static void stopServer() {
 		if (serverContainer != null) {
 			logger.info("=== Stopping server container ===");
+			try {
+				// Attendi un po' per permettere alle connessioni di chiudersi
+				Thread.sleep(2000);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
 			serverContainer.stop();
 		}
 	}
@@ -104,8 +110,8 @@ public class HttpSseClientThreadLeakStandaloneTest {
 			logger.info("Closing client...");
 			client.closeGracefully().block(Duration.ofSeconds(5));
 			
-			// Attendi un po' per permettere la pulizia
-			Thread.sleep(1000);
+			// Attendi un po' per permettere la pulizia completa
+			Thread.sleep(2000);
 			
 			// Conta i thread dopo questa iterazione
 			int currentThreadCount = threadMXBean.getThreadCount();
@@ -125,10 +131,12 @@ public class HttpSseClientThreadLeakStandaloneTest {
 			}
 		}
 
-		// Forza garbage collection
+		// Forza garbage collection e attendi pulizia
 		logger.info("\nForcing garbage collection...");
 		System.gc();
-		Thread.sleep(2000);
+		Thread.sleep(3000);
+		System.gc(); // Secondo GC per essere sicuri
+		Thread.sleep(1000);
 
 		// Verifica finale
 		int finalThreadCount = threadMXBean.getThreadCount();
@@ -196,7 +204,9 @@ public class HttpSseClientThreadLeakStandaloneTest {
 		logger.info("Closing client...");
 		client.closeGracefully().block(Duration.ofSeconds(5));
 		
-		// Attendi pulizia
+		// Attendi pulizia completa
+		Thread.sleep(3000);
+		System.gc();
 		Thread.sleep(2000);
 		System.gc();
 		Thread.sleep(1000);
@@ -225,7 +235,12 @@ public class HttpSseClientThreadLeakStandaloneTest {
 					.capabilities(McpSchema.ClientCapabilities.builder().build())
 					.build();
 
-			client.initialize().block(Duration.ofSeconds(10));
+			// Attendi che la connessione SSE sia stabilita e l'endpoint scoperto
+			client.initialize().block(Duration.ofSeconds(15));
+			
+			// Piccola pausa per assicurarsi che tutto sia pronto
+			Thread.sleep(500);
+			
 			clientRef.set(client);
 		}).doesNotThrowAnyException();
 

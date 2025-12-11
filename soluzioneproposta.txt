@@ -1,0 +1,145 @@
+Obiettivo della soluzione
+Garantire che:
+
+Ogni invio di messaggi MCP (es. initialize, listTools, ecc.) parta solo dopo che il client ha effettivamente scoperto l’endpoint HTTP di consegna (/message?sessionId=...) tramite la connessione SSE.
+La chiusura del client sia “forte”, cioè rilasci sempre e completamente tutti i thread e le risorse (stream di lettura SSE, socket HTTP, scheduler/Executor), evitando thread residui (http-sse-client) e letture bloccanti.
+Gli errori siano espliciti e diagnostici: se l’endpoint non è disponibile, si ottiene un errore chiaro (“endpoint non pronto” o “transport in chiusura”) anziché timeouts o eccezioni derivate da chiusure concorrenti.
+
+
+Architettura logica del trasporto (senza codice)
+1) Stato “endpoint pronto” (readiness) e segnalazione
+
+Il transport mantiene:
+
+Uno stato atomico con l’URL dell’endpoint messaggi (inizialmente “non disponibile”).
+Un segnale di readiness che viene completato nel momento in cui l’evento SSE di tipo endpoint viene ricevuto e l’URL è noto.
+
+
+In pratica, pensalo come una “promessa” che verrà soddisfatta alla prima discovery:
+
+Prima della discovery: il segnale è “in attesa”.
+Appena l’endpoint viene scoperto: il segnale passa in stato “completato” e rende disponibile l’URL a chi lo sta aspettando.
+
+
+
+2) Avvio della SSE e parsing dell’evento endpoint
+
+All’avvio, il transport apre la connessione SSE con intestazioni corrette (Accept: text/event-stream, Cache-Control: no-cache, eventuali header MCP).
+Il transport legge in streaming le linee SSE su un thread dedicato e, quando trova l’evento endpoint (che contiene l’URL del POST con la sessionId), memorizza l’URL e completa il segnale di readiness.
+Questo consente a tutto il resto del client di sincronizzarsi con la discovery, evitando di inviare messaggi prima che l’endpoint esista.
+
+3) Invio dei messaggi MCP solo dopo readiness
+
+Ogni operazione MCP che implica un POST (sendMessage) non consulta direttamente lo stato atomico dell’endpoint, ma si aggancia al segnale di readiness:
+
+Se l’endpoint è già noto, l’operazione parte subito.
+Se l’endpoint non è ancora noto, l’operazione attende che il segnale si completi.
+Se l’endpoint non diventa disponibile entro un timeout ragionevole (es. 10–30 secondi), l’operazione fallisce con un errore esplicito (“endpoint discovery timeout”), che è molto più chiaro dei timeouts generici.
+
+
+Prima di eseguire l’IO (POST), l’operazione verifica anche lo stato di chiusura del transport:
+
+Se il transport sta chiudendo o è chiuso, risponde con un errore esplicito (“transport closing”) invece di avviare una richiesta destinata a fallire.
+
+
+
+4) Gestione dei reset di sessione / reconnessione
+
+Se la connessione SSE si interrompe e il server impone una nuova sessione, l’endpoint diventa non valido:
+
+Il transport invalida l’URL (stato atomico riportato a “non disponibile”).
+Ricrea/riattiva un nuovo segnale di readiness.
+Riavvia la lettura SSE e scopre il nuovo endpoint; le operazioni MCP attenderanno la nuova readiness automaticamente.
+
+
+Questo evita errori come “message endpoint not available” durante le fasi di riconnessione e centralizza la logica di sincronizzazione.
+
+
+Chiusura “forte” delle risorse (per eliminare thread residui)
+1) Lettura SSE
+
+Il transport, alla chiusura, chiude esplicitamente lo stream di ingresso (reader / input stream) della connessione SSE.
+Interrompe il thread dedicato alla lettura (se è ancora vivo), in modo da sbloccare eventuali readLine() pendenti e fermare la pipeline SSE in modo deterministico.
+
+2) HTTP client
+
+Chiude esplicitamente il client HTTP sottostante (es. Apache HttpClient), inclusi:
+
+Responses pendenti (se mantenute come risorse),
+Connection manager/sockets,
+Risorse native del client.
+
+
+Questo garantisce che nessun socket rimanga in stato semi‑aperto e che i thread del client HTTP vengano rilasciati.
+
+3) Scheduler / Executor
+
+Se per l’IO sincrono o per compiti di background è stato creato uno Scheduler/Executor dedicato (es. un pool elastico per operazioni bloccanti), alla chiusura va disposto per evitare thread “in attesa” e leak.
+
+4) Coordinamento con il client
+
+Dopo la chiusura “graceful” del client (che scarica le richieste in corso e invia eventuali finalizzazioni), si invoca anche la chiusura del transport (dispose/close).
+Il test, per verificare l’assenza di thread residui, può:
+
+Attendere brevemente,
+Richiedere una garbage collection,
+Contare i thread e assicurarsi che quelli http-sse-client siano scesi a zero.
+
+
+
+
+Strategia degli errori e diagnostica
+1) Errori espliciti
+
+Se l’endpoint non è disponibile entro la finestra di attesa: errore “endpoint discovery timeout”.
+Se il transport sta chiudendo: errore “transport closing”.
+Se l’operazione fallisce per ragioni di rete, si propagano errori coerenti con l’IO (con testo arricchito per indicare URL e tipo di operazione).
+
+2) Logging informativo
+
+Loggare eventi cardine:
+
+Avvio SSE e ricezione dell’evento endpoint con URL.
+Inizio e fine di ogni sendMessage con endpoint utilizzato.
+Fasi di chiusura (stream reader, thread SSE, client HTTP, scheduler).
+
+
+Questo rende immediata la diagnosi di race o di ordine di lifecycle.
+
+3) Metriche (facoltative ma utili)
+
+Esporre una metrica di readiness (boolean/GAUGE) per capire se l’endpoint è pronto.
+Conteggio dei retry/timeout di discovery.
+Numero di thread attivi associati al transport (utile nei test di leak).
+
+
+Implicazioni per i test e per l’ambiente
+1) Test “single lifecycle”
+
+Con la chiusura “forte” e l’invio sincronizzato alla readiness, dopo closeGracefully + dispose/close del transport i thread http-sse-client non devono rimanere attivi.
+Il test può verificare AFTER: HTTP‑SSE threads = 0 con un breve wait e GC.
+
+2) Test “multiple connections”
+
+Evitare di fermare il server mentre i client stanno avviando/inviando; lo stop del container deve avvenire solo dopo la fine del test.
+Se usi Podman rootless e hai Ryuk disabilitato, ricorda che la pulizia automatica dei container non avviene: gestisci manualmente start/stop del server con ordine rigoroso.
+In Maven Surefire, mantenere un unico fork/istanza e un lifecycle prevedibile riduce il rischio di teardown anticipati.
+Ampliare i timeout ragionevolmente per evitare che l’engine di test chiuda il server in mezzo alle iterazioni.
+
+
+Benefici concreti della soluzione
+
+Eliminazione della race tra discovery dell’endpoint e invio dei messaggi, grazie al gating “endpoint-ready”.
+Chiusura deterministica delle risorse di trasporto, con conseguente assenza di thread residui e riduzione degli errori da letture bloccanti.
+Errori chiari e azionabili (endpoint non pronto vs transport in chiusura) che migliorano la diagnosi e la manutenzione.
+Resilienza a riconnessioni/nuove sessioni: il transport invalida l’endpoint e ripete la discovery, e le operazioni MCP si sincronizzano automaticamente alla nuova readiness.
+
+
+Checklist operativa (riassunto, senza codice)
+
+SSE start: apri SSE e leggi gli eventi; alla ricezione di endpoint, memorizza l’URL e completa il segnale di readiness.
+sendMessage: agganciati al segnale di readiness; se chiusura in corso, fallisci esplicitamente; altrimenti esegui POST.
+Reset: se la SSE cade, invalida l’endpoint, ricrea il segnale di readiness, riapri SSE e scopri di nuovo l’endpoint.
+Close: chiudi stream/reader, interrompi thread, chiudi HTTP client, dispose scheduler; poi verifica assenza di thread residui.
+Test: non fermare il server durante le iterazioni; usa un solo fork; timeouts adeguati; controllo finale dei thread.
+
