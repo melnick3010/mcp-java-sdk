@@ -414,16 +414,38 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				sseReaderThread.interrupt();
 			}
 			
-			// 2. Close resources (will be called in finally block too, but safe to call multiple times)
-			closeResources();
+			// 2. Abort HTTP connection BEFORE closing streams to avoid blocking on chunked streams
+			if (sseResponse != null) {
+				try {
+					logger.info("Aborting SSE HTTP response...");
+					// Try to abort the response to close the underlying socket
+					sseResponse.close();
+					logger.debug("SSE response aborted");
+				}
+				catch (IOException e) {
+					logger.debug("Error aborting SSE response (expected during shutdown)", e);
+				}
+			}
 			
-			// 3. Wait for SSE thread to terminate
+			// 3. Close HTTP client to terminate socket connections
+			if (httpClient != null) {
+				try {
+					logger.info("Closing HTTP client to terminate connections...");
+					httpClient.close();
+					logger.info("HTTP client closed successfully");
+				}
+				catch (IOException e) {
+					logger.warn("Error closing HTTP client", e);
+				}
+			}
+			
+			// 4. Wait for SSE thread to terminate (should be quick now that socket is closed)
 			if (sseReaderThread != null && sseReaderThread.isAlive()) {
 				try {
 					logger.info("Waiting for SSE reader thread to terminate...");
-					sseReaderThread.join(5000);
+					sseReaderThread.join(2000); // Reduced timeout since socket is closed
 					if (sseReaderThread.isAlive()) {
-						logger.warn("SSE reader thread did not terminate within 5 seconds");
+						logger.warn("SSE reader thread did not terminate within 2 seconds, continuing anyway");
 					} else {
 						logger.info("SSE reader thread terminated successfully");
 					}
@@ -434,19 +456,10 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				}
 			}
 			
-			// 4. Close HTTP client
-			if (httpClient != null) {
-				try {
-					logger.info("Closing HTTP client...");
-					httpClient.close();
-					logger.info("HTTP client closed successfully");
-				}
-				catch (IOException e) {
-					logger.warn("Error closing HTTP client", e);
-				}
-			}
+			// 5. Now safely close remaining resources (should not block since socket is closed)
+			closeResourcesSafely();
 			
-			// 5. Dispose the dedicated scheduler
+			// 6. Dispose the dedicated scheduler
 			if (dedicatedScheduler != null && !dedicatedScheduler.isDisposed()) {
 				logger.info("Disposing dedicated scheduler...");
 				dedicatedScheduler.dispose();
@@ -478,6 +491,49 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			catch (IOException e) {
 				logger.debug("Error closing SSE response", e);
 			}
+		}
+	}
+	
+	private void closeResourcesSafely() {
+		// Close reader safely (socket should already be closed)
+		if (sseReader != null) {
+			try {
+				logger.debug("Closing SSE reader (socket already closed)...");
+				sseReader.close();
+				logger.debug("SSE reader closed safely");
+			}
+			catch (IOException e) {
+				logger.debug("Error closing SSE reader (expected after socket close)", e);
+			}
+			finally {
+				sseReader = null;
+			}
+		}
+		
+		// Response should already be closed, but ensure cleanup
+		if (sseResponse != null) {
+			try {
+				logger.debug("Ensuring SSE response is closed...");
+				sseResponse.close();
+				logger.debug("SSE response cleanup completed");
+			}
+			catch (IOException e) {
+				logger.debug("Error during SSE response cleanup (expected)", e);
+			}
+			finally {
+				sseResponse = null;
+			}
+		}
+	}
+	
+	/**
+	 * Reset endpoint readiness for reconnection scenarios.
+	 * This should be called when SSE connection is lost and needs to be re-established.
+	 */
+	private void resetEndpointReadiness() {
+		if (!isClosing) {
+			logger.info("Resetting endpoint readiness for potential reconnection");
+			endpointReady = new CompletableFuture<>();
 		}
 	}
 
