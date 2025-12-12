@@ -285,8 +285,12 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 					}
 				}
 			}
-			catch (IOException e) {
-				logger.error("Error during SSE connection", e);
+			catch (IOException e) {				
+				if (isClosing) {
+						logger.debug("SSE connection closed during shutdown (expected)");
+					} else {
+						logger.error("Error during SSE connection", e);
+					}
 			}
 		}).subscribeOn(dedicatedScheduler).then();
 	}
