@@ -232,7 +232,10 @@ public class HttpSseServerThreadLeakStandaloneTest {
 	private Tomcat startTomcatWithMcpServer(int port) throws LifecycleException {
 		logger.info("Starting Tomcat on port {}...", port);
 		
-		HttpServletSseServerTransportProvider transport = HttpServletSseServerTransportProvider.builder().build();
+		HttpServletSseServerTransportProvider transport = HttpServletSseServerTransportProvider.builder()
+				.messageEndpoint("/mcp/message")
+				.sseEndpoint("/sse")
+				.build();
 		
 		McpSyncServer mcpServer = McpServer.sync(transport)
 				.capabilities(McpSchema.ServerCapabilities.builder()
