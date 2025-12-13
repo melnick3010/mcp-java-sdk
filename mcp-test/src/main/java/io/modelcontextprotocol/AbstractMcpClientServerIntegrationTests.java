@@ -132,13 +132,17 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			assertThat(client.initialize()).isNotNull();
 
+			McpError thrownError = null;
 			try {
 				client.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 			}
 			catch (McpError e) {
-				assertThat(e).isInstanceOf(McpError.class)
-						.hasMessage("Client must be configured with sampling capabilities");
+				thrownError = e;
 			}
+			
+			assertThat(thrownError).isNotNull()
+					.isInstanceOf(McpError.class)
+					.hasMessage("Client must be configured with sampling capabilities");
 		}
 		finally {
 			server.closeGracefully().block();
@@ -191,7 +195,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
 			assertThat(response).isNotNull();
-			assertThat(response).isEqualTo(callResponse);
+			assertThat(response).usingRecursiveComparison().isEqualTo(callResponse);
 
 			assertWith(samplingResult.get(), result -> {
 				assertThat(result).isNotNull();
@@ -262,7 +266,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
 			assertThat(response).isNotNull();
-			assertThat(response).isEqualTo(callResponse);
+			assertThat(response).usingRecursiveComparison().isEqualTo(callResponse);
 
 			assertWith(samplingResult.get(), result -> {
 				assertThat(result).isNotNull();
@@ -356,13 +360,17 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			assertThat(client.initialize()).isNotNull();
 
+			McpError thrownError = null;
 			try {
 				client.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 			}
 			catch (McpError e) {
-				assertThat(e).isInstanceOf(McpError.class)
-						.hasMessage("Client must be configured with elicitation capabilities");
+				thrownError = e;
 			}
+			
+			assertThat(thrownError).isNotNull()
+					.isInstanceOf(McpError.class)
+					.hasMessage("Client must be configured with elicitation capabilities");
 		}
 		finally {
 			server.closeGracefully().block();
@@ -418,7 +426,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
 			assertThat(response).isNotNull();
-			assertThat(response).isEqualTo(callResponse);
+			assertThat(response).usingRecursiveComparison().isEqualTo(callResponse);
 		}
 		finally {
 			mcpServer.closeGracefully().block();
@@ -471,7 +479,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
 			assertThat(response).isNotNull();
-			assertThat(response).isEqualTo(callResponse);
+			assertThat(response).usingRecursiveComparison().isEqualTo(callResponse);
 			assertWith(resultRef.get(), result -> {
 				assertThat(result).isNotNull();
 				assertThat(result.getAction()).isEqualTo(McpSchema.ElicitResult.Action.ACCEPT);
@@ -770,7 +778,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
 			assertThat(responseBodyIsNullOrBlank.get()).isFalse();
-			assertThat(response).isNotNull().isEqualTo(callResponse);
+			assertThat(response).isNotNull().usingRecursiveComparison().isEqualTo(callResponse);
 		}
 		finally {
 			mcpServer.closeGracefully();

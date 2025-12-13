@@ -635,10 +635,13 @@ public class McpAsyncClient {
 		return this.listTools(McpSchema.FIRST_PAGE).expand(result -> {
 			String next = result.getNextCursor();
 			return (next != null && !next.isEmpty()) ? this.listTools(next) : Mono.empty();
-		}).reduce(new McpSchema.ListToolsResult(new ArrayList<>(), null), (allToolsResult, result) -> {
-			allToolsResult.getTools().addAll(result.getTools());
-			return allToolsResult;
-		}).map(result -> new McpSchema.ListToolsResult(Collections.unmodifiableList(result.getTools()), null));
+		}).collectList().map(results -> {
+			List<McpSchema.Tool> allTools = new ArrayList<>();
+			for (McpSchema.ListToolsResult result : results) {
+				allTools.addAll(result.getTools());
+			}
+			return new McpSchema.ListToolsResult(allTools, null);
+		});
 	}
 
 	/**
@@ -699,11 +702,13 @@ public class McpAsyncClient {
 	public Mono<McpSchema.ListResourcesResult> listResources() {
 		return this.listResources(McpSchema.FIRST_PAGE).expand(
 				result -> (result.nextCursor() != null) ? this.listResources(result.nextCursor()) : Mono.empty())
-				.reduce(new McpSchema.ListResourcesResult(new ArrayList<>(), null), (allResourcesResult, result) -> {
-					allResourcesResult.resources().addAll(result.resources());
-					return allResourcesResult;
-				}).map(result -> new McpSchema.ListResourcesResult(Collections.unmodifiableList(result.resources()),
-						null));
+				.collectList().map(results -> {
+					List<McpSchema.Resource> allResources = new ArrayList<>();
+					for (McpSchema.ListResourcesResult result : results) {
+						allResources.addAll(result.resources());
+					}
+					return new McpSchema.ListResourcesResult(allResources, null);
+				});
 	}
 
 	/**
@@ -866,11 +871,13 @@ public class McpAsyncClient {
 	public Mono<ListPromptsResult> listPrompts() {
 		return this.listPrompts(McpSchema.FIRST_PAGE).expand(
 				result -> (result.getNextCursor() != null) ? this.listPrompts(result.getNextCursor()) : Mono.empty())
-				.reduce(new ListPromptsResult(new ArrayList<>(), null), (allPromptsResult, result) -> {
-					allPromptsResult.getPrompts().addAll(result.getPrompts());
-					return allPromptsResult;
-				}).map(result -> new McpSchema.ListPromptsResult(Collections.unmodifiableList(result.getPrompts()),
-						null));
+				.collectList().map(results -> {
+					List<McpSchema.Prompt> allPrompts = new ArrayList<>();
+					for (ListPromptsResult result : results) {
+						allPrompts.addAll(result.getPrompts());
+					}
+					return new McpSchema.ListPromptsResult(allPrompts, null);
+				});
 	}
 
 	/**

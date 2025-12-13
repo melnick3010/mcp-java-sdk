@@ -131,7 +131,7 @@ public abstract class AbstractStatelessIntegrationTests {
 			CallToolResult response = mcpClient
 					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
-			assertThat(response).isNotNull().isEqualTo(callResponse);
+			assertThat(response).isNotNull().usingRecursiveComparison().isEqualTo(callResponse);
 		}
 		finally {
 			mcpServer.closeGracefully().block();

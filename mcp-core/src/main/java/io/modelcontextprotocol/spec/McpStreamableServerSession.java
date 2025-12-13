@@ -181,6 +181,9 @@ public class McpStreamableServerSession implements McpLoggableSession {
 			McpLoggableSession listeningStream = this.listeningStreamRef.get();
 			return notificationHandler.handle(new McpAsyncServerExchange(this.id, listeningStream,
 					this.clientCapabilities.get(), this.clientInfo.get(), transportContext), notification.params());
+		}).onErrorResume(error -> {
+			logger.error("Error handling notification: {}", error.getMessage());
+			return Mono.empty();
 		});
 	}
 

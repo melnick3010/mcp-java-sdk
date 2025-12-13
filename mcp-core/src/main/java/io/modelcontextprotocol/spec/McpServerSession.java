@@ -213,7 +213,10 @@ public class McpServerSession implements McpLoggableSession {
 				McpSchema.JSONRPCNotification notification = (McpSchema.JSONRPCNotification) message;
 				logger.debug("Received notification: {}", notification);
 				return handleIncomingNotification(notification, transportContext)
-						.doOnError(error -> logger.error("Error handling notification: {}", error.getMessage()));
+						.onErrorResume(error -> {
+							logger.error("Error handling notification: {}", error.getMessage());
+							return Mono.empty();
+						});
 			}
 			else {
 				logger.warn("Received unknown message type: {}", message);
