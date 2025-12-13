@@ -51,6 +51,16 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 	private McpSyncClient client;
 
 	private int port;
+	
+
+	 @BeforeAll
+	  static void enableWireLogging() {
+	    System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.SimpleLog");
+	    System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http", "DEBUG");
+	    System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wire", "DEBUG");
+	    System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.impl.conn", "DEBUG");
+	  }
+
 
 	@BeforeEach
 	public void before() {
