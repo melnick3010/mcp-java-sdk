@@ -632,16 +632,18 @@ public class McpAsyncClient {
 	 * @return A Mono that emits the list of all tools result
 	 */
 	public Mono<McpSchema.ListToolsResult> listTools() {
-		return this.listTools(McpSchema.FIRST_PAGE).expand(result -> {
-			String next = result.getNextCursor();
-			return (next != null && !next.isEmpty()) ? this.listTools(next) : Mono.empty();
-		}).collectList().map(results -> {
-			List<McpSchema.Tool> allTools = new ArrayList<>();
-			for (McpSchema.ListToolsResult result : results) {
-				allTools.addAll(result.getTools());
-			}
-			return new McpSchema.ListToolsResult(allTools, null);
-		});
+		return this.listTools(McpSchema.FIRST_PAGE)
+			.expand(result -> {
+				String next = result.getNextCursor();
+				return (next != null && !next.isEmpty()) ? this.listTools(next) : Mono.empty();
+			})
+			.reduce(new ArrayList<McpSchema.Tool>(), (acc, page) -> {
+				if (page.getTools() != null) {
+					acc.addAll(page.getTools());
+				}
+				return acc;
+			})
+			.map(all -> new McpSchema.ListToolsResult(all, null));
 	}
 
 	/**
@@ -772,13 +774,13 @@ public class McpAsyncClient {
 		return this.listResourceTemplates(McpSchema.FIRST_PAGE)
 				.expand(result -> (result.getNextCursor() != null) ? this.listResourceTemplates(result.getNextCursor())
 						: Mono.empty())
-				.reduce(new McpSchema.ListResourceTemplatesResult(new ArrayList<>(), null),
-						(allResourceTemplatesResult, result) -> {
-							allResourceTemplatesResult.getResourceTemplates().addAll(result.getResourceTemplates());
-							return allResourceTemplatesResult;
-						})
-				.map(result -> new McpSchema.ListResourceTemplatesResult(
-						Collections.unmodifiableList(result.getResourceTemplates()), null));
+				.reduce(new ArrayList<McpSchema.ResourceTemplate>(), (acc, page) -> {
+					if (page.getResourceTemplates() != null) {
+						acc.addAll(page.getResourceTemplates());
+					}
+					return acc;
+				})
+				.map(all -> new McpSchema.ListResourceTemplatesResult(all, null));
 	}
 
 	/**
@@ -869,15 +871,15 @@ public class McpAsyncClient {
 	 * @see #getPrompt(GetPromptRequest)
 	 */
 	public Mono<ListPromptsResult> listPrompts() {
-		return this.listPrompts(McpSchema.FIRST_PAGE).expand(
-				result -> (result.getNextCursor() != null) ? this.listPrompts(result.getNextCursor()) : Mono.empty())
-				.collectList().map(results -> {
-					List<McpSchema.Prompt> allPrompts = new ArrayList<>();
-					for (ListPromptsResult result : results) {
-						allPrompts.addAll(result.getPrompts());
+		return this.listPrompts(McpSchema.FIRST_PAGE)
+				.expand(result -> (result.getNextCursor() != null) ? this.listPrompts(result.getNextCursor()) : Mono.empty())
+				.reduce(new ArrayList<McpSchema.Prompt>(), (acc, page) -> {
+					if (page.getPrompts() != null) {
+						acc.addAll(page.getPrompts());
 					}
-					return new McpSchema.ListPromptsResult(allPrompts, null);
-				});
+					return acc;
+				})
+				.map(all -> new McpSchema.ListPromptsResult(all, null));
 	}
 
 	/**

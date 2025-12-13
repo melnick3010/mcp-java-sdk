@@ -867,7 +867,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			assertThat(transportContextIsNull.get()).isFalse();
 			assertThat(transportContextIsEmpty.get()).isFalse();
 			assertThat(responseBodyIsNullOrBlank.get()).isFalse();
-			assertThat(response).isNotNull().isEqualTo(expectedCallResponse);
+			assertThat(response).isNotNull().usingRecursiveComparison().isEqualTo(expectedCallResponse);
 		}
 		finally {
 			mcpServer.closeGracefully();
