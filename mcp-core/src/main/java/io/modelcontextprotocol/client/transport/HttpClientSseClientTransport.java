@@ -13,9 +13,12 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -152,11 +155,45 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			return this;
 		}
 
-		private java.util.function.Supplier<CloseableHttpClient> clientFactory = org.apache.http.impl.client.HttpClients::createDefault;
+		private java.util.function.Supplier<CloseableHttpClient> clientFactory = () -> createPooledHttpClient();
 
 		public Builder clientFactory(java.util.function.Supplier<CloseableHttpClient> factory) {
-			this.clientFactory = (factory == null ? org.apache.http.impl.client.HttpClients::createDefault : factory);
+			this.clientFactory = (factory == null ? () -> createPooledHttpClient() : factory);
 			return this;
+		}
+		
+		/**
+		 * Creates a pooled HTTP client optimized for SSE long-lived connections and concurrent POST requests.
+		 *
+		 * Configuration:
+		 * - maxTotal = 20: Total connections across all routes
+		 * - defaultMaxPerRoute = 10: Max connections per route (allows SSE + multiple POSTs)
+		 * - connectTimeout = 3000ms: Socket connection timeout
+		 * - connectionRequestTimeout = 3000ms: Timeout waiting for connection from pool
+		 * - socketTimeout = 15000ms: Socket read timeout
+		 * - Expect-Continue disabled: Reduces round-trips for POST requests
+		 *
+		 * This prevents connection pool contention when SSE long-lived connection
+		 * shares the client with POST requests for ping responses.
+		 */
+		private static CloseableHttpClient createPooledHttpClient() {
+			// Configure connection pool
+			PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
+			connectionManager.setMaxTotal(20);
+			connectionManager.setDefaultMaxPerRoute(10);
+			
+			// Configure request timeouts
+			RequestConfig requestConfig = RequestConfig.custom()
+					.setConnectTimeout(3000)           // Connection establishment timeout
+					.setConnectionRequestTimeout(3000) // Timeout waiting for connection from pool
+					.setSocketTimeout(15000)           // Socket read timeout
+					.setExpectContinueEnabled(false)   // Disable Expect: 100-continue for faster POSTs
+					.build();
+			
+			return HttpClientBuilder.create()
+					.setConnectionManager(connectionManager)
+					.setDefaultRequestConfig(requestConfig)
+					.build();
 		}
 
 	}
