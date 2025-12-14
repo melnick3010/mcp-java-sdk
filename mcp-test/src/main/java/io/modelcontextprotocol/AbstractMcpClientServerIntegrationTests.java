@@ -645,7 +645,10 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 					exchange.listRoots(); // try to list roots
 
-					return mock(CallToolResult.class);
+					// Use real instance instead of mock to avoid "Cannot mock final class" error
+					return CallToolResult.builder()
+							.addContent(new McpSchema.TextContent("Should not reach here"))
+							.build();
 				}).build();
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder().rootsChangeHandler((exchange, rootsUpdate) -> {
