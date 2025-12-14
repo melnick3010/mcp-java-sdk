@@ -805,9 +805,11 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
-
-			assertThat(mcpClient.listTools().getTools()).contains(tool1.tool());
-
+	
+			// Compare tools by name instead of object identity
+			List<Tool> tools = mcpClient.listTools().getTools();
+			assertThat(tools).extracting(Tool::getName).contains(tool1.tool().getName());
+	
 			CallToolResult response = mcpClient
 					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
@@ -896,9 +898,11 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
-
-			assertThat(mcpClient.listTools().getTools()).contains(tool1.tool());
-
+	
+			// Compare tools by name instead of object identity
+			List<Tool> tools = mcpClient.listTools().getTools();
+			assertThat(tools).extracting(Tool::getName).contains(tool1.tool().getName());
+	
 			CallToolResult response = mcpClient
 					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
 
@@ -962,11 +966,13 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
-
+	
 			assertThat(toolsRef.get()).isNull();
-
-			assertThat(mcpClient.listTools().getTools()).contains(tool1.tool());
-
+	
+			// Compare tools by name instead of object identity
+			List<Tool> tools = mcpClient.listTools().getTools();
+			assertThat(tools).extracting(Tool::getName).contains(tool1.tool().getName());
+	
 			mcpServer.notifyToolsListChanged();
 
 			// Increase timeout to 10s to handle notification processing and cache invalidation delays

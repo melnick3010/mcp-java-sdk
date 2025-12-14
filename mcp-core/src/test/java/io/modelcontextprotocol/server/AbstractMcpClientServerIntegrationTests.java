@@ -110,11 +110,23 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 		SyncSpec clientBuilder = clientBuilders.get(clientType);
 
+		// Create real instances instead of mocking final classes
+		CreateMessageRequest createMessageRequest = CreateMessageRequest.builder()
+				.messages(Collections.singletonList(new McpSchema.SamplingMessage(Role.USER,
+						new McpSchema.TextContent("Test message"))))
+				.modelPreferences(ModelPreferences.builder().hints(Collections.emptyList())
+						.costPriority(1.0).speedPriority(1.0).intelligencePriority(1.0).build())
+				.build();
+		
+		CallToolResult callToolResult = CallToolResult.builder()
+				.addContent(new McpSchema.TextContent("Test response"))
+				.build();
+
 		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder().tool(
 				Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
 				.callHandler((exchange, request) -> {
-					return exchange.createMessage(mock(McpSchema.CreateMessageRequest.class))
-							.then(Mono.just(mock(CallToolResult.class)));
+					return exchange.createMessage(createMessageRequest)
+							.then(Mono.just(callToolResult));
 				}).build();
 
 		McpAsyncServer server = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0").tools(tool).build();
@@ -335,11 +347,21 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 		SyncSpec clientBuilder = clientBuilders.get(clientType);
 
+		// Create real instances instead of mocking final classes
+		ElicitRequest elicitRequest = ElicitRequest.builder()
+				.message("Test elicitation")
+				.requestedSchema(Collections.emptyMap())
+				.build();
+		
+		CallToolResult callToolResult = CallToolResult.builder()
+				.addContent(new McpSchema.TextContent("Test response"))
+				.build();
+
 		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder()
 				.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA)
 						.build())
-				.callHandler((exchange, request) -> exchange.createElicitation(mock(ElicitRequest.class))
-						.then(Mono.just(mock(CallToolResult.class))))
+				.callHandler((exchange, request) -> exchange.createElicitation(elicitRequest)
+						.then(Mono.just(callToolResult)))
 				.build();
 
 		McpAsyncServer server = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0").tools(tool).build();

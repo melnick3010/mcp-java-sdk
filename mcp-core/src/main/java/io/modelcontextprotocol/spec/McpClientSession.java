@@ -255,10 +255,15 @@ public class McpClientSession implements McpSession {
 		return Mono.defer(() -> {
 			NotificationHandler handler = notificationHandlers.get(notification.method());
 			if (handler == null) {
-				logger.warn("No handler registered for notification method: {}", notification);
+				logger.warn("No handler registered for notification method: {}", notification.method());
 				return Mono.empty();
 			}
-			return handler.handle(notification.params());
+			Mono<Void> result = handler.handle(notification.params());
+			if (result == null) {
+				logger.error("Notification handler returned null for method: {}", notification.method());
+				return Mono.empty();
+			}
+			return result;
 		});
 	}
 
@@ -293,7 +298,23 @@ public class McpClientSession implements McpSession {
 									}
 								});
 					}
-				})).timeout(this.requestTimeout).handle((jsonRpcResponse, deliveredResponseSink) -> {
+				})).timeout(this.requestTimeout)
+				.onErrorResume(throwable -> {
+					// Convert timeout exceptions to McpError
+					if (throwable instanceof java.util.concurrent.TimeoutException
+							|| (throwable.getCause() instanceof java.util.concurrent.TimeoutException)) {
+						logger.error("Request timeout for method={}, id={}, timeout={}ms",
+								method, requestId, requestTimeout.toMillis());
+						McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError =
+								new McpSchema.JSONRPCResponse.JSONRPCError(
+										McpSchema.ErrorCodes.INTERNAL_ERROR,
+										"Request did not complete within " + requestTimeout.toMillis() + "ms",
+										null);
+						return Mono.error(new McpError(jsonRpcError));
+					}
+					return Mono.error(throwable);
+				})
+				.handle((jsonRpcResponse, deliveredResponseSink) -> {
 					logger.info("CLIENT receivedResponse: id={} (completing)", requestId);
 					if (jsonRpcResponse.error() != null) {
 						logger.error("Error handling request: {}", jsonRpcResponse.error());

@@ -125,8 +125,10 @@ public abstract class AbstractStatelessIntegrationTests {
 
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
+// Compare tools by name instead of object identity
+List<McpSchema.Tool> tools = mcpClient.listTools().getTools();
+assertThat(tools).extracting(McpSchema.Tool::getName).contains(tool1.tool().getName());
 
-			assertThat(mcpClient.listTools().getTools()).contains(tool1.tool());
 
 			CallToolResult response = mcpClient
 					.callTool(new McpSchema.CallToolRequest("tool1", Collections.emptyMap()));
@@ -231,8 +233,10 @@ public abstract class AbstractStatelessIntegrationTests {
 			assertThat(initResult).isNotNull();
 
 			assertThat(rootsRef.get()).isNull();
+// Compare tools by name instead of object identity
+List<McpSchema.Tool> tools = mcpClient.listTools().getTools();
+assertThat(tools).extracting(McpSchema.Tool::getName).contains(tool1.tool().getName());
 
-			assertThat(mcpClient.listTools().getTools()).contains(tool1.tool());
 
 			// Remove a tool
 			mcpServer.removeTool("tool1");
