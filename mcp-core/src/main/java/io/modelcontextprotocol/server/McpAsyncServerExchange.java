@@ -186,13 +186,12 @@ public class McpAsyncServerExchange {
 		return this.listRoots(McpSchema.FIRST_PAGE)
 			.expand(result -> (result.getNextCursor() != null) ?
 					this.listRoots(result.getNextCursor()) : Mono.empty())
-			.reduce(new McpSchema.ListRootsResult(new ArrayList<>(), null),
-				(allRootsResult, result) -> {
-					allRootsResult.getRoots().addAll(result.getRoots());
-					return allRootsResult;
+			.reduce(new ArrayList<McpSchema.Root>(),
+				(allRoots, result) -> {
+					allRoots.addAll(result.getRoots());
+					return allRoots;
 				})
-			.map(result -> new McpSchema.ListRootsResult(Collections.unmodifiableList(result.getRoots()),
-					result.getNextCursor()));
+			.map(allRoots -> new McpSchema.ListRootsResult(allRoots, null));
 		// @formatter:on
 	}
 
