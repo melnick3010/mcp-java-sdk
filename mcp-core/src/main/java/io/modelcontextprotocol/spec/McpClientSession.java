@@ -334,9 +334,15 @@ public class McpClientSession implements McpSession {
 	/** Sends a JSON-RPC notification. */
 	@Override
 	public Mono<Void> sendNotification(String method, Object params) {
+		logger.info("CLIENT [{}] SENDING NOTIFICATION: method={}, params={}", this.name, method, params);
 		McpSchema.JSONRPCNotification jsonrpcNotification = new McpSchema.JSONRPCNotification(McpSchema.JSONRPC_VERSION,
 				method, params);
-		return this.transport.sendMessage(jsonrpcNotification);
+		logger.info("CLIENT [{}] NOTIFICATION CONSTRUCTED: jsonrpc={}, method={}, params={}",
+				this.name, jsonrpcNotification.jsonrpc(), jsonrpcNotification.method(), jsonrpcNotification.params());
+		return this.transport.sendMessage(jsonrpcNotification)
+				.doOnSuccess(v -> logger.info("CLIENT [{}] NOTIFICATION SENT SUCCESSFULLY: method={}", this.name, method))
+				.doOnError(e -> logger.error("CLIENT [{}] NOTIFICATION SEND FAILED: method={}, error={}",
+						this.name, method, e.getMessage(), e));
 	}
 
 	/** Closes the session gracefully, allowing pending operations to complete. */

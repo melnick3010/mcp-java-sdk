@@ -227,10 +227,12 @@ public class McpServerSession implements McpLoggableSession {
 			}
 			else if (message instanceof McpSchema.JSONRPCNotification) {
 				McpSchema.JSONRPCNotification notification = (McpSchema.JSONRPCNotification) message;
-				logger.debug("Received notification: {}", notification);
+				logger.info("SERVER NOTIFICATION RECEIVED: method={}, params={}, notification={}",
+						notification.method(), notification.params(), notification);
 				return handleIncomingNotification(notification, transportContext)
 						.onErrorResume(error -> {
-							logger.error("Error handling notification: {}", error.getMessage());
+							logger.error("Error handling notification: method={}, error={}, stackTrace={}",
+									notification.method(), error.getMessage(), error.getClass().getName(), error);
 							return Mono.empty();
 						});
 			}
@@ -296,18 +298,26 @@ public class McpServerSession implements McpLoggableSession {
 	private Mono<Void> handleIncomingNotification(McpSchema.JSONRPCNotification notification,
 			McpTransportContext transportContext) {
 		return Mono.defer(() -> {
+			logger.info("SERVER handleIncomingNotification: method={}, params={}, registeredHandlers={}",
+					notification.method(), notification.params(), notificationHandlers.keySet());
+			
 			if (McpSchema.METHOD_NOTIFICATION_INITIALIZED.equals(notification.method())) {
+				logger.info("SERVER: Processing 'initialized' notification");
 				this.state.lazySet(STATE_INITIALIZED);
 				exchangeSink.tryEmitValue(new McpAsyncServerExchange(this.id, this, clientCapabilities.get(),
 						clientInfo.get(), transportContext));
 			}
 			McpNotificationHandler handler = notificationHandlers.get(notification.method());
 			if (handler == null) {
-				logger.warn("No handler registered for notification method: {}", notification);
+				logger.warn("SERVER: No handler registered for notification method: {}, available handlers: {}",
+						notification.method(), notificationHandlers.keySet());
 				return Mono.empty();
 			}
+			logger.info("SERVER: Invoking handler for method={}", notification.method());
 			return this.exchangeSink.asMono().flatMap(
-					exchange -> handler.handle(copyExchange(exchange, transportContext), notification.params()));
+					exchange -> handler.handle(copyExchange(exchange, transportContext), notification.params()))
+					.doOnSuccess(v -> logger.info("SERVER: Handler completed successfully for method={}", notification.method()))
+					.doOnError(e -> logger.error("SERVER: Handler failed for method={}: {}", notification.method(), e.getMessage(), e));
 		});
 	}
 
