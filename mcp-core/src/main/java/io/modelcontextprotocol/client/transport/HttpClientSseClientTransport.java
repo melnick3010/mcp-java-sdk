@@ -97,7 +97,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 		this.httpClient = httpClient;
 		this.connectionManager = connectionManager;
 		this.httpRequestCustomizer = httpRequestCustomizer;
-		// Create a dedicated bounded elastic scheduler for this transport instance
+		// Create a dedicated bounded elastic scheduler for this transport instance with daemon threads
 		this.dedicatedScheduler = Schedulers.newBoundedElastic(4, Integer.MAX_VALUE, "http-sse-client", 60, true);
 	}
 
@@ -501,7 +501,15 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			// 1. Signal shutdown FIRST - this allows the read loop to exit on next timeout
 			isClosing = true;
 			
-			// 2. Close the entity and response to release the socket
+			// 2. Dispose the dedicated scheduler BEFORE waiting for thread termination
+			// This releases scheduler worker threads from DelayedWorkQueue.take()
+			if (dedicatedScheduler != null && !dedicatedScheduler.isDisposed()) {
+				logger.info("Disposing dedicated scheduler...");
+				dedicatedScheduler.dispose();
+				logger.info("Dedicated scheduler disposed successfully");
+			}
+			
+			// 3. Close the entity and response to release the socket
 			if (sseResponse != null) {
 				try {
 					logger.info("Consuming and closing SSE response entity...");
@@ -515,7 +523,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				}
 			}
 			
-			// 3. Shutdown connection manager to forcibly close all connections
+			// 4. Shutdown connection manager to forcibly close all connections
 			if (connectionManager != null) {
 				try {
 					logger.info("Shutting down connection manager...");
@@ -528,7 +536,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				}
 			}
 			
-			// 4. Close HTTP client
+			// 5. Close HTTP client
 			if (httpClient != null) {
 				try {
 					logger.info("Closing HTTP client...");
@@ -540,18 +548,16 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				}
 			}
 			
-			// 5. Wait for SSE thread to terminate (should exit quickly due to socket timeout + isClosing flag)
+			// 6. Wait for SSE thread to terminate (should exit quickly due to socket timeout + isClosing flag)
 			if (sseReaderThread != null && sseReaderThread.isAlive()) {
 				try {
 					logger.info("Waiting for SSE reader thread to terminate...");
-					// With SO_TIMEOUT=1s, thread should exit within 1-2 seconds
+					// With SO_TIMEOUT=1s and scheduler disposed, thread should exit within 1-2 seconds
 					sseReaderThread.join(5000);
 					if (sseReaderThread.isAlive()) {
 						logger.warn("SSE reader thread did not terminate within 5 seconds, dumping stack trace...");
 						dumpThreadStack(sseReaderThread);
-						// Set as daemon to prevent blocking test suite
-						sseReaderThread.setDaemon(true);
-						logger.warn("Set SSE reader thread as daemon to prevent test suite blocking");
+						logger.warn("SSE reader thread will be left running (daemon threads will not block JVM exit)");
 					} else {
 						logger.info("SSE reader thread terminated successfully");
 					}
@@ -562,17 +568,13 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				}
 			}
 			
-			// 6. Close remaining resources safely
+			// 7. Close remaining resources safely
 			closeResourcesSafely();
 			
-			// 7. Dispose the dedicated scheduler
-			if (dedicatedScheduler != null && !dedicatedScheduler.isDisposed()) {
-				logger.info("Disposing dedicated scheduler...");
-				dedicatedScheduler.dispose();
-				logger.info("Dedicated scheduler disposed successfully");
-			}
-			
 			logger.info("Graceful close completed");
+		}).onErrorResume(ex -> {
+			logger.warn("Close completed with non-fatal error: {}", ex.toString());
+			return Mono.empty();
 		});
 	}
 	
