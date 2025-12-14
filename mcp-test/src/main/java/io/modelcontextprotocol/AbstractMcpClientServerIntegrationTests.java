@@ -364,10 +364,8 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 		// Create real instances instead of mocking final classes
 		ElicitRequest elicitRequest = ElicitRequest.builder()
-				.messages(Collections.singletonList(new McpSchema.SamplingMessage(Role.USER,
-						new McpSchema.TextContent("Test elicitation"))))
-				.modelPreferences(ModelPreferences.builder().hints(Collections.emptyList())
-						.costPriority(1.0).speedPriority(1.0).intelligencePriority(1.0).build())
+				.message("Test elicitation")
+				.requestedSchema(Collections.emptyMap())
 				.build();
 		
 		CallToolResult callToolResult = CallToolResult.builder()
