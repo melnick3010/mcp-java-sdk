@@ -309,10 +309,13 @@ public class McpClientSession implements McpSession {
 				})
 				.onErrorResume(throwable -> {
 					// Convert timeout exceptions to McpError
-					if (throwable instanceof java.util.concurrent.TimeoutException
-							|| (throwable.getCause() instanceof java.util.concurrent.TimeoutException)
-							|| throwable instanceof reactor.core.Exceptions.ReactiveException
-								&& throwable.getCause() instanceof java.util.concurrent.TimeoutException) {
+					// Check for TimeoutException directly or as a cause in the exception chain
+					boolean isTimeout = throwable instanceof java.util.concurrent.TimeoutException;
+					if (!isTimeout && throwable.getCause() != null) {
+						isTimeout = throwable.getCause() instanceof java.util.concurrent.TimeoutException;
+					}
+					
+					if (isTimeout) {
 						logger.error("CLIENT REQUEST TIMEOUT: method={}, id={}, timeout={}ms, pendingCount={}",
 								method, requestId, requestTimeout.toMillis(), pendingResponses.size());
 						McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError =
