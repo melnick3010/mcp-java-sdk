@@ -7,6 +7,7 @@ import java.net.URI;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -29,12 +30,13 @@ public class HttpClientSseClientTransportDispatchSmokeTest {
 
 	static class SpyTransport extends HttpClientSseClientTransport {
 
+		private static PoolingHttpClientConnectionManager connectionManager;
 		private final AtomicInteger postCount = new AtomicInteger(0);
 
 		SpyTransport() {
 			super(
 					// httpClient: non usato (nessuna rete in questo test)
-					org.apache.http.impl.client.HttpClients.createDefault(), "http://localhost:0", "/sse",
+					org.apache.http.impl.client.HttpClients.createDefault(), connectionManager, "http://localhost:0", "/sse",
 					McpJsonMapper.getDefault(), McpAsyncHttpClientRequestCustomizer.NOOP);
 		}
 

@@ -26,6 +26,7 @@ import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -69,6 +70,10 @@ class HttpClientSseClientTransportTests {
 			.withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String())).withExposedPorts(3001)
 			.waitingFor(Wait.forHttp("/").forStatusCode(404));
 
+	public static PoolingHttpClientConnectionManager connectionManager;
+
+
+
 	private TestHttpClientSseClientTransport transport;
 
 	private final McpTransportContext context = McpTransportContext
@@ -79,6 +84,8 @@ class HttpClientSseClientTransportTests {
 	// Test class to access protected methods
 	static class TestHttpClientSseClientTransport extends HttpClientSseClientTransport {
 
+		private static PoolingHttpClientConnectionManager connectionManager;
+
 		private final java.util.concurrent.atomic.AtomicInteger inboundMessageCount = new java.util.concurrent.atomic.AtomicInteger(
 				0);
 
@@ -86,7 +93,7 @@ class HttpClientSseClientTransportTests {
 				.many().unicast().onBackpressureBuffer();
 
 		public TestHttpClientSseClientTransport(final String baseUri) {
-			super(org.apache.http.impl.client.HttpClients.createDefault(), baseUri, "/sse", // oppure
+			super(org.apache.http.impl.client.HttpClients.createDefault(), connectionManager, baseUri, "/sse", // oppure
 																							// un
 																							// endpoint
 																							// passato
