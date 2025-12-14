@@ -57,6 +57,8 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	private final String sseEndpoint;
 
 	private final CloseableHttpClient httpClient;
+	
+	private final PoolingHttpClientConnectionManager connectionManager;
 
 	private final McpJsonMapper jsonMapper;
 
@@ -80,7 +82,9 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	private volatile CloseableHttpResponse sseResponse;
 	private volatile BufferedReader sseReader;
 
-	protected HttpClientSseClientTransport(CloseableHttpClient httpClient, String baseUri, String sseEndpoint,
+	protected HttpClientSseClientTransport(CloseableHttpClient httpClient,
+			PoolingHttpClientConnectionManager connectionManager,
+			String baseUri, String sseEndpoint,
 			McpJsonMapper jsonMapper, McpAsyncHttpClientRequestCustomizer httpRequestCustomizer) {
 		Assert.notNull(jsonMapper, "jsonMapper must not be null");
 		Assert.hasText(baseUri, "baseUri must not be empty");
@@ -91,6 +95,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 		this.sseEndpoint = sseEndpoint;
 		this.jsonMapper = jsonMapper;
 		this.httpClient = httpClient;
+		this.connectionManager = connectionManager;
 		this.httpRequestCustomizer = httpRequestCustomizer;
 		// Create a dedicated bounded elastic scheduler for this transport instance
 		this.dedicatedScheduler = Schedulers.newBoundedElastic(4, Integer.MAX_VALUE, "http-sse-client", 60, true);
@@ -136,9 +141,27 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 		}
 
 		public HttpClientSseClientTransport build() {
-			CloseableHttpClient httpClient = clientFactory.get();
-			return new HttpClientSseClientTransport(httpClient, baseUri, sseEndpoint,
+			PoolingHttpClientConnectionManager connManager = new PoolingHttpClientConnectionManager();
+			connManager.setMaxTotal(20);
+			connManager.setDefaultMaxPerRoute(10);
+			
+			CloseableHttpClient httpClient = clientFactory != null ? clientFactory.get() : createPooledHttpClient(connManager);
+			return new HttpClientSseClientTransport(httpClient, connManager, baseUri, sseEndpoint,
 					jsonMapper == null ? McpJsonMapper.getDefault() : jsonMapper, httpRequestCustomizer);
+		}
+		
+		private static CloseableHttpClient createPooledHttpClient(PoolingHttpClientConnectionManager connManager) {
+			RequestConfig requestConfig = RequestConfig.custom()
+					.setConnectTimeout(3000)
+					.setConnectionRequestTimeout(3000)
+					.setSocketTimeout(15000)
+					.setExpectContinueEnabled(false)
+					.build();
+			
+			return HttpClientBuilder.create()
+					.setConnectionManager(connManager)
+					.setDefaultRequestConfig(requestConfig)
+					.build();
 		}
 
 		public Builder httpRequestCustomizer(
@@ -205,8 +228,18 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			// Store current thread for interruption during close
 			sseReaderThread = Thread.currentThread();
 			
+			// Configure request with socket timeout for interruptible reads
+			RequestConfig sseConfig = RequestConfig.custom()
+					.setConnectTimeout(5000)
+					.setConnectionRequestTimeout(5000)
+					.setSocketTimeout(1000)  // Critical: 1s read timeout allows periodic wake-up
+					.build();
+			
 			org.apache.http.client.methods.RequestBuilder rb = org.apache.http.client.methods.RequestBuilder.get()
-					.setUri(uri).addHeader("Accept", "text/event-stream").addHeader("Cache-Control", "no-cache")
+					.setUri(uri)
+					.setConfig(sseConfig)  // Apply socket timeout config
+					.addHeader("Accept", "text/event-stream")
+					.addHeader("Cache-Control", "no-cache")
 					.addHeader(MCP_PROTOCOL_VERSION_HEADER_NAME, MCP_PROTOCOL_VERSION);
 
 			McpTransportContext transportContext = McpTransportContext.EMPTY;
@@ -225,7 +258,24 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				String endpointForThisStream = null;
 
 				String line;
-				while ((line = sseReader.readLine()) != null && !isClosing) {
+				while (!isClosing) {
+					try {
+						line = sseReader.readLine();
+						if (line == null) {
+							// Connection closed by server
+							logger.info("SSE connection closed by server");
+							break;
+						}
+					}
+					catch (java.net.SocketTimeoutException | java.io.InterruptedIOException e) {
+						// Periodic wake-up from socket timeout - check shutdown flag
+						if (isClosing) {
+							logger.debug("SSE reader exiting due to shutdown request");
+							break;
+						}
+						// Continue reading
+						continue;
+					}
 					if (line.startsWith("event:")) {
 						String eventType = line.substring(6).trim();
 
@@ -447,31 +497,41 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	public Mono<Void> closeGracefully() {
 		return Mono.fromRunnable(() -> {
 			logger.info("Starting graceful close of SSE transport...");
+			
+			// 1. Signal shutdown FIRST - this allows the read loop to exit on next timeout
 			isClosing = true;
 			
-			// 1. Interrupt SSE reader thread to unblock readLine()
-			if (sseReaderThread != null && sseReaderThread.isAlive()) {
-				logger.info("Interrupting SSE reader thread...");
-				sseReaderThread.interrupt();
-			}
-			
-			// 2. Abort HTTP connection BEFORE closing streams to avoid blocking on chunked streams
+			// 2. Close the entity and response to release the socket
 			if (sseResponse != null) {
 				try {
-					logger.info("Aborting SSE HTTP response...");
-					// Try to abort the response to close the underlying socket
+					logger.info("Consuming and closing SSE response entity...");
+					// Consume any remaining entity data
+					org.apache.http.util.EntityUtils.consumeQuietly(sseResponse.getEntity());
 					sseResponse.close();
-					logger.debug("SSE response aborted");
+					logger.debug("SSE response closed");
 				}
 				catch (IOException e) {
-					logger.debug("Error aborting SSE response (expected during shutdown)", e);
+					logger.debug("Error closing SSE response (expected during shutdown)", e);
 				}
 			}
 			
-			// 3. Close HTTP client to terminate socket connections
+			// 3. Shutdown connection manager to forcibly close all connections
+			if (connectionManager != null) {
+				try {
+					logger.info("Shutting down connection manager...");
+					connectionManager.closeIdleConnections(0, TimeUnit.MILLISECONDS);
+					connectionManager.shutdown();
+					logger.info("Connection manager shut down successfully");
+				}
+				catch (Exception e) {
+					logger.warn("Error shutting down connection manager", e);
+				}
+			}
+			
+			// 4. Close HTTP client
 			if (httpClient != null) {
 				try {
-					logger.info("Closing HTTP client to terminate connections...");
+					logger.info("Closing HTTP client...");
 					httpClient.close();
 					logger.info("HTTP client closed successfully");
 				}
@@ -480,20 +540,18 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				}
 			}
 			
-			// 4. Wait for SSE thread to terminate with extended timeout (10s instead of 2s)
-			// This ensures the thread completes before the next test starts
+			// 5. Wait for SSE thread to terminate (should exit quickly due to socket timeout + isClosing flag)
 			if (sseReaderThread != null && sseReaderThread.isAlive()) {
 				try {
 					logger.info("Waiting for SSE reader thread to terminate...");
-					sseReaderThread.join(10000); // Extended to 10 seconds for suite stability
+					// With SO_TIMEOUT=1s, thread should exit within 1-2 seconds
+					sseReaderThread.join(5000);
 					if (sseReaderThread.isAlive()) {
-						logger.warn("SSE reader thread did not terminate within 10 seconds, forcing interrupt");
-						// Force interrupt again and wait a bit more
-						sseReaderThread.interrupt();
-						sseReaderThread.join(2000);
-						if (sseReaderThread.isAlive()) {
-							logger.error("SSE reader thread still alive after 12 seconds total - may cause test interference");
-						}
+						logger.warn("SSE reader thread did not terminate within 5 seconds, dumping stack trace...");
+						dumpThreadStack(sseReaderThread);
+						// Set as daemon to prevent blocking test suite
+						sseReaderThread.setDaemon(true);
+						logger.warn("Set SSE reader thread as daemon to prevent test suite blocking");
 					} else {
 						logger.info("SSE reader thread terminated successfully");
 					}
@@ -504,10 +562,10 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				}
 			}
 			
-			// 5. Now safely close remaining resources (should not block since socket is closed)
+			// 6. Close remaining resources safely
 			closeResourcesSafely();
 			
-			// 6. Dispose the dedicated scheduler
+			// 7. Dispose the dedicated scheduler
 			if (dedicatedScheduler != null && !dedicatedScheduler.isDisposed()) {
 				logger.info("Disposing dedicated scheduler...");
 				dedicatedScheduler.dispose();
@@ -516,6 +574,14 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			
 			logger.info("Graceful close completed");
 		});
+	}
+	
+	private void dumpThreadStack(Thread thread) {
+		StackTraceElement[] stackTrace = thread.getStackTrace();
+		logger.warn("Stack trace for thread '{}' (State: {}):", thread.getName(), thread.getState());
+		for (StackTraceElement element : stackTrace) {
+			logger.warn("  at {}", element);
+		}
 	}
 	
 	private void closeResources() {
