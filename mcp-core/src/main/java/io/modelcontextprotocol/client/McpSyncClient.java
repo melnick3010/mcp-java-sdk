@@ -233,8 +233,24 @@ public class McpSyncClient implements AutoCloseable {
 	 * Boolean indicating if the execution failed (true) or succeeded (false/absent)
 	 */
 	public McpSchema.CallToolResult callTool(McpSchema.CallToolRequest callToolRequest) {
-		return withProvidedContext(this.delegate.callTool(callToolRequest)).block();
-
+		try {
+			// Use block with timeout to prevent indefinite blocking
+			// The underlying session already has its own timeout, but this provides an additional safety net
+			return withProvidedContext(this.delegate.callTool(callToolRequest))
+					.block(Duration.ofSeconds(65)); // Slightly longer than typical session timeout
+		}
+		catch (Exception e) {
+			// Check if it's a timeout or interrupted exception
+			Throwable cause = e.getCause() != null ? e.getCause() : e;
+			if (cause instanceof java.util.concurrent.TimeoutException ||
+				cause instanceof InterruptedException ||
+				e instanceof IllegalStateException && e.getMessage() != null && e.getMessage().contains("Timeout")) {
+				
+				logger.error("CLIENT REQUEST TIMEOUT: method=tools/call, tool={}",
+						callToolRequest.getName());
+			}
+			throw e;
+		}
 	}
 
 	/**

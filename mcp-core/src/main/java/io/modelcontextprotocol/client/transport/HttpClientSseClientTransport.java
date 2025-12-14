@@ -258,6 +258,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				String endpointForThisStream = null;
 
 				String line;
+				boolean sseClosedUnexpectedly = false;
 				while (!isClosing) {
 					try {
 						line = sseReader.readLine();
@@ -265,6 +266,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 							// Connection closed by server
 							logger.info("CLIENT SSE CONNECTION CLOSED BY SERVER: thread={}",
 									Thread.currentThread().getName());
+							sseClosedUnexpectedly = true;
 							break;
 						}
 					}
@@ -373,12 +375,18 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 					}
 				}
 			}
-			catch (IOException e) {				
+			catch (IOException e) {
 				if (isClosing) {
-						logger.debug("SSE connection closed during shutdown (expected)");
-					} else {
-						logger.error("Error during SSE connection", e);
-					}
+					logger.debug("SSE connection closed during shutdown (expected)");
+				} else {
+					logger.error("Error during SSE connection", e);
+					sseClosedUnexpectedly = true;
+				}
+			}
+			
+			// If SSE closed unexpectedly, propagate error to fail pending requests
+			if (sseClosedUnexpectedly && !isClosing) {
+				throw new McpTransportException("SSE stream closed unexpectedly by server");
 			}
 		}).subscribeOn(dedicatedScheduler).then();
 	}

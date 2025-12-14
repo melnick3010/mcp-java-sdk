@@ -234,9 +234,12 @@ public interface McpServer {
 		 * Builds an asynchronous MCP server that provides non-blocking operations.
 		 * @return A new instance of {@link McpAsyncServer} configured with this builder's
 		 * settings.
+		 * @throws IllegalStateException if the server configuration is invalid
 		 */
 		@Override
 		public McpAsyncServer build() {
+			validateConfiguration();
+			
 			McpServerFeatures.Async features = new McpServerFeatures.Async(this.serverInfo, this.serverCapabilities,
 					this.tools, this.resources, this.resourceTemplates, this.prompts, this.completions,
 					this.rootsChangeHandlers, this.instructions);
@@ -262,9 +265,12 @@ public interface McpServer {
 		 * Builds an asynchronous MCP server that provides non-blocking operations.
 		 * @return A new instance of {@link McpAsyncServer} configured with this builder's
 		 * settings.
+		 * @throws IllegalStateException if the server configuration is invalid
 		 */
 		@Override
 		public McpAsyncServer build() {
+			validateConfiguration();
+			
 			McpServerFeatures.Async features = new McpServerFeatures.Async(this.serverInfo, this.serverCapabilities,
 					this.tools, this.resources, this.resourceTemplates, this.prompts, this.completions,
 					this.rootsChangeHandlers, this.instructions);
@@ -821,6 +827,44 @@ public interface McpServer {
 			return this;
 		}
 
+		/**
+		 * Validates the server configuration before building.
+		 * @throws IllegalStateException if the configuration is invalid
+		 */
+		protected void validateConfiguration() {
+			// Validate that server has at least one capability
+			if (tools.isEmpty() && resources.isEmpty() && resourceTemplates.isEmpty() && prompts.isEmpty()) {
+				throw new IllegalStateException(
+						"Server must have at least one tool, resource, resource template, or prompt registered. "
+								+ "A server without any capabilities cannot provide useful functionality.");
+			}
+
+			// Validate server info
+			if (serverInfo == null) {
+				throw new IllegalStateException("Server info must not be null");
+			}
+			if (serverInfo.name() == null || serverInfo.name().trim().isEmpty()) {
+				throw new IllegalStateException("Server name must not be null or empty");
+			}
+			if (serverInfo.version() == null || serverInfo.version().trim().isEmpty()) {
+				throw new IllegalStateException("Server version must not be null or empty");
+			}
+
+			// Validate timeout
+			if (requestTimeout == null) {
+				throw new IllegalStateException("Request timeout must not be null");
+			}
+			if (requestTimeout.isNegative() || requestTimeout.isZero()) {
+				throw new IllegalStateException(
+						"Request timeout must be positive, got: " + requestTimeout);
+			}
+
+			// Validate URI template manager factory
+			if (uriTemplateManagerFactory == null) {
+				throw new IllegalStateException("URI template manager factory must not be null");
+			}
+		}
+
 	}
 
 	class SingleSessionSyncSpecification extends SyncSpecification<SingleSessionSyncSpecification> {
@@ -836,9 +880,12 @@ public interface McpServer {
 		 * Builds a synchronous MCP server that provides blocking operations.
 		 * @return A new instance of {@link McpSyncServer} configured with this builder's
 		 * settings.
+		 * @throws IllegalStateException if the server configuration is invalid
 		 */
 		@Override
 		public McpSyncServer build() {
+			validateConfiguration();
+			
 			McpServerFeatures.Sync syncFeatures = new McpServerFeatures.Sync(this.serverInfo, this.serverCapabilities,
 					this.tools, this.resources, this.resourceTemplates, this.prompts, this.completions,
 					this.rootsChangeHandlers, this.instructions);
@@ -867,9 +914,12 @@ public interface McpServer {
 		 * Builds a synchronous MCP server that provides blocking operations.
 		 * @return A new instance of {@link McpSyncServer} configured with this builder's
 		 * settings.
+		 * @throws IllegalStateException if the server configuration is invalid
 		 */
 		@Override
 		public McpSyncServer build() {
+			validateConfiguration();
+			
 			McpServerFeatures.Sync syncFeatures = new McpServerFeatures.Sync(this.serverInfo, this.serverCapabilities,
 					this.tools, this.resources, this.resourceTemplates, this.prompts, this.completions,
 					this.rootsChangeHandlers, this.instructions);
@@ -1439,6 +1489,44 @@ public interface McpServer {
 		public SyncSpecification<S> immediateExecution(boolean immediateExecution) {
 			this.immediateExecution = immediateExecution;
 			return this;
+		/**
+		 * Validates the server configuration before building.
+		 * @throws IllegalStateException if the configuration is invalid
+		 */
+		protected void validateConfiguration() {
+			// Validate that server has at least one capability
+			if (tools.isEmpty() && resources.isEmpty() && resourceTemplates.isEmpty() && prompts.isEmpty()) {
+				throw new IllegalStateException(
+						"Server must have at least one tool, resource, resource template, or prompt registered. "
+								+ "A server without any capabilities cannot provide useful functionality.");
+			}
+
+			// Validate server info
+			if (serverInfo == null) {
+				throw new IllegalStateException("Server info must not be null");
+			}
+			if (serverInfo.name() == null || serverInfo.name().trim().isEmpty()) {
+				throw new IllegalStateException("Server name must not be null or empty");
+			}
+			if (serverInfo.version() == null || serverInfo.version().trim().isEmpty()) {
+				throw new IllegalStateException("Server version must not be null or empty");
+			}
+
+			// Validate timeout
+			if (requestTimeout == null) {
+				throw new IllegalStateException("Request timeout must not be null");
+			}
+			if (requestTimeout.isNegative() || requestTimeout.isZero()) {
+				throw new IllegalStateException(
+						"Request timeout must be positive, got: " + requestTimeout);
+			}
+
+			// Validate URI template manager factory
+			if (uriTemplateManagerFactory == null) {
+				throw new IllegalStateException("URI template manager factory must not be null");
+			}
+		}
+
 		}
 
 	}
@@ -1901,7 +1989,57 @@ public interface McpServer {
 			return this;
 		}
 
+		/**
+		 * Validates the server configuration before building.
+		 * @throws IllegalStateException if the configuration is invalid
+		 */
+		private void validateConfiguration() {
+			// Validate that server has at least one capability
+			if (tools.isEmpty() && resources.isEmpty() && resourceTemplates.isEmpty() && prompts.isEmpty()) {
+				throw new IllegalStateException(
+						"Server must have at least one tool, resource, resource template, or prompt registered. "
+								+ "A server without any capabilities cannot provide useful functionality.");
+			}
+
+			// Validate server info
+			if (serverInfo == null) {
+				throw new IllegalStateException("Server info must not be null");
+			}
+			if (serverInfo.name() == null || serverInfo.name().trim().isEmpty()) {
+				throw new IllegalStateException("Server name must not be null or empty");
+			}
+			if (serverInfo.version() == null || serverInfo.version().trim().isEmpty()) {
+				throw new IllegalStateException("Server version must not be null or empty");
+			}
+
+			// Validate timeout
+			if (requestTimeout == null) {
+				throw new IllegalStateException("Request timeout must not be null");
+			}
+			if (requestTimeout.isNegative() || requestTimeout.isZero()) {
+				throw new IllegalStateException(
+						"Request timeout must be positive, got: " + requestTimeout);
+			}
+
+			// Validate URI template manager factory
+			if (uriTemplateManagerFactory == null) {
+				throw new IllegalStateException("URI template manager factory must not be null");
+			}
+
+			// Validate transport
+			if (transport == null) {
+				throw new IllegalStateException("Transport must not be null");
+			}
+		}
+
+		/**
+		 * Builds a stateless asynchronous MCP server.
+		 * @return A new instance of {@link McpStatelessAsyncServer} configured with this builder's settings.
+		 * @throws IllegalStateException if the server configuration is invalid
+		 */
 		public McpStatelessAsyncServer build() {
+			validateConfiguration();
+			
 			McpStatelessServerFeatures.Async features = new McpStatelessServerFeatures.Async(this.serverInfo,
 					this.serverCapabilities, this.tools, this.resources, this.resourceTemplates, this.prompts,
 					this.completions, this.instructions);
@@ -2388,7 +2526,57 @@ public interface McpServer {
 			return this;
 		}
 
+		/**
+		 * Validates the server configuration before building.
+		 * @throws IllegalStateException if the configuration is invalid
+		 */
+		private void validateConfiguration() {
+			// Validate that server has at least one capability
+			if (tools.isEmpty() && resources.isEmpty() && resourceTemplates.isEmpty() && prompts.isEmpty()) {
+				throw new IllegalStateException(
+						"Server must have at least one tool, resource, resource template, or prompt registered. "
+								+ "A server without any capabilities cannot provide useful functionality.");
+			}
+
+			// Validate server info
+			if (serverInfo == null) {
+				throw new IllegalStateException("Server info must not be null");
+			}
+			if (serverInfo.name() == null || serverInfo.name().trim().isEmpty()) {
+				throw new IllegalStateException("Server name must not be null or empty");
+			}
+			if (serverInfo.version() == null || serverInfo.version().trim().isEmpty()) {
+				throw new IllegalStateException("Server version must not be null or empty");
+			}
+
+			// Validate timeout
+			if (requestTimeout == null) {
+				throw new IllegalStateException("Request timeout must not be null");
+			}
+			if (requestTimeout.isNegative() || requestTimeout.isZero()) {
+				throw new IllegalStateException(
+						"Request timeout must be positive, got: " + requestTimeout);
+			}
+
+			// Validate URI template manager factory
+			if (uriTemplateManagerFactory == null) {
+				throw new IllegalStateException("URI template manager factory must not be null");
+			}
+
+			// Validate transport
+			if (transport == null) {
+				throw new IllegalStateException("Transport must not be null");
+			}
+		}
+
+		/**
+		 * Builds a stateless synchronous MCP server.
+		 * @return A new instance of {@link McpStatelessSyncServer} configured with this builder's settings.
+		 * @throws IllegalStateException if the server configuration is invalid
+		 */
 		public McpStatelessSyncServer build() {
+			validateConfiguration();
+			
 			McpStatelessServerFeatures.Sync syncFeatures = new McpStatelessServerFeatures.Sync(this.serverInfo,
 					this.serverCapabilities, this.tools, this.resources, this.resourceTemplates, this.prompts,
 					this.completions, this.instructions);

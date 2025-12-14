@@ -129,15 +129,32 @@ public class McpClientSession implements McpSession {
 					}
 				})));
 
-		this.transport.connect(handler).subscribe();
+		this.transport.connect(handler)
+				.doOnError(error -> {
+					logger.error("[{}] Transport connection error: {}", this.name, error.getMessage());
+					dismissPendingResponses();
+				})
+				.subscribe();
 	}
 
 	private void dismissPendingResponses() {
+		int pendingCount = this.pendingResponses.size();
+		if (pendingCount > 0) {
+			logger.warn("CLIENT SSE CLOSED: failing {} pending exchanges", pendingCount);
+		}
+		
+		McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError = new McpSchema.JSONRPCResponse.JSONRPCError(
+				McpSchema.ErrorCodes.INTERNAL_ERROR,
+				"SSE stream closed before response delivery",
+				java.util.Collections.singletonMap("pendingCount", pendingCount)
+		);
+		McpError error = new McpError(jsonRpcError);
+		
 		for (Map.Entry<Object, MonoSink<McpSchema.JSONRPCResponse>> e : this.pendingResponses.entrySet()) {
 			Object id = e.getKey();
 			MonoSink<McpSchema.JSONRPCResponse> sink = e.getValue();
-			logger.warn("Abruptly terminating exchange for request {}", id);
-			sink.error(new RuntimeException("MCP session with server terminated"));
+			logger.debug("Failing pending request: id={}", id);
+			sink.error(error);
 		}
 		this.pendingResponses.clear();
 	}

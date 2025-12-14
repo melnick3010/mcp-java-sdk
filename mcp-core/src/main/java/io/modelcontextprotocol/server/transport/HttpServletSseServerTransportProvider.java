@@ -795,6 +795,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		private final AsyncContext asyncContext;
 
 		private final PrintWriter writer;
+		
+		private volatile boolean connectionClosed = false;
 
 		/**
 		 * Creates a new session transport with the specified ID and SSE writer.
@@ -817,10 +819,20 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		@Override
 		public Mono<Void> sendMessage(McpSchema.JSONRPCMessage message) {
 			return Mono.fromRunnable(() -> {
+				// Check connection state before attempting to send
+				if (connectionClosed) {
+					String kind = message instanceof McpSchema.JSONRPCResponse ? "RESPONSE" :
+								 (message instanceof McpSchema.JSONRPCRequest ? "REQUEST" : "NOTIFICATION");
+					logger.warn("SERVER: Attempt to send {} on closed connection: sessionId={}", kind, sessionId);
+					throw new McpTransportException("SSE connection already closed for session: " + sessionId);
+				}
+				
 				try {
 					// Extract message info for diagnostic logging
 					String kind;
 					Object id;
+					boolean isResponse = false;
+					
 					if (message instanceof McpSchema.JSONRPCRequest) {
 						kind = "REQUEST";
 						id = ((McpSchema.JSONRPCRequest) message).id();
@@ -828,6 +840,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 					else if (message instanceof McpSchema.JSONRPCResponse) {
 						kind = "RESPONSE";
 						id = ((McpSchema.JSONRPCResponse) message).id();
+						isResponse = true;
 					}
 					else if (message instanceof McpSchema.JSONRPCNotification) {
 						kind = "NOTIFICATION";
@@ -848,11 +861,27 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 							sessionId, kind, id, Thread.currentThread().getName());
 				}
 				catch (Exception e) {
-					logger.error("Failed to send message to session {}: {}", sessionId, e.getMessage());
-					logger.info("SERVER SSE CONNECTION CLOSING due to send error: sessionId={}, thread={}",
-							sessionId, Thread.currentThread().getName());
-					sessions.remove(sessionId);
-					safeCompleteAsyncContext(asyncContext);
+					// Extract message type for error handling
+					boolean isResponse = message instanceof McpSchema.JSONRPCResponse;
+					String kind = isResponse ? "RESPONSE" :
+								 (message instanceof McpSchema.JSONRPCRequest ? "REQUEST" : "NOTIFICATION");
+					
+					logger.error("Failed to send {} to session {}: {}", kind, sessionId, e.getMessage());
+					
+					// Only close the SSE connection for RESPONSE send failures
+					// For REQUEST (internal, like sampling/createMessage) or NOTIFICATION failures,
+					// keep the connection open - the client can still respond via HTTP POST
+					if (isResponse) {
+						logger.warn("SERVER SSE CONNECTION CLOSING due to RESPONSE send error: sessionId={}, thread={}",
+								sessionId, Thread.currentThread().getName());
+						connectionClosed = true;
+						sessions.remove(sessionId);
+						safeCompleteAsyncContext(asyncContext);
+					} else {
+						logger.warn("SERVER SSE send error for {} (keeping connection open): sessionId={}, thread={}",
+								kind, sessionId, Thread.currentThread().getName());
+						// Connection stays open - client can still send responses via HTTP POST
+					}
 				}
 			});
 		}
@@ -878,6 +907,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			return Mono.fromRunnable(() -> {
 				logger.info("SERVER SSE CONNECTION CLOSING (graceful): sessionId={}, thread={}",
 						sessionId, Thread.currentThread().getName());
+				connectionClosed = true;
 				sessions.remove(sessionId);
 				safeCompleteAsyncContext(asyncContext);
 				logger.info("SERVER SSE ASYNC CONTEXT COMPLETED: sessionId={}, thread={}",
@@ -892,6 +922,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		public void close() {
 			logger.info("SERVER SSE CONNECTION CLOSING (immediate): sessionId={}, thread={}",
 					sessionId, Thread.currentThread().getName());
+			connectionClosed = true;
 			sessions.remove(sessionId);
 			safeCompleteAsyncContext(asyncContext);
 			logger.info("SERVER SSE ASYNC CONTEXT COMPLETED: sessionId={}, thread={}",
