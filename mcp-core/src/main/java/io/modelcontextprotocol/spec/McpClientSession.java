@@ -299,12 +299,22 @@ public class McpClientSession implements McpSession {
 								});
 					}
 				})).timeout(this.requestTimeout)
+				.doOnError(throwable -> {
+					// Clean up pending response on any error including timeout
+					MonoSink<McpSchema.JSONRPCResponse> removed = pendingResponses.remove(requestId);
+					if (removed != null) {
+						logger.warn("CLIENT request failed/timeout: method={}, id={}, error={}",
+								method, requestId, throwable.getClass().getSimpleName());
+					}
+				})
 				.onErrorResume(throwable -> {
 					// Convert timeout exceptions to McpError
 					if (throwable instanceof java.util.concurrent.TimeoutException
-							|| (throwable.getCause() instanceof java.util.concurrent.TimeoutException)) {
-						logger.error("Request timeout for method={}, id={}, timeout={}ms",
-								method, requestId, requestTimeout.toMillis());
+							|| (throwable.getCause() instanceof java.util.concurrent.TimeoutException)
+							|| throwable instanceof reactor.core.Exceptions.ReactiveException
+								&& throwable.getCause() instanceof java.util.concurrent.TimeoutException) {
+						logger.error("CLIENT REQUEST TIMEOUT: method={}, id={}, timeout={}ms, pendingCount={}",
+								method, requestId, requestTimeout.toMillis(), pendingResponses.size());
 						McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError =
 								new McpSchema.JSONRPCResponse.JSONRPCError(
 										McpSchema.ErrorCodes.INTERNAL_ERROR,
