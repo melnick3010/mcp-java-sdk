@@ -267,7 +267,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 							break;
 						}
 					}
-					catch (java.net.SocketTimeoutException | java.io.InterruptedIOException e) {
+					catch (java.io.InterruptedIOException e) {
 						// Periodic wake-up from socket timeout - check shutdown flag
 						if (isClosing) {
 							logger.debug("SSE reader exiting due to shutdown request");
