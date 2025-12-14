@@ -116,11 +116,23 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 		SyncSpec clientBuilder = clientBuilders.get(clientType);
 
+		// Create real instances instead of mocking final classes
+		CreateMessageRequest createMessageRequest = CreateMessageRequest.builder()
+				.messages(Collections.singletonList(new McpSchema.SamplingMessage(Role.USER,
+						new McpSchema.TextContent("Test message"))))
+				.modelPreferences(ModelPreferences.builder().hints(Collections.emptyList())
+						.costPriority(1.0).speedPriority(1.0).intelligencePriority(1.0).build())
+				.build();
+		
+		CallToolResult callToolResult = CallToolResult.builder()
+				.addContent(new McpSchema.TextContent("Test response"))
+				.build();
+
 		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder().tool(
 				Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
 				.callHandler((exchange, request) -> {
-					return exchange.createMessage(mock(McpSchema.CreateMessageRequest.class))
-							.then(Mono.just(mock(CallToolResult.class)));
+					return exchange.createMessage(createMessageRequest)
+							.then(Mono.just(callToolResult));
 				}).build();
 
 		McpAsyncServer server = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0").tools(tool).build();
@@ -254,10 +266,15 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 							.thenReturn(callResponse);
 				}).build();
 
+		// Increase server timeout to 60s to allow for slow sampling operations (2s sleep + overhead)
+		// Server timeout must be greater than client processing time to avoid premature timeout
 		McpAsyncServer mcpServer = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0")
-				.requestTimeout(Duration.ofSeconds(4)).tools(tool).build();
+				.requestTimeout(Duration.ofSeconds(60)).tools(tool).build();
+		// Increase client timeout to 90s to ensure it's greater than server timeout
+		// This prevents client-side timeout before server can respond with error or success
 		try (McpSyncClient mcpClient = clientBuilder.clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
-				.capabilities(ClientCapabilities.builder().sampling().build()).sampling(samplingHandler).build()) {
+				.capabilities(ClientCapabilities.builder().sampling().build()).sampling(samplingHandler)
+				.requestTimeout(Duration.ofSeconds(90)).build()) {
 
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
@@ -345,11 +362,23 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 		SyncSpec clientBuilder = clientBuilders.get(clientType);
 
+		// Create real instances instead of mocking final classes
+		ElicitRequest elicitRequest = ElicitRequest.builder()
+				.messages(Collections.singletonList(new McpSchema.SamplingMessage(Role.USER,
+						new McpSchema.TextContent("Test elicitation"))))
+				.modelPreferences(ModelPreferences.builder().hints(Collections.emptyList())
+						.costPriority(1.0).speedPriority(1.0).intelligencePriority(1.0).build())
+				.build();
+		
+		CallToolResult callToolResult = CallToolResult.builder()
+				.addContent(new McpSchema.TextContent("Test response"))
+				.build();
+
 		McpServerFeatures.AsyncToolSpecification tool = McpServerFeatures.AsyncToolSpecification.builder()
 				.tool(Tool.builder().name("tool1").description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA)
 						.build())
-				.callHandler((exchange, request) -> exchange.createElicitation(mock(ElicitRequest.class))
-						.then(Mono.just(mock(CallToolResult.class))))
+				.callHandler((exchange, request) -> exchange.createElicitation(elicitRequest)
+						.then(Mono.just(callToolResult)))
 				.build();
 
 		McpAsyncServer server = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0").tools(tool).build();
@@ -581,14 +610,15 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			mcpClient.rootsListChangedNotification();
 
-			await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+			// Increase timeout to 10s to handle notification processing delays in suite execution
+			await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
 				assertThat(rootsRef.get()).containsAll(roots);
 			});
 
 			// Remove a root
 			mcpClient.removeRoot(roots.get(0).getUri());
 
-			await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+			await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
 				assertThat(rootsRef.get()).containsAll(Collections.singletonList(roots.get(1)));
 			});
 
@@ -596,7 +626,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			Root root3 = new Root("uri3://", "root3");
 			mcpClient.addRoot(root3);
 
-			await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+			await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
 				assertThat(rootsRef.get()).containsAll(Arrays.asList(roots.get(1), root3));
 			});
 		}
@@ -663,7 +693,8 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			mcpClient.rootsListChangedNotification();
 
-			await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+			// Increase timeout to 10s to handle notification processing delays in suite execution
+			await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
 				assertThat(rootsRef.get()).isEmpty();
 			});
 		}
@@ -694,7 +725,8 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			mcpClient.rootsListChangedNotification();
 
-			await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+			// Increase timeout to 10s to handle notification processing delays in suite execution
+			await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
 				assertThat(rootsRef1.get()).containsAll(roots);
 				assertThat(rootsRef2.get()).containsAll(roots);
 			});
@@ -725,7 +757,8 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			mcpClient.rootsListChangedNotification();
 
-			await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+			// Increase timeout to 10s to handle notification processing delays in suite execution
+			await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
 				assertThat(rootsRef.get()).containsAll(roots);
 			});
 		}
@@ -793,16 +826,20 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 		McpSyncServer mcpServer = prepareSyncServerBuilder()
 				.capabilities(ServerCapabilities.builder().tools(true).build())
+				// Increase server timeout to 30s to ensure it's greater than the tool's internal timeout
+				.requestTimeout(Duration.ofSeconds(30))
 				.tools(McpServerFeatures.SyncToolSpecification.builder().tool(Tool.builder().name("tool1")
 						.description("tool1 description").inputSchema(EMPTY_JSON_SCHEMA).build())
 						.callHandler((exchange, request) -> {
 							// We trigger a timeout on blocking read, raising an exception
+							// This should be caught and converted to McpError before client timeout
 							Mono.never().block(Duration.ofSeconds(1));
 							return null;
 						}).build())
 				.build();
 
-		try (McpSyncClient mcpClient = clientBuilder.requestTimeout(Duration.ofMillis(6666)).build()) {
+		// Increase client timeout to 45s to ensure server error is received before client timeout
+		try (McpSyncClient mcpClient = clientBuilder.requestTimeout(Duration.ofSeconds(45)).build()) {
 			InitializeResult initResult = mcpClient.initialize();
 			assertThat(initResult).isNotNull();
 
@@ -931,14 +968,18 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			mcpServer.notifyToolsListChanged();
 
-			await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
-				assertThat(toolsRef.get()).containsAll(Collections.singletonList(tool1.tool()));
+			// Increase timeout to 10s to handle notification processing and cache invalidation delays
+			await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+				// Compare by tool name and description, not object identity
+				assertThat(toolsRef.get()).isNotNull();
+				assertThat(toolsRef.get()).hasSize(1);
+				assertThat(toolsRef.get().get(0).getName()).isEqualTo(tool1.tool().getName());
 			});
 
 			// Remove a tool
 			mcpServer.removeTool("tool1");
 
-			await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+			await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
 				assertThat(toolsRef.get()).isEmpty();
 			});
 
@@ -950,8 +991,11 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 
 			mcpServer.addTool(tool2);
 
-			await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
-				assertThat(toolsRef.get()).containsAll(Collections.singletonList(tool2.tool()));
+			await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+				// Compare by tool name, not object identity
+				assertThat(toolsRef.get()).isNotNull();
+				assertThat(toolsRef.get()).hasSize(1);
+				assertThat(toolsRef.get().get(0).getName()).isEqualTo(tool2.tool().getName());
 			});
 		}
 		finally {

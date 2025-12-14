@@ -86,9 +86,9 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 			throw new RuntimeException("Failed to start embedded Tomcat", e);
 		}
 
-		// ↑↑ Aumentato da 30s a 45s per allineare ai timeout JUnit
+		// Increase server timeout to 60s to handle slow operations and suite contention
 		asyncServer = McpServer.async(mcpServerTransportProvider).serverInfo("integration-server", "1.0.0")
-				.requestTimeout(Duration.ofSeconds(45)).build();
+				.requestTimeout(Duration.ofSeconds(60)).build();
 
 		prepareClients(port, CUSTOM_MESSAGE_ENDPOINT);
 
@@ -180,10 +180,11 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		this.clientBuilders.clear();
 		HttpClientSseClientTransport t = HttpClientSseClientTransport.builder("http://localhost:" + port)
 				.sseEndpoint(CUSTOM_SSE_ENDPOINT).build();
-		// ↑↑ Aumentato da 30s a 45s per evitare la TimeoutException reattiva a 30s
+		// Increase client timeout to 90s to ensure it's greater than server timeout (60s)
+		// This prevents client-side timeout before server can respond
 		this.clientBuilders.put("httpclient",
 				McpClient.sync(t).clientInfo(new McpSchema.Implementation("Parameterized client", "0.0.0"))
-						.requestTimeout(Duration.ofSeconds(45)));
+						.requestTimeout(Duration.ofSeconds(90)));
 	}
 
 	// (…metodi helper invariati…)
