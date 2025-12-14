@@ -4145,6 +4145,25 @@ public final class McpSchema {
 			return _meta;
 		}
 
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) return true;
+			if (o == null || getClass() != o.getClass()) return false;
+			Root root = (Root) o;
+			return java.util.Objects.equals(uri, root.uri) &&
+				   java.util.Objects.equals(name, root.name);
+		}
+
+		@Override
+		public int hashCode() {
+			return java.util.Objects.hash(uri, name);
+		}
+
+		@Override
+		public String toString() {
+			return "Root{uri='" + uri + "', name='" + name + "'}";
+		}
+
 	}
 
 	@JsonInclude(JsonInclude.Include.NON_ABSENT)
