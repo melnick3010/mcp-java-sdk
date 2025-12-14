@@ -51,6 +51,8 @@ public class McpClientSession implements McpSession {
 	/** Atomic counter for generating unique request IDs */
 	private final AtomicLong requestCounter = new AtomicLong(0);
 
+	private String name;
+
 	/** Functional interface for handling incoming JSON-RPC requests. */
 	@FunctionalInterface
 	public interface RequestHandler<T> {
@@ -110,7 +112,7 @@ public class McpClientSession implements McpSession {
 		this.transport = transport;
 		this.requestHandlers.putAll(requestHandlers);
 		this.notificationHandlers.putAll(notificationHandlers);
-
+		this.name=generateRequestId();
 		// 👉 Il handler ORA mappa davvero REQUEST → RESPONSE.
 		Function<Mono<McpSchema.JSONRPCMessage>, Mono<McpSchema.JSONRPCMessage>> handler = mono -> Mono
 				.from(connectHook.apply(mono.flatMap(msg -> {
