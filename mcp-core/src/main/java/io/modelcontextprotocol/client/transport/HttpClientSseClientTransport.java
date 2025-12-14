@@ -248,6 +248,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 					.block();
 
 			org.apache.http.client.methods.HttpUriRequest request = rb.build();
+			boolean sseClosedUnexpectedly=false;
 			try {
 				sseResponse = httpClient.execute(request);
 				sseReader = new BufferedReader(new InputStreamReader(sseResponse.getEntity().getContent()));
@@ -258,7 +259,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				String endpointForThisStream = null;
 
 				String line;
-				boolean sseClosedUnexpectedly = false;
+				sseClosedUnexpectedly = false;
 				while (!isClosing) {
 					try {
 						line = sseReader.readLine();
