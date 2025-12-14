@@ -572,9 +572,6 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			closeResourcesSafely();
 			
 			logger.info("Graceful close completed");
-		}).onErrorResume(ex -> {
-			logger.warn("Close completed with non-fatal error: {}", ex.toString());
-			return Mono.empty();
 		});
 	}
 	
