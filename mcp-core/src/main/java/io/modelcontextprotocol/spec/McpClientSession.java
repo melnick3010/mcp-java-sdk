@@ -268,7 +268,7 @@ public class McpClientSession implements McpSession {
 					@Override
 					public void accept(MonoSink<McpSchema.JSONRPCResponse> pendingResponseSink) {
 						logger.debug("Sending message for method {}", method);
-						logger.info("CLIENT sendRequest: method={}, id={}", method, requestId);
+						logger.info("CLIENT sendRequest: method={}, id={}, name={}", method, requestId,Thread.currentThread().getName());
 						pendingResponses.put(requestId, pendingResponseSink);
 						McpSchema.JSONRPCRequest jsonrpcRequest = new McpSchema.JSONRPCRequest(
 								McpSchema.JSONRPC_VERSION, method, requestId, requestParams);
