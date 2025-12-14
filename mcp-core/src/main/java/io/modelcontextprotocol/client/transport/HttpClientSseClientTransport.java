@@ -263,13 +263,8 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 						line = sseReader.readLine();
 						if (line == null) {
 							// Connection closed by server
-							logger.info("CLIENT SSE CONNECTION CLOSED BY SERVER: pendingResponses={}, thread={}",
-									pendingResponses.size(), Thread.currentThread().getName());
-							// Log pending request IDs for diagnostics
-							if (!pendingResponses.isEmpty()) {
-								logger.warn("CLIENT SSE CLOSED WITH PENDING REQUESTS: ids={}",
-										pendingResponses.keySet());
-							}
+							logger.info("CLIENT SSE CONNECTION CLOSED BY SERVER: thread={}",
+									Thread.currentThread().getName());
 							break;
 						}
 					}
