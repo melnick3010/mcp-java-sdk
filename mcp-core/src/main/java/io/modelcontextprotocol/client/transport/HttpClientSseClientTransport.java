@@ -480,13 +480,20 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				}
 			}
 			
-			// 4. Wait for SSE thread to terminate (should be quick now that socket is closed)
+			// 4. Wait for SSE thread to terminate with extended timeout (10s instead of 2s)
+			// This ensures the thread completes before the next test starts
 			if (sseReaderThread != null && sseReaderThread.isAlive()) {
 				try {
 					logger.info("Waiting for SSE reader thread to terminate...");
-					sseReaderThread.join(2000); // Reduced timeout since socket is closed
+					sseReaderThread.join(10000); // Extended to 10 seconds for suite stability
 					if (sseReaderThread.isAlive()) {
-						logger.warn("SSE reader thread did not terminate within 2 seconds, continuing anyway");
+						logger.warn("SSE reader thread did not terminate within 10 seconds, forcing interrupt");
+						// Force interrupt again and wait a bit more
+						sseReaderThread.interrupt();
+						sseReaderThread.join(2000);
+						if (sseReaderThread.isAlive()) {
+							logger.error("SSE reader thread still alive after 12 seconds total - may cause test interference");
+						}
 					} else {
 						logger.info("SSE reader thread terminated successfully");
 					}

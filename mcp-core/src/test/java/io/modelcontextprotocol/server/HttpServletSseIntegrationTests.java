@@ -76,6 +76,11 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 			tomcat.start();
 			assertThat(tomcat.getServer().getState()).isEqualTo(LifecycleState.STARTED);
 			System.out.println("Tomcat avviato su porta " + port);
+			
+			// Wait for Tomcat to be fully ready before proceeding
+			// This prevents race conditions when tests run in sequence
+			assertTrue(waitForTomcatReady(Duration.ofSeconds(10)),
+					"Tomcat non completamente pronto dopo l'avvio");
 		}
 		catch (Exception e) {
 			throw new RuntimeException("Failed to start embedded Tomcat", e);
@@ -120,18 +125,20 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 				client.close();
 			}
 			if (transport != null) {
-				// opzionale: .block(Duration.ofSeconds(10)) per evitare attese indefinite
-				transport.closeGracefully().block();
+				// Block with timeout to ensure complete teardown
+				transport.closeGracefully().block(Duration.ofSeconds(15));
 			}
 			if (mcpServerTransportProvider != null) {
-				mcpServerTransportProvider.closeGracefully().block();
+				mcpServerTransportProvider.closeGracefully().block(Duration.ofSeconds(5));
 			}
 			if (asyncServer != null) {
-				asyncServer.closeGracefully().block();
+				asyncServer.closeGracefully().block(Duration.ofSeconds(5));
 			}
 			if (tomcat != null) {
 				tomcat.stop();
 				tomcat.destroy();
+				// Wait for Tomcat to fully stop before next test
+				waitForTomcatStopped(Duration.ofSeconds(5));
 			}
 		}
 		catch (LifecycleException e) {
@@ -233,6 +240,63 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		catch (Exception e) {
 			return null;
 		}
+	}
+
+	/**
+	 * Wait for Tomcat to be fully ready after start.
+	 * Checks that the server can accept connections.
+	 */
+	private boolean waitForTomcatReady(Duration timeout) {
+		long end = System.nanoTime() + timeout.toNanos();
+		while (System.nanoTime() < end) {
+			if (tomcat != null && tomcat.getServer().getState() == LifecycleState.STARTED) {
+				// Additional check: try to connect to the port
+				try (java.net.Socket s = new java.net.Socket()) {
+					s.connect(new java.net.InetSocketAddress("localhost", port), 500);
+					return true;
+				}
+				catch (IOException e) {
+					// Not ready yet, continue waiting
+				}
+			}
+			try {
+				Thread.sleep(100);
+			}
+			catch (InterruptedException ignored) {
+				Thread.currentThread().interrupt();
+				return false;
+			}
+		}
+		return false;
+	}
+	
+	/**
+	 * Wait for Tomcat to fully stop after shutdown.
+	 * Ensures the port is released before next test.
+	 */
+	private void waitForTomcatStopped(Duration timeout) {
+		long end = System.nanoTime() + timeout.toNanos();
+		while (System.nanoTime() < end) {
+			if (tomcat == null || tomcat.getServer().getState() == LifecycleState.STOPPED
+					|| tomcat.getServer().getState() == LifecycleState.DESTROYED) {
+				// Additional check: ensure port is released
+				try (java.net.ServerSocket ss = new java.net.ServerSocket(port)) {
+					// Port is available, Tomcat has released it
+					return;
+				}
+				catch (IOException e) {
+					// Port still in use, continue waiting
+				}
+			}
+			try {
+				Thread.sleep(100);
+			}
+			catch (InterruptedException ignored) {
+				Thread.currentThread().interrupt();
+				return;
+			}
+		}
+		System.out.println("Warning: Tomcat may not have fully stopped within timeout");
 	}
 
 	static io.modelcontextprotocol.server.McpTransportContextExtractor<HttpServletRequest> TEST_CONTEXT_EXTRACTOR = (

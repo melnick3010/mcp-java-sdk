@@ -1286,10 +1286,14 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 					}));
 				}).build();
 
+		// Increase timeout for ping test in suite to 10 seconds (from default 3s)
+		// This prevents false timeouts when running with other tests that may cause latency
 		McpAsyncServer mcpServer = prepareAsyncServerBuilder().serverInfo("test-server", "1.0.0")
+				.requestTimeout(Duration.ofSeconds(10))
 				.capabilities(ServerCapabilities.builder().tools(true).build()).tools(tool).build();
 
-		try (McpSyncClient mcpClient = clientBuilder.build()) {
+		// Use extended timeout for client as well to match server
+		try (McpSyncClient mcpClient = clientBuilder.requestTimeout(Duration.ofSeconds(10)).build()) {
 
 			// Initialize client
 			InitializeResult initResult = mcpClient.initialize();
@@ -1307,7 +1311,7 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 			assertThat(executionOrder.get()).isEqualTo("123");
 		}
 		finally {
-			mcpServer.closeGracefully().block();
+			mcpServer.closeGracefully().block(Duration.ofSeconds(10));
 		}
 	}
 

@@ -143,26 +143,32 @@ public class McpClientSession implements McpSession {
 	private void handle(McpSchema.JSONRPCMessage message) {
 		if (message instanceof McpSchema.JSONRPCResponse) {
 			McpSchema.JSONRPCResponse response = (McpSchema.JSONRPCResponse) message;
-			logger.debug("Received response: {}", response);
+			logger.debug("[{}] Received response: id={}", this.name, response.id());
 			if (response.id() != null) {
 				MonoSink<McpSchema.JSONRPCResponse> sink = pendingResponses.remove(response.id());
 				if (sink == null) {
-					logger.warn("Unexpected response for unknown id {}", response.id());
+					logger.warn("[{}] Unexpected response for unknown id={}, pendingCount={}",
+							this.name, response.id(), pendingResponses.size());
 				}
 				else {
+					logger.debug("[{}] Delivering response to pending request: id={}, pendingCount={}",
+							this.name, response.id(), pendingResponses.size());
 					sink.success(response);
 				}
 			}
 			else {
-				logger.error("Discarded MCP request response without session id. "
+				logger.error("[{}] Discarded MCP request response without session id. "
 						+ "This is an indication of a bug in the request sender code that can lead to memory "
-						+ "leaks as pending requests will never be completed.");
+						+ "leaks as pending requests will never be completed.", this.name);
 			}
 		}
 		else if (message instanceof McpSchema.JSONRPCRequest) {
 			McpSchema.JSONRPCRequest request = (McpSchema.JSONRPCRequest) message;
+			logger.debug("[{}] Received request: method={}, id={}", this.name, request.method(), request.id());
 			// Nessun invio della response qui:
 			handleIncomingRequest(request).onErrorResume(error -> {
+				logger.error("[{}] Error handling request: method={}, id={}, error={}",
+						this.name, request.method(), request.id(), error.getMessage());
 				McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError = (error instanceof McpError
 						&& ((McpError) error).getJsonRpcError() != null) ? ((McpError) error).getJsonRpcError()
 								: new McpSchema.JSONRPCResponse.JSONRPCError(McpSchema.ErrorCodes.INTERNAL_ERROR,
@@ -176,7 +182,7 @@ public class McpClientSession implements McpSession {
 		}
 		else if (message instanceof McpSchema.JSONRPCNotification) {
 			McpSchema.JSONRPCNotification notification = (McpSchema.JSONRPCNotification) message;
-			logger.debug("Received notification: {}", notification);
+			logger.debug("[{}] Received notification: method={}", this.name, notification.method());
 			handleIncomingNotification(notification).onErrorComplete(t -> {
 				logger.error("Error handling notification: {}", t.getMessage());
 				return true;
