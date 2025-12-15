@@ -307,6 +307,12 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 						String preview = (data.length() <= 120) ? data : data.substring(0, 120) + "...";
 						logger.info("SSE RAW EVENT: type={}, data_lines={}, payload_len={}, preview={}", eventType,
 								dataLines, data.length(), preview);
+						// Structured event: client saw raw SSE data
+						java.util.Map<String, Object> rawm = new java.util.HashMap<String, Object>();
+						rawm.put("preview", preview);
+						rawm.put("eventType", eventType);
+						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "SSE", "C_SSE_RAW", null,
+								rawm, null, java.util.Collections.singletonMap("status", "PENDING"), null);
 
 						if (ENDPOINT_EVENT_TYPE.equals(eventType)) {
 							endpointForThisStream = data; // <-- per-STREAM
@@ -328,6 +334,18 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 												: (incoming instanceof McpSchema.JSONRPCNotification) ? "NOTIFICATION"
 														: "UNKNOWN";
 								logger.info("SSE MESSAGE PARSED: kind={}", kind);
+								java.util.Map<String, Object> parsedm = new java.util.HashMap<String, Object>();
+								parsedm.put("id",
+										(incoming instanceof McpSchema.JSONRPCRequest)
+												? ((McpSchema.JSONRPCRequest) incoming).id()
+												: (incoming instanceof McpSchema.JSONRPCResponse)
+														? ((McpSchema.JSONRPCResponse) incoming).id() : null);
+								parsedm.put("method", (incoming instanceof McpSchema.JSONRPCRequest)
+										? ((McpSchema.JSONRPCRequest) incoming).method() : null);
+								parsedm.put("kind", kind);
+								io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "SSE",
+										"C_SSE_PARSED", null, parsedm, null,
+										java.util.Collections.singletonMap("status", "PENDING"), null);
 
 								Mono<JSONRPCMessage> out = handler.apply(Mono.just(incoming)).doOnNext(msg -> {
 									String kindOut = (msg instanceof McpSchema.JSONRPCRequest) ? "REQUEST"
@@ -359,6 +377,12 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 										logger.info(
 												"CLIENT POST PREPARED: endpoint={}, id={}, thread={} - About to POST",
 												targetEndpoint, idOut, Thread.currentThread().getName());
+										java.util.Map<String, Object> postm = new java.util.HashMap<String, Object>();
+										postm.put("id", idOut);
+										postm.put("endpoint", targetEndpoint);
+										io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "HTTP",
+												"C_POST_START", null, postm, null,
+												java.util.Collections.singletonMap("status", "PENDING"), null);
 										return postToEndpoint(msg, targetEndpoint);
 									}).doOnError(ex -> logger.error("Failed to handle/send response, thread={}: {}",
 											Thread.currentThread().getName(), ex.getMessage(), ex))
@@ -519,6 +543,15 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 					long elapsedMs = (System.nanoTime() - t0) / 1_000_000;
 					logger.info("CLIENT POST SUCCESS: status={}, elapsedMs={}, messageId={}, thread={}", statusCode,
 							elapsedMs, msgId, Thread.currentThread().getName());
+					io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "HTTP", "C_POST_OK", null,
+							java.util.Collections.singletonMap("id", msgId), null,
+							new java.util.HashMap<String, Object>() {
+								{
+									put("status", "SUCCESS");
+									put("statusCode", statusCode);
+									put("elapsedMs", elapsedMs);
+								}
+							}, null);
 				}
 				finally {
 					inflightPosts.decrementAndGet();

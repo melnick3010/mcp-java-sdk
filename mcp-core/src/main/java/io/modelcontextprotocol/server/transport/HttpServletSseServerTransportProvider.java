@@ -678,6 +678,38 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 							}, delay, java.util.concurrent.TimeUnit.MILLISECONDS);
 							return;
 						}
+						// No pending responses currently: still defer a short grace
+						// window to
+						// allow the client to start POSTs that may race with this
+						// completion.
+						// This reduces cases where the server completes the async context
+						// immediately while the client is just about to initiate a POST.
+						long delayShort = WRITE_ERROR_GRACE_MS;
+						final String sidShort = sid;
+						dedicatedScheduler.schedule(() -> {
+							McpServerSession s2 = removeSession(sidShort);
+							if (s2 != null) {
+								int p2 = s2.pendingResponsesCount();
+								if (p2 > 0) {
+									logger.warn(
+											"safeCompleteAsyncContext short-deferred close executing (pending still {}): sessionId={}",
+											p2, sidShort);
+									try {
+										s2.close();
+									}
+									catch (Exception ex) {
+										logger.debug("Error during short-deferred session close for {}: {}", sidShort,
+												ex.getMessage());
+									}
+								}
+								else {
+									logger.info(
+											"safeCompleteAsyncContext short-deferred close aborted (no posts started): sessionId={}",
+											sidShort);
+								}
+							}
+						}, delayShort, java.util.concurrent.TimeUnit.MILLISECONDS);
+						return;
 					}
 				}
 				catch (Exception e) {
@@ -872,6 +904,26 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		final MessageInfo messageInfo = extractMessageInfo(message);
 		logger.info("SERVER doPost: kind={}, id={}, sessionId={}, uri={}, thread={}", messageInfo.kind, messageInfo.id,
 				sessionId, request.getRequestURI(), Thread.currentThread().getName());
+		// Structured server event: HTTP request received
+		java.util.Map<String, Object> jr = new java.util.HashMap<String, Object>();
+		jr.put("id", messageInfo.id);
+		jr.put("method", messageInfo.kind);
+		jr.put("kind", messageInfo.kind);
+		java.util.Map<String, Object> outm = new java.util.HashMap<String, Object>();
+		outm.put("status", "PENDING");
+		io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "HTTP", "S_RECV_REQ_HTTP", sessionId, jr,
+				null, outm, null);
+
+		// Emit specific structured event for RESPONSE HTTP POST
+		if ("RESPONSE".equals(messageInfo.kind)) {
+			java.util.Map<String, Object> jr2 = new java.util.HashMap<String, Object>();
+			jr2.put("id", messageInfo.id);
+			jr2.put("kind", messageInfo.kind);
+			java.util.Map<String, Object> outm2 = new java.util.HashMap<String, Object>();
+			outm2.put("status", "PENDING");
+			io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "HTTP", "S_RECV_RESP_HTTP", sessionId,
+					jr2, null, outm2, null);
+		}
 
 		// Use async processing for all message types for consistency and better resource
 		// utilization
@@ -1047,11 +1099,21 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 								sessionId, pending);
 						lastWriteErrorAt = System.currentTimeMillis();
 						connectionClosed = true;
+						java.util.Map<String, Object> pendingm = new java.util.HashMap<String, Object>();
+						pendingm.put("pending", pending);
+						java.util.Map<String, Object> statusm = new java.util.HashMap<String, Object>();
+						statusm.put("status", "ERROR");
+						statusm.put("reason", "timeout");
+						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
+								sessionId, null, pendingm, statusm, null);
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
 					}
 					else {
 						connectionClosed = true;
+						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
+								sessionId, null, java.util.Collections.singletonMap("pending", pending),
+								java.util.Collections.singletonMap("status", "CLOSED"), null);
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
 					}
@@ -1071,11 +1133,21 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 								sessionId, pendingErr);
 						lastWriteErrorAt = System.currentTimeMillis();
 						connectionClosed = true;
+						java.util.Map<String, Object> pendingmErr = new java.util.HashMap<String, Object>();
+						pendingmErr.put("pending", pendingErr);
+						java.util.Map<String, Object> statusmErr = new java.util.HashMap<String, Object>();
+						statusmErr.put("status", "ERROR");
+						statusmErr.put("reason", "error");
+						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
+								sessionId, null, pendingmErr, statusmErr, null);
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
 					}
 					else {
 						connectionClosed = true;
+						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
+								sessionId, null, java.util.Collections.singletonMap("pending", pendingErr),
+								java.util.Collections.singletonMap("status", "CLOSED"), null);
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
 					}
@@ -1171,12 +1243,23 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 					logger.info("SERVER prepareResponse: sessionId={}, kind={}, id={}, thread={}", sessionId, kind, id,
 							Thread.currentThread().getName());
+					// Structured log: server preparing SSE response
+					java.util.Map<String, Object> prepmap = new java.util.HashMap<String, Object>();
+					prepmap.put("id", id);
+					prepmap.put("kind", kind);
+					io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_PREP_SSE_RESP",
+							sessionId, prepmap, null, java.util.Collections.singletonMap("status", "PENDING"), null);
 
 					String jsonText = jsonMapper.writeValueAsString(message);
 					sendEvent(writer, MESSAGE_EVENT_TYPE, jsonText);
 
 					logger.info("SERVER SSE EVENT SENT: sessionId={}, kind={}, id={}, thread={}", sessionId, kind, id,
 							Thread.currentThread().getName());
+					java.util.Map<String, Object> sendm = new java.util.HashMap<String, Object>();
+					sendm.put("id", id);
+					sendm.put("kind", kind);
+					io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_SEND",
+							sessionId, sendm, null, java.util.Collections.singletonMap("status", "SUCCESS"), null);
 				}
 				catch (Exception e) {
 					// Extract message type for error handling
