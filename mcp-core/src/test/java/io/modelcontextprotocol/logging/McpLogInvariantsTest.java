@@ -55,7 +55,7 @@ public class McpLogInvariantsTest {
 		Assumptions.assumeTrue(anySseSend, "No S_SSE_SEND events found; skipping specific checks");
 
 		// Basic check: every S_SSE_SEND with kind=RESPONSE should have a client C_SSE_RAW
-		// or C_RECV_RESP_COMPLETE
+		// and C_RECV_RESP_COMPLETE (receipt and terminal delivery)
 		boolean violationFound = events.stream().filter(n -> "S_SSE_SEND".equals(n.path("event").asText(null)))
 				.filter(n -> "RESPONSE".equals(n.path("jsonrpc").path("kind").asText(null))).anyMatch(n -> {
 					String id = n.path("jsonrpc").path("id").asText(null);
@@ -64,10 +64,45 @@ public class McpLogInvariantsTest {
 					boolean complete = events.stream()
 							.anyMatch(e -> "C_RECV_RESP_COMPLETE".equals(e.path("event").asText(null)) && id != null
 									&& id.equals(e.path("jsonrpc").path("id").asText(null)));
-					return !(raw || complete);
+					// require both receipt (raw) and a terminal completion
+					return !(raw && complete);
 				});
 
 		assertTrue(!violationFound, "Found orphan S_SSE_SEND RESPONSE events (see surefire logs)");
+
+		// Terminal event check: every jsonrpc id should have exactly one terminal event
+		// (either C_RECV_RESP_COMPLETE or S_REQ_COMPLETED)
+		java.util.Set<String> ids = new java.util.HashSet<>();
+		for (com.fasterxml.jackson.databind.JsonNode n : events) {
+			if (n.has("jsonrpc") && n.path("jsonrpc").has("id")) {
+				ids.add(n.path("jsonrpc").path("id").asText());
+			}
+		}
+		boolean terminalViolation = ids.stream().anyMatch(id -> {
+			long count = events.stream().filter(e -> {
+				String ev = e.path("event").asText(null);
+				if (!"C_RECV_RESP_COMPLETE".equals(ev) && !"S_REQ_COMPLETED".equals(ev))
+					return false;
+				return id.equals(e.path("jsonrpc").path("id").asText(null));
+			}).count();
+			return count != 1;
+		});
+		assertTrue(!terminalViolation,
+				"Found ids without exactly one terminal event (C_RECV_RESP_COMPLETE or S_REQ_COMPLETED)");
+
+		// Correlation parent/initiator id checks: referenced ids must exist
+		boolean corrViolation = events.stream().filter(n -> n.has("corr") && n.path("corr").isObject()).anyMatch(n -> {
+			com.fasterxml.jackson.databind.JsonNode corr = n.path("corr");
+			for (String key : new String[] { "initiatorId", "parentId" }) {
+				if (corr.has(key)) {
+					String ref = corr.path(key).asText(null);
+					if (ref != null && !ids.contains(ref))
+						return true;
+				}
+			}
+			return false;
+		});
+		assertTrue(!corrViolation, "Found corr references to unknown ids");
 	}
 
 }

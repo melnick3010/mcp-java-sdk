@@ -39,6 +39,9 @@ public class McpClientSession implements McpSession {
 	/** Map of pending responses keyed by request ID */
 	private final ConcurrentHashMap<Object, MonoSink<McpSchema.JSONRPCResponse>> pendingResponses = new ConcurrentHashMap<Object, MonoSink<McpSchema.JSONRPCResponse>>();
 
+	/** Map of outgoing request id -> method to aid correlation when responses arrive */
+	private final ConcurrentHashMap<Object, String> pendingRequestMethods = new ConcurrentHashMap<Object, String>();
+
 	/** Map of request handlers keyed by method name */
 	private final ConcurrentHashMap<String, RequestHandler<?>> requestHandlers = new ConcurrentHashMap<String, RequestHandler<?>>();
 
@@ -150,6 +153,16 @@ public class McpClientSession implements McpSession {
 			Object id = e.getKey();
 			MonoSink<McpSchema.JSONRPCResponse> sink = e.getValue();
 			logger.debug("Failing pending request: id={}", id);
+			// Emit structured terminal event for failed response delivery
+			java.util.Map<String, Object> jr = new java.util.HashMap<String, Object>();
+			jr.put("id", id);
+			jr.put("kind", "RESPONSE");
+			jr.put("method", this.pendingRequestMethods.remove(id));
+			java.util.Map<String, Object> outcomeErr = new java.util.HashMap<String, Object>();
+			outcomeErr.put("status", "ERROR");
+			outcomeErr.put("error", error.getMessage());
+			io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "HTTP", "C_RECV_RESP_COMPLETE", null,
+					jr, null, outcomeErr, null);
 			sink.error(error);
 		}
 		this.pendingResponses.clear();
@@ -161,6 +174,7 @@ public class McpClientSession implements McpSession {
 			logger.debug("[{}] Received response: id={}", this.name, response.id());
 			if (response.id() != null) {
 				MonoSink<McpSchema.JSONRPCResponse> sink = pendingResponses.remove(response.id());
+				String method = pendingRequestMethods.remove(response.id());
 				if (sink == null) {
 					logger.warn("[{}] Unexpected response for unknown id={}, pendingCount={}", this.name, response.id(),
 							pendingResponses.size());
@@ -168,6 +182,25 @@ public class McpClientSession implements McpSession {
 				else {
 					logger.debug("[{}] Delivering response to pending request: id={}, pendingCount={}", this.name,
 							response.id(), pendingResponses.size());
+					// Emit structured client terminal event for response delivery
+					java.util.Map<String, Object> jr = new java.util.HashMap<String, Object>();
+					jr.put("id", response.id());
+					jr.put("kind", "RESPONSE");
+					jr.put("method", method);
+					java.util.Map<String, Object> outcome = java.util.Collections.singletonMap("status", "SUCCESS");
+					io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "HTTP",
+							"C_RECV_RESP_COMPLETE", null, jr, null, outcome, null);
+					// Inform transport to clear any outgoing request method mapping
+					try {
+						if (transport instanceof io.modelcontextprotocol.client.transport.HttpClientSseClientTransport) {
+							((io.modelcontextprotocol.client.transport.HttpClientSseClientTransport) transport)
+									.clearOutgoingRequestMethod(response.id());
+						}
+					}
+					catch (Exception ex) {
+						// best-effort
+					}
+					// Allow application-level delivery
 					sink.success(response);
 				}
 			}
@@ -297,6 +330,7 @@ public class McpClientSession implements McpSession {
 						logger.info("CLIENT sendRequest: method={}, id={}, name={}", method, requestId,
 								Thread.currentThread().getName());
 						pendingResponses.put(requestId, pendingResponseSink);
+						pendingRequestMethods.put(requestId, method);
 						McpSchema.JSONRPCRequest jsonrpcRequest = new McpSchema.JSONRPCRequest(
 								McpSchema.JSONRPC_VERSION, method, requestId, requestParams);
 						transport.sendMessage(jsonrpcRequest).contextWrite(ctx)
@@ -315,6 +349,7 @@ public class McpClientSession implements McpSession {
 				})).timeout(this.requestTimeout).doOnError(throwable -> {
 					// Clean up pending response on any error including timeout
 					MonoSink<McpSchema.JSONRPCResponse> removed = pendingResponses.remove(requestId);
+					pendingRequestMethods.remove(requestId);
 					if (removed != null) {
 						logger.warn("CLIENT request failed/timeout: method={}, id={}, error={}", method, requestId,
 								throwable.getClass().getSimpleName());

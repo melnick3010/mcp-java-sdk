@@ -607,7 +607,21 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			StackTraceElement[] stack = new Exception().getStackTrace();
 			String callerClass = stack[1].getClassName();
 			String callerMethod = stack[1].getMethodName();
-			logger.info("safeCompleteAsyncContext invoked - caller={}.{}", callerClass, callerMethod);
+			// Emit structured async-complete event (includes caller info and optional
+			// session id)
+			String sidForEvent = null;
+			try {
+				Object attr = asyncContext.getRequest().getAttribute(SESSION_ID);
+				if (attr instanceof String) {
+					sidForEvent = (String) attr;
+				}
+			}
+			catch (Exception ex) {
+				// ignore
+			}
+			io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "ASYNC", "S_ASYNC_COMPLETE",
+					sidForEvent, null, null, null,
+					java.util.Collections.singletonMap("caller", callerClass + "." + callerMethod));
 
 			// If this async context maps to a session with pending responses,
 			// defer the completion briefly to give the client time to POST
@@ -911,6 +925,9 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		if (message instanceof McpSchema.JSONRPCRequest) {
 			jr.put("method", ((McpSchema.JSONRPCRequest) message).method());
 		}
+		else if (message instanceof McpSchema.JSONRPCNotification) {
+			jr.put("method", ((McpSchema.JSONRPCNotification) message).method());
+		}
 		else {
 			jr.put("method", null);
 		}
@@ -982,8 +999,17 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 																// timeout
 				.contextWrite(ctx -> ctx.put(McpTransportContext.KEY, transportContext)).subscribe(v -> {
 					// Success handler - complete async context when Mono emits a value
-					// (for
-					// responses with content)
+					// (for responses with content)
+					if ("REQUEST".equals(messageInfo.kind)) {
+						java.util.Map<String, Object> jrComplete = new java.util.HashMap<String, Object>();
+						jrComplete.put("id", messageInfo.id);
+						jrComplete.put("kind", "REQUEST");
+						java.util.Map<String, Object> outcome = java.util.Collections.singletonMap("status", "SUCCESS");
+						java.util.Map<String, Object> extra = java.util.Collections.singletonMap("pending",
+								Integer.valueOf(session.pendingResponsesCount()));
+						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "HTTP", "S_REQ_COMPLETED",
+								sessionId, jrComplete, null, outcome, extra);
+					}
 					completeAsyncContextWithStatus(asyncContext, completed, messageInfo.kind, messageInfo.id, t0);
 				}, error -> {
 					// Error handler
@@ -1114,15 +1140,15 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 						statusm.put("reason", "timeout");
 						statusm.put("cause", "timeout");
 						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
-								sessionId, null, pendingm, statusm, null);
+								sessionId, null, null, statusm, pendingm);
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
 					}
 					else {
 						connectionClosed = true;
 						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
-								sessionId, null, java.util.Collections.singletonMap("pending", pending),
-								java.util.Collections.singletonMap("status", "CLOSED"), null);
+								sessionId, null, null, java.util.Collections.singletonMap("status", "CLOSED"),
+								java.util.Collections.singletonMap("pending", pending));
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
 					}
@@ -1150,15 +1176,15 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 						statusmErr.put("cause",
 								event.getThrowable() == null ? "<null>" : event.getThrowable().getMessage());
 						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
-								sessionId, null, pendingmErr, statusmErr, null);
+								sessionId, null, null, statusmErr, pendingmErr);
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
 					}
 					else {
 						connectionClosed = true;
 						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
-								sessionId, null, java.util.Collections.singletonMap("pending", pendingErr),
-								java.util.Collections.singletonMap("status", "CLOSED"), null);
+								sessionId, null, null, java.util.Collections.singletonMap("status", "CLOSED"),
+								java.util.Collections.singletonMap("pending", pendingErr));
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
 					}
@@ -1263,14 +1289,14 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 					corrPrep.put("parentId", null);
 					corrPrep.put("seq", 0);
 					io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_PREP_SSE_RESP",
-							sessionId, prepmap, null, java.util.Collections.singletonMap("status", "PENDING"),
-							corrPrep);
+							sessionId, prepmap, corrPrep, java.util.Collections.singletonMap("status", "PENDING"),
+							null);
 
 					String jsonText = jsonMapper.writeValueAsString(message);
 					sendEvent(writer, MESSAGE_EVENT_TYPE, jsonText);
 
-					logger.info("SERVER SSE EVENT SENT: sessionId={}, kind={}, id={}, thread={}", sessionId, kind, id,
-							Thread.currentThread().getName());
+					// Structured event emitted below (S_SSE_SEND). Remove duplicate
+					// textual log.
 					java.util.Map<String, Object> sendm = new java.util.HashMap<String, Object>();
 					sendm.put("id", id);
 					sendm.put("kind", kind);
@@ -1279,7 +1305,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 					corrSend.put("parentId", null);
 					corrSend.put("seq", 0);
 					io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_SEND",
-							sessionId, sendm, null, java.util.Collections.singletonMap("status", "SUCCESS"), corrSend);
+							sessionId, sendm, corrSend, java.util.Collections.singletonMap("status", "SUCCESS"), null);
 				}
 				catch (Exception e) {
 					// Extract message type for error handling

@@ -70,6 +70,9 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	// Count of in-flight POST requests triggered by incoming REQUEST messages
 	private final AtomicInteger inflightPosts = new AtomicInteger(0);
 
+	// Map of outgoing request id -> method for correlation when responses arrive
+	private final java.util.concurrent.ConcurrentMap<Object, String> outgoingRequestMethods = new java.util.concurrent.ConcurrentHashMap<>();
+
 	private static final long WRITE_ERROR_GRACE_MS = 5000L;
 
 	// Dedicated scheduler for this transport instance to avoid global scheduler thread
@@ -271,6 +274,9 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 							sseClosedUnexpectedly = true;
 							break;
 						}
+
+						// Remove stored outgoing request method mapping when response has
+						// been correlated.
 					}
 					catch (java.io.InterruptedIOException e) {
 						// Periodic wake-up from socket timeout - check shutdown flag
@@ -311,6 +317,41 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 						java.util.Map<String, Object> rawm = new java.util.HashMap<String, Object>();
 						rawm.put("preview", preview);
 						rawm.put("eventType", eventType);
+						// Enrich raw event with sessionId / id / kind when possible
+						if (ENDPOINT_EVENT_TYPE.equals(eventType)) {
+							// endpoint contains URL with sessionId query param
+							String sessionId = null;
+							try {
+								java.net.URI u = java.net.URI.create(data);
+								String q = u.getQuery();
+								if (q != null) {
+									for (String part : q.split("&")) {
+										if (part.startsWith("sessionId=")) {
+											sessionId = part.substring("sessionId=".length());
+											break;
+										}
+									}
+								}
+							}
+							catch (Exception ex) {
+								// ignore
+							}
+							if (sessionId != null) {
+								rawm.put("sessionId", sessionId);
+							}
+						}
+						else if (MESSAGE_EVENT_TYPE.equals(eventType)) {
+							// Try to quickly extract id/kind from the JSON payload
+							try {
+								McpSchema.JSONRPCMessage mini = McpSchema.deserializeJsonRpcMessage(jsonMapper, data);
+								MessageInfo mi = extractMessageInfo(mini);
+								rawm.put("id", mi.id);
+								rawm.put("kind", mi.kind);
+							}
+							catch (Exception ex) {
+								// ignore - keep preview only
+							}
+						}
 						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "SSE", "C_SSE_RAW", null,
 								rawm, null, java.util.Collections.singletonMap("status", "PENDING"), null);
 
@@ -335,16 +376,34 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 														: "UNKNOWN";
 								logger.info("SSE MESSAGE PARSED: kind={}", kind);
 								java.util.Map<String, Object> parsedm = new java.util.HashMap<String, Object>();
-								parsedm.put("id",
-										(incoming instanceof McpSchema.JSONRPCRequest)
-												? ((McpSchema.JSONRPCRequest) incoming).id()
-												: (incoming instanceof McpSchema.JSONRPCResponse)
-														? ((McpSchema.JSONRPCResponse) incoming).id() : null);
-								parsedm.put("method", (incoming instanceof McpSchema.JSONRPCRequest)
-										? ((McpSchema.JSONRPCRequest) incoming).method() : null);
+								Object parsedId = (incoming instanceof McpSchema.JSONRPCRequest)
+										? ((McpSchema.JSONRPCRequest) incoming).id()
+										: (incoming instanceof McpSchema.JSONRPCResponse)
+												? ((McpSchema.JSONRPCResponse) incoming).id() : null;
+								parsedm.put("id", parsedId);
+								String parsedMethod = null;
+								if (incoming instanceof McpSchema.JSONRPCRequest) {
+									parsedMethod = ((McpSchema.JSONRPCRequest) incoming).method();
+								}
+								parsedm.put("method", parsedMethod);
 								parsedm.put("kind", kind);
+								// Correlation: for RESPONSE we can supply initiatorId
+								// and, if known, method
+								java.util.Map<String, Object> corr = null;
+								if (incoming instanceof McpSchema.JSONRPCResponse) {
+									corr = new java.util.HashMap<String, Object>();
+									corr.put("initiatorId", parsedId);
+									// try to recover method from outgoing map
+									String origMethod = (parsedId == null) ? null
+											: outgoingRequestMethods.get(parsedId);
+									if (origMethod != null) {
+										parsedm.put("method", origMethod);
+									}
+									corr.put("parentId", null);
+									corr.put("seq", 0);
+								}
 								io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "SSE",
-										"C_SSE_PARSED", null, parsedm, null,
+										"C_SSE_PARSED", null, parsedm, corr,
 										java.util.Collections.singletonMap("status", "PENDING"), null);
 
 								Mono<JSONRPCMessage> out = handler.apply(Mono.just(incoming)).doOnNext(msg -> {
@@ -385,8 +444,8 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 										corrPostStart.put("parentId", null);
 										corrPostStart.put("seq", 0);
 										io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "HTTP",
-												"C_POST_START", null, postm, null,
-												java.util.Collections.singletonMap("status", "PENDING"), corrPostStart);
+												"C_POST_START", null, postm, corrPostStart,
+												java.util.Collections.singletonMap("status", "PENDING"), null);
 										return postToEndpoint(msg, targetEndpoint);
 									}).doOnError(ex -> logger.error("Failed to handle/send response, thread={}: {}",
 											Thread.currentThread().getName(), ex.getMessage(), ex))
@@ -394,8 +453,12 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 
 								}
 								else {
-									logger.info("DISPATCH: kind={} -> NO POST (handled locally), thread={}", kind,
-											Thread.currentThread().getName());
+									// Structured dispatch event: handled locally
+									java.util.Map<String, Object> parsedm2 = new java.util.HashMap<String, Object>();
+									parsedm2.put("kind", kind);
+									io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "SSE",
+											"C_DISPATCH", null, parsedm2, null,
+											java.util.Collections.singletonMap("route", "LOCAL"), null);
 									out.doOnError(ex -> logger.error("Failed to handle incoming message", ex))
 											.onErrorResume(ex -> Mono.empty()).subscribe();
 								}
@@ -552,14 +615,14 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 					corrPostOk.put("parentId", null);
 					corrPostOk.put("seq", 0);
 					io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "HTTP", "C_POST_OK", null,
-							java.util.Collections.singletonMap("id", msgId), null,
+							java.util.Collections.singletonMap("id", msgId), corrPostOk,
 							new java.util.HashMap<String, Object>() {
 								{
 									put("status", "SUCCESS");
 									put("statusCode", statusCode);
 									put("elapsedMs", elapsedMs);
 								}
-							}, corrPostOk);
+							}, null);
 				}
 				finally {
 					inflightPosts.decrementAndGet();
@@ -606,6 +669,14 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	private Mono<Void> sendToEndpoint(JSONRPCMessage message, String endpoint) {
 		return Mono.defer(() -> {
 			return Mono.fromCallable(() -> {
+				// Record outgoing request method for correlation (if applicable)
+				if (message instanceof McpSchema.JSONRPCRequest) {
+					Object rid = ((McpSchema.JSONRPCRequest) message).id();
+					String rm = ((McpSchema.JSONRPCRequest) message).method();
+					if (rid != null && rm != null) {
+						outgoingRequestMethods.put(rid, rm);
+					}
+				}
 				String jsonBody = jsonMapper.writeValueAsString(message);
 				URI postUri = Utils.resolveUri(this.baseUri, endpoint);
 				org.apache.http.client.methods.RequestBuilder rb = org.apache.http.client.methods.RequestBuilder.post()
@@ -632,6 +703,13 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 
 	@Override
 	public Mono<Void> closeGracefully() {
+		if (isClosing) {
+			// Idempotent: already closing
+			io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "SSE", "C_SSE_CLOSE_ALREADY", null,
+					null, null, java.util.Collections.singletonMap("status", "ALREADY_CLOSING"), null);
+			return Mono.empty();
+		}
+
 		return Mono.fromRunnable(() -> {
 			logger.info("Starting graceful close of SSE transport...");
 
@@ -658,9 +736,16 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 					// within 1-2 seconds
 					sseReaderThread.join(5000);
 					if (sseReaderThread.isAlive()) {
-						logger.warn("SSE reader thread did not terminate within 5 seconds, dumping stack trace...");
+						// Emit single structured timeout event and dump stack once
+						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "SSE",
+								"C_SSE_READER_TIMEOUT", null, null, null,
+								java.util.Collections.singletonMap("message", "reader did not terminate within 5s"),
+								null);
 						dumpThreadStack(sseReaderThread);
 						logger.warn("SSE reader thread will be left running (daemon threads will not block JVM exit)");
+						// stop further duplicate close sequences by ensuring isClosing
+						// remains true
+						return;
 					}
 					else {
 						logger.info("SSE reader thread terminated successfully");
@@ -718,6 +803,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 		for (StackTraceElement element : stackTrace) {
 			logger.warn("  at {}", element);
 		}
+
 	}
 
 	private void closeResources() {
@@ -787,9 +873,44 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 		}
 	}
 
+	/**
+	 * Remove stored outgoing request method mapping when a response has been correlated.
+	 */
+	public void clearOutgoingRequestMethod(Object id) {
+		if (id != null) {
+			this.outgoingRequestMethods.remove(id);
+		}
+	}
+
 	@Override
 	public <T> T unmarshalFrom(Object data, TypeRef<T> typeRef) {
 		return this.jsonMapper.convertValue(data, typeRef);
+	}
+
+	private static final class MessageInfo {
+
+		final Object id;
+
+		final String kind;
+
+		MessageInfo(Object id, String kind) {
+			this.id = id;
+			this.kind = kind;
+		}
+
+	}
+
+	private MessageInfo extractMessageInfo(McpSchema.JSONRPCMessage msg) {
+		Object id = null;
+		if (msg instanceof McpSchema.JSONRPCRequest) {
+			id = ((McpSchema.JSONRPCRequest) msg).id();
+		}
+		else if (msg instanceof McpSchema.JSONRPCResponse) {
+			id = ((McpSchema.JSONRPCResponse) msg).id();
+		}
+		String kind = (msg instanceof McpSchema.JSONRPCRequest) ? "REQUEST" : (msg instanceof McpSchema.JSONRPCResponse)
+				? "RESPONSE" : (msg instanceof McpSchema.JSONRPCNotification) ? "NOTIFICATION" : "UNKNOWN";
+		return new MessageInfo(id, kind);
 	}
 
 }

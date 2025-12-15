@@ -28,6 +28,9 @@ import org.apache.catalina.LifecycleState;
 import org.apache.catalina.startup.Tomcat;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.provider.Arguments;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import io.modelcontextprotocol.logging.McpLogging;
 
 @Timeout(60) // ↑↑ Aumentato da 35s a 60s per margine sui metodi ereditati
 class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationTests {
@@ -59,6 +62,8 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wire", "DEBUG");
 		System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.impl.conn", "DEBUG");
 	}
+
+	private static final Logger TEST_LOGGER = LoggerFactory.getLogger("TEST");
 
 	@BeforeEach
 	public void before() {
@@ -95,28 +100,37 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 
 	@Test
 	void testInitializeHandshake() {
-		System.out.println("preparo client transport (handshake)");
+		io.modelcontextprotocol.logging.McpLogging.logEvent(TEST_LOGGER, "CLIENT", "TEST", "C_TEST_STEP", null, null,
+				null, java.util.Collections.singletonMap("phase", "handshake"), null);
 		transport = HttpClientSseClientTransport.builder("http://localhost:" + port).sseEndpoint(CUSTOM_SSE_ENDPOINT)
 				.build();
 
-		System.out.println("preparo client mcp (sync, handshake)");
+		io.modelcontextprotocol.logging.McpLogging.logEvent(TEST_LOGGER, "CLIENT", "TEST", "C_TEST_STEP", null, null,
+				null, java.util.Collections.singletonMap("phase", "handshake"), null);
 		// ↑↑ Aumentato da 30s a 45s per coerenza
 		client = McpClient.sync(transport).clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
 				.requestTimeout(Duration.ofSeconds(45)).build();
 
-		System.out.println("inizializzo client (handshake)");
+		io.modelcontextprotocol.logging.McpLogging.logEvent(TEST_LOGGER, "CLIENT", "TEST", "C_TEST_STEP", null, null,
+				null, java.util.Collections.singletonMap("phase", "handshake"), null);
 		McpSchema.InitializeResult result = client.initialize();
-		System.out.println("initialized: protocol=" + result.protocolVersion());
+		java.util.Map<String, Object> extra = new java.util.HashMap<String, Object>();
+		extra.put("protocol", result.protocolVersion());
+		io.modelcontextprotocol.logging.McpLogging.logEvent(TEST_LOGGER, "CLIENT", "TEST", "C_TEST_STEP", null, null,
+				null, extra, null);
 
 		String endpoint = readMessageEndpoint(transport);
-		System.out.println("messageEndpoint = " + endpoint);
+		io.modelcontextprotocol.logging.McpLogging.logEvent(TEST_LOGGER, "CLIENT", "TEST", "C_TEST_STEP", null, null,
+				null, java.util.Collections.singletonMap("endpoint", endpoint), null);
 		assertThat(endpoint).isNotNull();
-		System.out.println("fine testInitializeHandshake");
+		io.modelcontextprotocol.logging.McpLogging.logEvent(TEST_LOGGER, "CLIENT", "TEST", "C_TEST_STEP", null, null,
+				null, java.util.Collections.singletonMap("phase", "handshake-complete"), null);
 	}
 
 	@AfterEach
 	public void after() {
-		System.out.println("Chiusura risorse...");
+		io.modelcontextprotocol.logging.McpLogging.logEvent(TEST_LOGGER, "CLIENT", "TEST", "C_TEST_STEP", null, null,
+				null, java.util.Collections.singletonMap("phase", "teardown"), null);
 		try {
 			if (client != null) {
 				client.close();
@@ -148,7 +162,8 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 			asyncServer = null;
 			tomcat = null;
 		}
-		System.out.println("Risorse chiuse.");
+		io.modelcontextprotocol.logging.McpLogging.logEvent(TEST_LOGGER, "CLIENT", "TEST", "C_TEST_STEP", null, null,
+				null, java.util.Collections.singletonMap("phase", "teardown-complete"), null);
 	}
 
 	@AfterAll
