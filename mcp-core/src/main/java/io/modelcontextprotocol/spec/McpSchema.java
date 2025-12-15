@@ -2290,23 +2290,23 @@ public final class McpSchema {
 		public Map<String, Object> meta() {
 			return _meta;
 		}
-	
+
 		@Override
 		public boolean equals(Object o) {
-			if (this == o) return true;
-			if (o == null || getClass() != o.getClass()) return false;
+			if (this == o)
+				return true;
+			if (o == null || getClass() != o.getClass())
+				return false;
 			CallToolResult that = (CallToolResult) o;
-			return Objects.equals(content, that.content) &&
-					Objects.equals(isError, that.isError) &&
-					Objects.equals(structuredContent, that.structuredContent) &&
-					Objects.equals(_meta, that._meta);
+			return Objects.equals(content, that.content) && Objects.equals(isError, that.isError)
+					&& Objects.equals(structuredContent, that.structuredContent) && Objects.equals(_meta, that._meta);
 		}
-	
+
 		@Override
 		public int hashCode() {
 			return Objects.hash(content, isError, structuredContent, _meta);
 		}
-	
+
 	}
 
 	@JsonInclude(JsonInclude.Include.NON_ABSENT)
@@ -2723,24 +2723,23 @@ public final class McpSchema {
 		public Map<String, Object> meta() {
 			return _meta;
 		}
-	
+
 		@Override
 		public boolean equals(Object o) {
-			if (this == o) return true;
-			if (o == null || getClass() != o.getClass()) return false;
+			if (this == o)
+				return true;
+			if (o == null || getClass() != o.getClass())
+				return false;
 			CreateMessageResult that = (CreateMessageResult) o;
-			return role == that.role &&
-					Objects.equals(content, that.content) &&
-					Objects.equals(model, that.model) &&
-					stopReason == that.stopReason &&
-					Objects.equals(_meta, that._meta);
+			return role == that.role && Objects.equals(content, that.content) && Objects.equals(model, that.model)
+					&& stopReason == that.stopReason && Objects.equals(_meta, that._meta);
 		}
-	
+
 		@Override
 		public int hashCode() {
 			return Objects.hash(role, content, model, stopReason, _meta);
 		}
-	
+
 		public static Builder builder() {
 			return new Builder();
 		}
@@ -2922,22 +2921,22 @@ public final class McpSchema {
 		public Map<String, Object> meta() {
 			return _meta;
 		}
-	
+
 		@Override
 		public boolean equals(Object o) {
-			if (this == o) return true;
-			if (o == null || getClass() != o.getClass()) return false;
+			if (this == o)
+				return true;
+			if (o == null || getClass() != o.getClass())
+				return false;
 			ElicitResult that = (ElicitResult) o;
-			return action == that.action &&
-					Objects.equals(content, that.content) &&
-					Objects.equals(_meta, that._meta);
+			return action == that.action && Objects.equals(content, that.content) && Objects.equals(_meta, that._meta);
 		}
-	
+
 		@Override
 		public int hashCode() {
 			return Objects.hash(action, content, _meta);
 		}
-	
+
 		public static Builder builder() {
 			return new Builder();
 		}
@@ -3629,27 +3628,28 @@ public final class McpSchema {
 		public List<Role> audience() {
 			return annotations == null ? null : annotations.audience();
 		}
-	
+
 		@Deprecated
 		public Double priority() {
 			return annotations == null ? null : annotations.priority();
 		}
-	
+
 		@Override
 		public boolean equals(Object o) {
-			if (this == o) return true;
-			if (o == null || getClass() != o.getClass()) return false;
+			if (this == o)
+				return true;
+			if (o == null || getClass() != o.getClass())
+				return false;
 			TextContent that = (TextContent) o;
-			return Objects.equals(annotations, that.annotations) &&
-					Objects.equals(text, that.text) &&
-					Objects.equals(_meta, that._meta);
+			return Objects.equals(annotations, that.annotations) && Objects.equals(text, that.text)
+					&& Objects.equals(_meta, that._meta);
 		}
-	
+
 		@Override
 		public int hashCode() {
 			return Objects.hash(annotations, text, _meta);
 		}
-	
+
 	}
 
 	@JsonInclude(JsonInclude.Include.NON_ABSENT)
@@ -3723,28 +3723,28 @@ public final class McpSchema {
 		public List<Role> audience() {
 			return annotations == null ? null : annotations.audience();
 		}
-	
+
 		@Deprecated
 		public Double priority() {
 			return annotations == null ? null : annotations.priority();
 		}
-	
+
 		@Override
 		public boolean equals(Object o) {
-			if (this == o) return true;
-			if (o == null || getClass() != o.getClass()) return false;
+			if (this == o)
+				return true;
+			if (o == null || getClass() != o.getClass())
+				return false;
 			ImageContent that = (ImageContent) o;
-			return Objects.equals(annotations, that.annotations) &&
-					Objects.equals(data, that.data) &&
-					Objects.equals(mimeType, that.mimeType) &&
-					Objects.equals(_meta, that._meta);
+			return Objects.equals(annotations, that.annotations) && Objects.equals(data, that.data)
+					&& Objects.equals(mimeType, that.mimeType) && Objects.equals(_meta, that._meta);
 		}
-	
+
 		@Override
 		public int hashCode() {
 			return Objects.hash(annotations, data, mimeType, _meta);
 		}
-	
+
 	}
 
 	@JsonInclude(JsonInclude.Include.NON_ABSENT)
@@ -3802,28 +3802,28 @@ public final class McpSchema {
 		public String type() {
 			return "audio";
 		}
-	
+
 		@Override
 		public String getType() {
 			return type();
 		}
-	
+
 		@Override
 		public boolean equals(Object o) {
-			if (this == o) return true;
-			if (o == null || getClass() != o.getClass()) return false;
+			if (this == o)
+				return true;
+			if (o == null || getClass() != o.getClass())
+				return false;
 			AudioContent that = (AudioContent) o;
-			return Objects.equals(annotations, that.annotations) &&
-					Objects.equals(data, that.data) &&
-					Objects.equals(mimeType, that.mimeType) &&
-					Objects.equals(_meta, that._meta);
+			return Objects.equals(annotations, that.annotations) && Objects.equals(data, that.data)
+					&& Objects.equals(mimeType, that.mimeType) && Objects.equals(_meta, that._meta);
 		}
-	
+
 		@Override
 		public int hashCode() {
 			return Objects.hash(annotations, data, mimeType, _meta);
 		}
-	
+
 	}
 
 	@JsonInclude(JsonInclude.Include.NON_ABSENT)
@@ -3888,27 +3888,28 @@ public final class McpSchema {
 		public List<Role> audience() {
 			return annotations == null ? null : annotations.audience();
 		}
-	
+
 		@Deprecated
 		public Double priority() {
 			return annotations == null ? null : annotations.priority();
 		}
-	
+
 		@Override
 		public boolean equals(Object o) {
-			if (this == o) return true;
-			if (o == null || getClass() != o.getClass()) return false;
+			if (this == o)
+				return true;
+			if (o == null || getClass() != o.getClass())
+				return false;
 			EmbeddedResource that = (EmbeddedResource) o;
-			return Objects.equals(annotations, that.annotations) &&
-					Objects.equals(resource, that.resource) &&
-					Objects.equals(_meta, that._meta);
+			return Objects.equals(annotations, that.annotations) && Objects.equals(resource, that.resource)
+					&& Objects.equals(_meta, that._meta);
 		}
-	
+
 		@Override
 		public int hashCode() {
 			return Objects.hash(annotations, resource, _meta);
 		}
-	
+
 	}
 
 	@JsonInclude(JsonInclude.Include.NON_ABSENT)
@@ -3995,27 +3996,25 @@ public final class McpSchema {
 		public Map<String, Object> meta() {
 			return _meta;
 		}
-	
+
 		@Override
 		public boolean equals(Object o) {
-			if (this == o) return true;
-			if (o == null || getClass() != o.getClass()) return false;
+			if (this == o)
+				return true;
+			if (o == null || getClass() != o.getClass())
+				return false;
 			ResourceLink that = (ResourceLink) o;
-			return Objects.equals(name, that.name) &&
-					Objects.equals(title, that.title) &&
-					Objects.equals(uri, that.uri) &&
-					Objects.equals(description, that.description) &&
-					Objects.equals(mimeType, that.mimeType) &&
-					Objects.equals(size, that.size) &&
-					Objects.equals(annotations, that.annotations) &&
-					Objects.equals(_meta, that._meta);
+			return Objects.equals(name, that.name) && Objects.equals(title, that.title) && Objects.equals(uri, that.uri)
+					&& Objects.equals(description, that.description) && Objects.equals(mimeType, that.mimeType)
+					&& Objects.equals(size, that.size) && Objects.equals(annotations, that.annotations)
+					&& Objects.equals(_meta, that._meta);
 		}
-	
+
 		@Override
 		public int hashCode() {
 			return Objects.hash(name, title, uri, description, mimeType, size, annotations, _meta);
 		}
-	
+
 		public static Builder builder() {
 			return new Builder();
 		}
@@ -4147,11 +4146,12 @@ public final class McpSchema {
 
 		@Override
 		public boolean equals(Object o) {
-			if (this == o) return true;
-			if (o == null || getClass() != o.getClass()) return false;
+			if (this == o)
+				return true;
+			if (o == null || getClass() != o.getClass())
+				return false;
 			Root root = (Root) o;
-			return java.util.Objects.equals(uri, root.uri) &&
-				   java.util.Objects.equals(name, root.name);
+			return java.util.Objects.equals(uri, root.uri) && java.util.Objects.equals(name, root.name);
 		}
 
 		@Override

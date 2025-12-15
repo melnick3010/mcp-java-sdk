@@ -232,36 +232,35 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 					httpClient, baseUri, endpoint, resumableStreams, openConnectionOnStartup, httpRequestCustomizer,
 					supportedProtocolVersions);
 		}
-		
+
 		/**
 		 * Creates a pooled HTTP client optimized for concurrent requests.
 		 *
-		 * Configuration:
-		 * - maxTotal = 20: Total connections across all routes
-		 * - defaultMaxPerRoute = 10: Max connections per route
-		 * - connectTimeout = 3000ms: Socket connection timeout
-		 * - connectionRequestTimeout = 3000ms: Timeout waiting for connection from pool
-		 * - socketTimeout = 15000ms: Socket read timeout
-		 * - Expect-Continue disabled: Reduces round-trips for POST requests
+		 * Configuration: - maxTotal = 20: Total connections across all routes -
+		 * defaultMaxPerRoute = 10: Max connections per route - connectTimeout = 3000ms:
+		 * Socket connection timeout - connectionRequestTimeout = 3000ms: Timeout waiting
+		 * for connection from pool - socketTimeout = 15000ms: Socket read timeout -
+		 * Expect-Continue disabled: Reduces round-trips for POST requests
 		 */
 		private static CloseableHttpClient createPooledHttpClient() {
 			// Configure connection pool
 			PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
 			connectionManager.setMaxTotal(20);
 			connectionManager.setDefaultMaxPerRoute(10);
-			
+
 			// Configure request timeouts
-			RequestConfig requestConfig = RequestConfig.custom()
-					.setConnectTimeout(3000)           // Connection establishment timeout
-					.setConnectionRequestTimeout(3000) // Timeout waiting for connection from pool
-					.setSocketTimeout(15000)           // Socket read timeout
-					.setExpectContinueEnabled(false)   // Disable Expect: 100-continue for faster POSTs
+			RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(3000) // Connection
+																							// establishment
+																							// timeout
+					.setConnectionRequestTimeout(3000) // Timeout waiting for connection
+														// from pool
+					.setSocketTimeout(15000) // Socket read timeout
+					.setExpectContinueEnabled(false) // Disable Expect: 100-continue for
+														// faster POSTs
 					.build();
-			
-			return HttpClientBuilder.create()
-					.setConnectionManager(connectionManager)
-					.setDefaultRequestConfig(requestConfig)
-					.build();
+
+			return HttpClientBuilder.create().setConnectionManager(connectionManager)
+					.setDefaultRequestConfig(requestConfig).build();
 		}
 
 	}

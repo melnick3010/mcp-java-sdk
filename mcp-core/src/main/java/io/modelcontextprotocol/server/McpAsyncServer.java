@@ -205,20 +205,18 @@ public class McpAsyncServer {
 
 		notificationHandlers.put(McpSchema.METHOD_NOTIFICATION_ROOTS_LIST_CHANGED,
 				asyncRootsListChangedNotificationHandler(rootsChangeConsumers));
-		
+
 		// Add fallback handlers for common notifications to reduce noise in logs
 		// These prevent "No handler registered" warnings during test suites
-		notificationHandlers.put(McpSchema.METHOD_NOTIFICATION_PROGRESS,
-				(exchange, params) -> {
-					logger.debug("Progress notification received (no handler): {}", params);
-					return Mono.empty();
-				});
-		notificationHandlers.put(McpSchema.METHOD_NOTIFICATION_MESSAGE,
-				(exchange, params) -> {
-					logger.debug("Message notification received (no handler): {}", params);
-					return Mono.empty();
-				});
-		
+		notificationHandlers.put(McpSchema.METHOD_NOTIFICATION_PROGRESS, (exchange, params) -> {
+			logger.debug("Progress notification received (no handler): {}", params);
+			return Mono.empty();
+		});
+		notificationHandlers.put(McpSchema.METHOD_NOTIFICATION_MESSAGE, (exchange, params) -> {
+			logger.debug("Message notification received (no handler): {}", params);
+			return Mono.empty();
+		});
+
 		return notificationHandlers;
 	}
 

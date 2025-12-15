@@ -137,23 +137,19 @@ public class McpServerSession implements McpLoggableSession {
 				this.pendingResponses.remove(requestId);
 				sink.error(error);
 			});
-		}).timeout(requestTimeout)
-		.onErrorResume(throwable -> {
+		}).timeout(requestTimeout).onErrorResume(throwable -> {
 			// Convert timeout exceptions to McpError
 			if (throwable instanceof java.util.concurrent.TimeoutException
 					|| (throwable.getCause() instanceof java.util.concurrent.TimeoutException)) {
-				logger.error("SERVER Request timeout for method={}, id={}, timeout={}ms",
-						method, requestId, requestTimeout.toMillis());
-				McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError =
-						new McpSchema.JSONRPCResponse.JSONRPCError(
-								McpSchema.ErrorCodes.INTERNAL_ERROR,
-								"Request did not complete within " + requestTimeout.toMillis() + "ms",
-								null);
+				logger.error("SERVER Request timeout for method={}, id={}, timeout={}ms", method, requestId,
+						requestTimeout.toMillis());
+				McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError = new McpSchema.JSONRPCResponse.JSONRPCError(
+						McpSchema.ErrorCodes.INTERNAL_ERROR,
+						"Request did not complete within " + requestTimeout.toMillis() + "ms", null);
 				return Mono.error(new McpError(jsonRpcError));
 			}
 			return Mono.error(throwable);
-		})
-		.handle((jsonRpcResponse, s) -> {
+		}).handle((jsonRpcResponse, s) -> {
 			if (jsonRpcResponse.error() != null) {
 				logger.error("SERVER sendRequest: id={} COMPLETED with error={}", requestId, jsonRpcResponse.error());
 				s.error(new McpError(jsonRpcResponse.error()));
@@ -229,12 +225,11 @@ public class McpServerSession implements McpLoggableSession {
 				McpSchema.JSONRPCNotification notification = (McpSchema.JSONRPCNotification) message;
 				logger.info("SERVER NOTIFICATION RECEIVED: method={}, params={}, notification={}",
 						notification.method(), notification.params(), notification);
-				return handleIncomingNotification(notification, transportContext)
-						.onErrorResume(error -> {
-							logger.error("Error handling notification: method={}, error={}, stackTrace={}",
-									notification.method(), error.getMessage(), error.getClass().getName(), error);
-							return Mono.empty();
-						});
+				return handleIncomingNotification(notification, transportContext).onErrorResume(error -> {
+					logger.error("Error handling notification: method={}, error={}, stackTrace={}",
+							notification.method(), error.getMessage(), error.getClass().getName(), error);
+					return Mono.empty();
+				});
 			}
 			else {
 				logger.warn("Received unknown message type: {}", message);
@@ -300,7 +295,7 @@ public class McpServerSession implements McpLoggableSession {
 		return Mono.defer(() -> {
 			logger.info("SERVER handleIncomingNotification: method={}, params={}, registeredHandlers={}",
 					notification.method(), notification.params(), notificationHandlers.keySet());
-			
+
 			if (McpSchema.METHOD_NOTIFICATION_INITIALIZED.equals(notification.method())) {
 				logger.info("SERVER: Processing 'initialized' notification");
 				this.state.lazySet(STATE_INITIALIZED);
@@ -314,10 +309,13 @@ public class McpServerSession implements McpLoggableSession {
 				return Mono.empty();
 			}
 			logger.info("SERVER: Invoking handler for method={}", notification.method());
-			return this.exchangeSink.asMono().flatMap(
-					exchange -> handler.handle(copyExchange(exchange, transportContext), notification.params()))
-					.doOnSuccess(v -> logger.info("SERVER: Handler completed successfully for method={}", notification.method()))
-					.doOnError(e -> logger.error("SERVER: Handler failed for method={}: {}", notification.method(), e.getMessage(), e));
+			return this.exchangeSink.asMono()
+					.flatMap(
+							exchange -> handler.handle(copyExchange(exchange, transportContext), notification.params()))
+					.doOnSuccess(v -> logger.info("SERVER: Handler completed successfully for method={}",
+							notification.method()))
+					.doOnError(e -> logger.error("SERVER: Handler failed for method={}: {}", notification.method(),
+							e.getMessage(), e));
 		});
 	}
 
@@ -370,6 +368,26 @@ public class McpServerSession implements McpLoggableSession {
 	public void close() {
 		// TODO: clear pendingResponses and emit errors?
 		this.transport.close();
+	}
+
+	/**
+	 * Returns the current number of pending responses waiting for client replies. Useful
+	 * for transport implementations to decide whether a connection can be closed
+	 * immediately or should be drained first.
+	 * @return number of pending responses
+	 */
+	public int pendingResponsesCount() {
+		return this.pendingResponses.size();
+	}
+
+	/**
+	 * Returns the configured request timeout in milliseconds for this session. Useful for
+	 * transports that need to wait for pending requests to time out before closing the
+	 * connection.
+	 * @return request timeout in milliseconds
+	 */
+	public long getRequestTimeoutMillis() {
+		return this.requestTimeout.toMillis();
 	}
 
 	/**

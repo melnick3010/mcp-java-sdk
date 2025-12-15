@@ -31,13 +31,14 @@ public class HttpClientSseClientTransportDispatchSmokeTest {
 	static class SpyTransport extends HttpClientSseClientTransport {
 
 		private static PoolingHttpClientConnectionManager connectionManager;
+
 		private final AtomicInteger postCount = new AtomicInteger(0);
 
 		SpyTransport() {
 			super(
 					// httpClient: non usato (nessuna rete in questo test)
-					org.apache.http.impl.client.HttpClients.createDefault(), connectionManager, "http://localhost:0", "/sse",
-					McpJsonMapper.getDefault(), McpAsyncHttpClientRequestCustomizer.NOOP);
+					org.apache.http.impl.client.HttpClients.createDefault(), connectionManager, "http://localhost:0",
+					"/sse", McpJsonMapper.getDefault(), McpAsyncHttpClientRequestCustomizer.NOOP);
 		}
 
 		int getPostCount() {

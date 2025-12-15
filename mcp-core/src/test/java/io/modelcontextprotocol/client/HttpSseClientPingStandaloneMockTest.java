@@ -21,14 +21,15 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Mock SSE server in Docker: forza REQUEST 'ping' -> verifica POST della
- * RESPONSE.
+ * Mock SSE server in Docker: forza REQUEST 'ping' -> verifica POST della RESPONSE.
  */
 @Timeout(120)
 public class HttpSseClientPingStandaloneMockTest {
 
 	private static final Logger log = LoggerFactory.getLogger(HttpSseClientPingStandaloneMockTest.class);
+
 	private static GenericContainer<?> serverContainer;
+
 	private static String serverUrl;
 
 	@BeforeAll
@@ -128,17 +129,21 @@ public class HttpSseClientPingStandaloneMockTest {
 			// risponde 200.
 			boolean posted = responsePosted.await(2, TimeUnit.SECONDS);
 			if (!posted) {
-				posted = true; // il mock risponde sempre 200; se necessario, aggiungi un contatore lato server
+				posted = true; // il mock risponde sempre 200; se necessario, aggiungi un
+								// contatore lato server
 			}
 			assertThat(posted).as("La RESPONSE del ping deve essere postata").isTrue();
 
-		} finally {
+		}
+		finally {
 			// chiudi le risorse in ordine
 			try {
 				client.closeGracefully().block(Duration.ofSeconds(5));
-			} finally {
+			}
+			finally {
 				transport.closeGracefully().block(Duration.ofSeconds(5));
 			}
 		}
 	}
+
 }

@@ -72,8 +72,6 @@ class HttpClientSseClientTransportTests {
 
 	public static PoolingHttpClientConnectionManager connectionManager;
 
-
-
 	private TestHttpClientSseClientTransport transport;
 
 	private final McpTransportContext context = McpTransportContext
@@ -94,14 +92,14 @@ class HttpClientSseClientTransportTests {
 
 		public TestHttpClientSseClientTransport(final String baseUri) {
 			super(org.apache.http.impl.client.HttpClients.createDefault(), connectionManager, baseUri, "/sse", // oppure
-																							// un
-																							// endpoint
-																							// passato
-																							// via
-																							// costruttore
-																							// se
-																							// preferisci
-																							// parametrizzarlo
+					// un
+					// endpoint
+					// passato
+					// via
+					// costruttore
+					// se
+					// preferisci
+					// parametrizzarlo
 					io.modelcontextprotocol.json.McpJsonMapper.getDefault(),
 					io.modelcontextprotocol.client.transport.customizer.McpAsyncHttpClientRequestCustomizer.NOOP);
 		}

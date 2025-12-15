@@ -29,15 +29,12 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 /**
  * Standalone test per verificare thread leak nel client SSE.
- * 
- * Questo test:
- * 1. Avvia un server MCP SSE in un container Docker
- * 2. Crea e chiude ripetutamente client SSE
- * 3. Verifica che i thread vengano correttamente rilasciati
- * 
- * Per eseguire questo test:
- * - Assicurati che Docker sia in esecuzione
- * - Esegui: mvn test -Dtest=HttpSseClientThreadLeakStandaloneTest
+ *
+ * Questo test: 1. Avvia un server MCP SSE in un container Docker 2. Crea e chiude
+ * ripetutamente client SSE 3. Verifica che i thread vengano correttamente rilasciati
+ *
+ * Per eseguire questo test: - Assicurati che Docker sia in esecuzione - Esegui: mvn test
+ * -Dtest=HttpSseClientThreadLeakStandaloneTest
  */
 @Timeout(120)
 public class HttpSseClientThreadLeakStandaloneTest {
@@ -45,25 +42,25 @@ public class HttpSseClientThreadLeakStandaloneTest {
 	private static final Logger logger = LoggerFactory.getLogger(HttpSseClientThreadLeakStandaloneTest.class);
 
 	private static GenericContainer<?> serverContainer;
+
 	private static String serverUrl;
 
 	@BeforeAll
 	static void startServer() {
 		logger.info("=== Starting MCP SSE Server Container ===");
-		
+
 		// Uses the https://github.com/tzolov/mcp-everything-server-docker-image
 		serverContainer = new GenericContainer<>("docker.io/tzolov/mcp-everything-server:v3")
 				.withCommand("node dist/index.js sse")
 				.withLogConsumer(outputFrame -> System.out.println("[SERVER] " + outputFrame.getUtf8String()))
-				.withExposedPorts(3001)
-				.waitingFor(Wait.forHttp("/").forStatusCode(404));
+				.withExposedPorts(3001).waitingFor(Wait.forHttp("/").forStatusCode(404));
 
 		serverContainer.start();
-		
+
 		String host = serverContainer.getHost();
 		Integer port = serverContainer.getMappedPort(3001);
 		serverUrl = "http://" + host + ":" + port;
-		
+
 		logger.info("=== Server started at: {} ===", serverUrl);
 	}
 
@@ -80,7 +77,7 @@ public class HttpSseClientThreadLeakStandaloneTest {
 		logger.info("\n\n=== TEST: Multiple Client Connections - Thread Leak Check ===\n");
 
 		ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-		
+
 		// Baseline: conta i thread prima del test
 		int baselineThreadCount = threadMXBean.getThreadCount();
 		List<String> baselineThreadNames = getThreadNames(threadMXBean);
@@ -92,35 +89,34 @@ public class HttpSseClientThreadLeakStandaloneTest {
 		int iterations = 5;
 		for (int i = 1; i <= iterations; i++) {
 			logger.info("\n--- Iteration {}/{} ---", i, iterations);
-			
+
 			// Crea e usa il client
 			McpAsyncClient client = createAndInitializeClient();
-			
+
 			// Esegui una semplice operazione
 			McpSchema.ListToolsResult toolsResult = client.listTools(null).block(Duration.ofSeconds(5));
 			logger.info("Retrieved {} tools", toolsResult != null ? toolsResult.getTools().size() : 0);
-			
+
 			// Chiudi il client
 			logger.info("Closing client...");
 			client.closeGracefully().block(Duration.ofSeconds(10));
-			
+
 			// Breve attesa per permettere la pulizia
 			Thread.sleep(500);
-			
+
 			// Conta i thread dopo questa iterazione
 			int currentThreadCount = threadMXBean.getThreadCount();
 			List<String> currentThreadNames = getThreadNames(threadMXBean);
 			int reactorThreads = countReactorThreads(currentThreadNames);
 			int httpSseThreads = countHttpSseThreads(currentThreadNames);
-			
-			logger.info("After iteration {}: Total threads = {}, Reactor = {}, HTTP-SSE = {}", 
-					i, currentThreadCount, reactorThreads, httpSseThreads);
-			
+
+			logger.info("After iteration {}: Total threads = {}, Reactor = {}, HTTP-SSE = {}", i, currentThreadCount,
+					reactorThreads, httpSseThreads);
+
 			// Log dei thread sospetti
 			if (httpSseThreads > 0) {
 				logger.warn("Found {} HTTP-SSE threads still alive:", httpSseThreads);
-				currentThreadNames.stream()
-						.filter(name -> name.contains("http-sse-client"))
+				currentThreadNames.stream().filter(name -> name.contains("http-sse-client"))
 						.forEach(name -> logger.warn("  - {}", name));
 			}
 		}
@@ -135,11 +131,11 @@ public class HttpSseClientThreadLeakStandaloneTest {
 		List<String> finalThreadNames = getThreadNames(threadMXBean);
 		int finalReactorThreads = countReactorThreads(finalThreadNames);
 		int finalHttpSseThreads = countHttpSseThreads(finalThreadNames);
-		
+
 		logger.info("\nFINAL: Total threads = {}", finalThreadCount);
 		logger.info("FINAL: Reactor threads = {}", finalReactorThreads);
 		logger.info("FINAL: HTTP-SSE threads = {}", finalHttpSseThreads);
-		
+
 		// Calcola l'incremento rispetto al baseline
 		int threadIncrease = finalThreadCount - baselineThreadCount;
 		logger.info("\nThread increase from baseline: {}", threadIncrease);
@@ -148,20 +144,17 @@ public class HttpSseClientThreadLeakStandaloneTest {
 		if (finalHttpSseThreads > 0) {
 			logger.error("\n=== THREAD LEAK DETECTED ===");
 			logger.error("Found {} HTTP-SSE threads still alive after all clients closed:", finalHttpSseThreads);
-			finalThreadNames.stream()
-					.filter(name -> name.contains("http-sse-client"))
+			finalThreadNames.stream().filter(name -> name.contains("http-sse-client"))
 					.forEach(name -> logger.error("  - {}", name));
 		}
 
 		// Assertions
-		assertThat(finalHttpSseThreads)
-				.as("No HTTP-SSE client threads should remain after closing all clients")
+		assertThat(finalHttpSseThreads).as("No HTTP-SSE client threads should remain after closing all clients")
 				.isEqualTo(0);
-		
-		assertThat(threadIncrease)
-				.as("Thread count should not increase significantly (max 5 threads tolerance)")
+
+		assertThat(threadIncrease).as("Thread count should not increase significantly (max 5 threads tolerance)")
 				.isLessThanOrEqualTo(5);
-		
+
 		logger.info("\n=== TEST PASSED: No thread leak detected ===\n");
 	}
 
@@ -170,48 +163,43 @@ public class HttpSseClientThreadLeakStandaloneTest {
 		logger.info("\n\n=== TEST: Single Client Lifecycle ===\n");
 
 		ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-		
+
 		int beforeThreadCount = threadMXBean.getThreadCount();
 		List<String> beforeThreadNames = getThreadNames(threadMXBean);
-		logger.info("BEFORE: Total threads = {}, HTTP-SSE threads = {}", 
-				beforeThreadCount, countHttpSseThreads(beforeThreadNames));
+		logger.info("BEFORE: Total threads = {}, HTTP-SSE threads = {}", beforeThreadCount,
+				countHttpSseThreads(beforeThreadNames));
 
 		// Crea client
 		logger.info("Creating client...");
 		McpAsyncClient client = createAndInitializeClient();
-		
+
 		Thread.sleep(500);
 		int duringThreadCount = threadMXBean.getThreadCount();
 		List<String> duringThreadNames = getThreadNames(threadMXBean);
 		int duringHttpSseThreads = countHttpSseThreads(duringThreadNames);
-		logger.info("DURING: Total threads = {}, HTTP-SSE threads = {}", 
-				duringThreadCount, duringHttpSseThreads);
-		
+		logger.info("DURING: Total threads = {}, HTTP-SSE threads = {}", duringThreadCount, duringHttpSseThreads);
+
 		// Verifica che i thread siano stati creati
-		assertThat(duringHttpSseThreads)
-				.as("HTTP-SSE threads should be created when client is active")
+		assertThat(duringHttpSseThreads).as("HTTP-SSE threads should be created when client is active")
 				.isGreaterThan(0);
 
 		// Chiudi client
 		logger.info("Closing client...");
 		client.closeGracefully().block(Duration.ofSeconds(10));
-		
+
 		// Attendi pulizia
 		Thread.sleep(1000);
 		System.gc();
 		Thread.sleep(500);
-		
+
 		int afterThreadCount = threadMXBean.getThreadCount();
 		List<String> afterThreadNames = getThreadNames(threadMXBean);
 		int afterHttpSseThreads = countHttpSseThreads(afterThreadNames);
-		logger.info("AFTER: Total threads = {}, HTTP-SSE threads = {}", 
-				afterThreadCount, afterHttpSseThreads);
+		logger.info("AFTER: Total threads = {}, HTTP-SSE threads = {}", afterThreadCount, afterHttpSseThreads);
 
 		// Verifica che i thread siano stati rilasciati
-		assertThat(afterHttpSseThreads)
-				.as("HTTP-SSE threads should be disposed after client close")
-				.isEqualTo(0);
-		
+		assertThat(afterHttpSseThreads).as("HTTP-SSE threads should be disposed after client close").isEqualTo(0);
+
 		logger.info("\n=== TEST PASSED ===\n");
 	}
 
@@ -220,14 +208,13 @@ public class HttpSseClientThreadLeakStandaloneTest {
 
 		assertThatCode(() -> {
 			HttpClientSseClientTransport transport = HttpClientSseClientTransport.builder(serverUrl).build();
-			
+
 			McpAsyncClient client = McpClient.async(transport)
-					.capabilities(McpSchema.ClientCapabilities.builder().build())
-					.build();
+					.capabilities(McpSchema.ClientCapabilities.builder().build()).build();
 
 			// Initialize - the transport will wait for endpoint discovery internally
 			client.initialize().block(Duration.ofSeconds(30));
-			
+
 			clientRef.set(client);
 		}).doesNotThrowAnyException();
 
@@ -236,9 +223,7 @@ public class HttpSseClientThreadLeakStandaloneTest {
 
 	private List<String> getThreadNames(ThreadMXBean threadMXBean) {
 		ThreadInfo[] threadInfos = threadMXBean.dumpAllThreads(false, false);
-		return Arrays.stream(threadInfos)
-				.map(ThreadInfo::getThreadName)
-				.collect(Collectors.toList());
+		return Arrays.stream(threadInfos).map(ThreadInfo::getThreadName).collect(Collectors.toList());
 	}
 
 	private int countReactorThreads(List<String> threadNames) {
@@ -248,10 +233,9 @@ public class HttpSseClientThreadLeakStandaloneTest {
 	}
 
 	private int countHttpSseThreads(List<String> threadNames) {
-		return (int) threadNames.stream()
-				.filter(name -> name.contains("http-sse-client"))
-				.count();
+		return (int) threadNames.stream().filter(name -> name.contains("http-sse-client")).count();
 	}
+
 }
 
 // Made with Bob

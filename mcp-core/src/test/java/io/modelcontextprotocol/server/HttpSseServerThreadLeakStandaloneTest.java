@@ -34,14 +34,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Standalone test per verificare thread leak nel server SSE.
- * 
- * Questo test:
- * 1. Avvia un server MCP SSE in Tomcat embedded
- * 2. Simula connessioni SSE multiple da client
- * 3. Verifica che i thread vengano correttamente rilasciati
- * 
- * Per eseguire questo test:
- * - Esegui: mvn test -Dtest=HttpSseServerThreadLeakStandaloneTest
+ *
+ * Questo test: 1. Avvia un server MCP SSE in Tomcat embedded 2. Simula connessioni SSE
+ * multiple da client 3. Verifica che i thread vengano correttamente rilasciati
+ *
+ * Per eseguire questo test: - Esegui: mvn test
+ * -Dtest=HttpSseServerThreadLeakStandaloneTest
  */
 @Timeout(120)
 public class HttpSseServerThreadLeakStandaloneTest {
@@ -53,7 +51,7 @@ public class HttpSseServerThreadLeakStandaloneTest {
 		logger.info("\n\n=== TEST: Multiple SSE Connections - Server Thread Leak Check ===\n");
 
 		ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-		
+
 		// Baseline: conta i thread prima del test
 		int baselineThreadCount = threadMXBean.getThreadCount();
 		List<String> baselineThreadNames = getThreadNames(threadMXBean);
@@ -65,40 +63,39 @@ public class HttpSseServerThreadLeakStandaloneTest {
 		int port = TomcatTestUtil.findAvailablePort();
 		Tomcat tomcat = startTomcatWithMcpServer(port);
 		String serverUrl = "http://localhost:" + port;
-		
+
 		try {
 			Thread.sleep(2000); // Attendi che Tomcat sia completamente avviato
-			
+
 			int afterStartupThreadCount = threadMXBean.getThreadCount();
 			List<String> afterStartupThreadNames = getThreadNames(threadMXBean);
-			logger.info("AFTER STARTUP: Total threads = {}, HTTP-SSE threads = {}", 
-					afterStartupThreadCount, countHttpSseThreads(afterStartupThreadNames));
+			logger.info("AFTER STARTUP: Total threads = {}, HTTP-SSE threads = {}", afterStartupThreadCount,
+					countHttpSseThreads(afterStartupThreadNames));
 
 			// Esegui 5 cicli di connessione/disconnessione SSE
 			int iterations = 5;
 			for (int i = 1; i <= iterations; i++) {
 				logger.info("\n--- Iteration {}/{} ---", i, iterations);
-				
+
 				// Simula una connessione SSE
 				simulateSseConnection(serverUrl);
-				
+
 				// Attendi un po' per permettere la pulizia
 				Thread.sleep(1000);
-				
+
 				// Conta i thread dopo questa iterazione
 				int currentThreadCount = threadMXBean.getThreadCount();
 				List<String> currentThreadNames = getThreadNames(threadMXBean);
 				int reactorThreads = countReactorThreads(currentThreadNames);
 				int httpSseThreads = countHttpSseThreads(currentThreadNames);
-				
-				logger.info("After iteration {}: Total threads = {}, Reactor = {}, HTTP-SSE = {}", 
-						i, currentThreadCount, reactorThreads, httpSseThreads);
-				
+
+				logger.info("After iteration {}: Total threads = {}, Reactor = {}, HTTP-SSE = {}", i,
+						currentThreadCount, reactorThreads, httpSseThreads);
+
 				// Log dei thread sospetti
 				if (httpSseThreads > 0) {
 					logger.warn("Found {} HTTP-SSE threads still alive:", httpSseThreads);
-					currentThreadNames.stream()
-							.filter(name -> name.contains("http-sse-server"))
+					currentThreadNames.stream().filter(name -> name.contains("http-sse-server"))
 							.forEach(name -> logger.warn("  - {}", name));
 				}
 			}
@@ -113,11 +110,11 @@ public class HttpSseServerThreadLeakStandaloneTest {
 			List<String> finalThreadNames = getThreadNames(threadMXBean);
 			int finalReactorThreads = countReactorThreads(finalThreadNames);
 			int finalHttpSseThreads = countHttpSseThreads(finalThreadNames);
-			
+
 			logger.info("\nFINAL: Total threads = {}", finalThreadCount);
 			logger.info("FINAL: Reactor threads = {}", finalReactorThreads);
 			logger.info("FINAL: HTTP-SSE threads = {}", finalHttpSseThreads);
-			
+
 			// Calcola l'incremento rispetto al baseline (escludendo i thread di Tomcat)
 			int threadIncrease = finalThreadCount - afterStartupThreadCount;
 			logger.info("\nThread increase from after startup: {}", threadIncrease);
@@ -125,24 +122,24 @@ public class HttpSseServerThreadLeakStandaloneTest {
 			// Log dettagliato dei thread finali
 			if (finalHttpSseThreads > 0) {
 				logger.error("\n=== THREAD LEAK DETECTED ===");
-				logger.error("Found {} HTTP-SSE threads still alive after all connections closed:", finalHttpSseThreads);
-				finalThreadNames.stream()
-						.filter(name -> name.contains("http-sse-server"))
+				logger.error("Found {} HTTP-SSE threads still alive after all connections closed:",
+						finalHttpSseThreads);
+				finalThreadNames.stream().filter(name -> name.contains("http-sse-server"))
 						.forEach(name -> logger.error("  - {}", name));
 			}
 
 			// Assertions
-			assertThat(finalHttpSseThreads)
-					.as("No HTTP-SSE server threads should remain after closing all connections")
+			assertThat(finalHttpSseThreads).as("No HTTP-SSE server threads should remain after closing all connections")
 					.isEqualTo(0);
-			
+
 			assertThat(threadIncrease)
 					.as("Thread count should not increase significantly (max 10 threads tolerance for Tomcat)")
 					.isLessThanOrEqualTo(10);
-			
+
 			logger.info("\n=== TEST PASSED: No thread leak detected ===\n");
-			
-		} finally {
+
+		}
+		finally {
 			stopTomcat(tomcat);
 		}
 	}
@@ -152,19 +149,19 @@ public class HttpSseServerThreadLeakStandaloneTest {
 		logger.info("\n\n=== TEST: Single SSE Connection Lifecycle ===\n");
 
 		ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-		
+
 		// Avvia Tomcat
 		int port = TomcatTestUtil.findAvailablePort();
 		Tomcat tomcat = startTomcatWithMcpServer(port);
 		String serverUrl = "http://localhost:" + port;
-		
+
 		try {
 			Thread.sleep(2000);
-			
+
 			int beforeThreadCount = threadMXBean.getThreadCount();
 			List<String> beforeThreadNames = getThreadNames(threadMXBean);
-			logger.info("BEFORE CONNECTION: Total threads = {}, HTTP-SSE threads = {}", 
-					beforeThreadCount, countHttpSseThreads(beforeThreadNames));
+			logger.info("BEFORE CONNECTION: Total threads = {}, HTTP-SSE threads = {}", beforeThreadCount,
+					countHttpSseThreads(beforeThreadNames));
 
 			// Apri connessione SSE
 			logger.info("Opening SSE connection...");
@@ -176,9 +173,8 @@ public class HttpSseServerThreadLeakStandaloneTest {
 					conn.setRequestProperty("Accept", "text/event-stream");
 					conn.setRequestProperty("Cache-Control", "no-cache");
 					conn.setRequestProperty("MCP-Protocol-Version", "2024-11-05");
-					
-					try (BufferedReader reader = new BufferedReader(
-							new InputStreamReader(conn.getInputStream()))) {
+
+					try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
 						String line;
 						int linesRead = 0;
 						while ((line = reader.readLine()) != null && linesRead < 5) {
@@ -186,77 +182,69 @@ public class HttpSseServerThreadLeakStandaloneTest {
 							linesRead++;
 						}
 					}
-				} catch (Exception e) {
+				}
+				catch (Exception e) {
 					logger.debug("SSE connection closed: {}", e.getMessage());
-				} finally {
+				}
+				finally {
 					connectionClosed.countDown();
 				}
 			});
 			sseThread.start();
-			
+
 			Thread.sleep(2000);
 			int duringThreadCount = threadMXBean.getThreadCount();
 			List<String> duringThreadNames = getThreadNames(threadMXBean);
 			int duringHttpSseThreads = countHttpSseThreads(duringThreadNames);
-			logger.info("DURING CONNECTION: Total threads = {}, HTTP-SSE threads = {}", 
-					duringThreadCount, duringHttpSseThreads);
+			logger.info("DURING CONNECTION: Total threads = {}, HTTP-SSE threads = {}", duringThreadCount,
+					duringHttpSseThreads);
 
 			// Chiudi connessione
 			logger.info("Closing SSE connection...");
 			sseThread.interrupt();
 			connectionClosed.await(5, TimeUnit.SECONDS);
-			
+
 			// Attendi pulizia
 			Thread.sleep(2000);
 			System.gc();
 			Thread.sleep(1000);
-			
+
 			int afterThreadCount = threadMXBean.getThreadCount();
 			List<String> afterThreadNames = getThreadNames(threadMXBean);
 			int afterHttpSseThreads = countHttpSseThreads(afterThreadNames);
-			logger.info("AFTER CONNECTION: Total threads = {}, HTTP-SSE threads = {}", 
-					afterThreadCount, afterHttpSseThreads);
+			logger.info("AFTER CONNECTION: Total threads = {}, HTTP-SSE threads = {}", afterThreadCount,
+					afterHttpSseThreads);
 
 			// Verifica che i thread siano stati rilasciati
-			assertThat(afterHttpSseThreads)
-					.as("HTTP-SSE threads should be disposed after connection close")
+			assertThat(afterHttpSseThreads).as("HTTP-SSE threads should be disposed after connection close")
 					.isEqualTo(0);
-			
+
 			logger.info("\n=== TEST PASSED ===\n");
-			
-		} finally {
+
+		}
+		finally {
 			stopTomcat(tomcat);
 		}
 	}
 
 	private Tomcat startTomcatWithMcpServer(int port) throws LifecycleException {
 		logger.info("Starting Tomcat on port {}...", port);
-		
+
 		HttpServletSseServerTransportProvider transport = HttpServletSseServerTransportProvider.builder()
-				.messageEndpoint("/mcp/message")
-				.sseEndpoint("/sse")
-				.build();
-		
+				.messageEndpoint("/mcp/message").sseEndpoint("/sse").build();
+
 		McpSyncServer mcpServer = McpServer.sync(transport)
-				.capabilities(McpSchema.ServerCapabilities.builder()
-						.tools(true)
-						.prompts(true)
-						.resources(true, true)
+				.capabilities(McpSchema.ServerCapabilities.builder().tools(true).prompts(true).resources(true, true)
 						.build())
 				.tools(new McpServerFeatures.SyncToolSpecification(
-						McpSchema.Tool.builder()
-								.name("test-tool")
-								.description("A test tool")
-								.build(),
-						null,
+						McpSchema.Tool.builder().name("test-tool").description("A test tool").build(), null,
 						(exchange, request) -> new McpSchema.CallToolResult(
-								Collections.singletonList(new McpSchema.TextContent("Test result")),
-								false)))
+								Collections.singletonList(new McpSchema.TextContent("Test result")), false)))
 				.build();
 
 		Tomcat tomcat = TomcatTestUtil.createTomcatServer("", port, transport);
 		tomcat.start();
-		
+
 		logger.info("Tomcat started successfully");
 		return tomcat;
 	}
@@ -268,7 +256,8 @@ public class HttpSseServerThreadLeakStandaloneTest {
 				tomcat.stop();
 				tomcat.destroy();
 				logger.info("Tomcat stopped");
-			} catch (Exception e) {
+			}
+			catch (Exception e) {
 				logger.error("Error stopping Tomcat", e);
 			}
 		}
@@ -276,7 +265,7 @@ public class HttpSseServerThreadLeakStandaloneTest {
 
 	private void simulateSseConnection(String serverUrl) {
 		logger.info("Simulating SSE connection to {}", serverUrl);
-		
+
 		Thread connectionThread = new Thread(() -> {
 			try {
 				URL url = new URL(serverUrl + "/sse");
@@ -286,9 +275,8 @@ public class HttpSseServerThreadLeakStandaloneTest {
 				conn.setRequestProperty("MCP-Protocol-Version", "2024-11-05");
 				conn.setConnectTimeout(5000);
 				conn.setReadTimeout(5000);
-				
-				try (BufferedReader reader = new BufferedReader(
-						new InputStreamReader(conn.getInputStream()))) {
+
+				try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
 					String line;
 					int linesRead = 0;
 					// Leggi solo alcune righe poi chiudi
@@ -297,16 +285,17 @@ public class HttpSseServerThreadLeakStandaloneTest {
 						linesRead++;
 					}
 				}
-				
+
 				conn.disconnect();
 				logger.info("SSE connection closed normally");
-			} catch (Exception e) {
+			}
+			catch (Exception e) {
 				logger.debug("SSE connection ended: {}", e.getMessage());
 			}
 		});
-		
+
 		connectionThread.start();
-		
+
 		try {
 			// Attendi che la connessione si chiuda o timeout
 			connectionThread.join(3000);
@@ -314,16 +303,15 @@ public class HttpSseServerThreadLeakStandaloneTest {
 				connectionThread.interrupt();
 				connectionThread.join(1000);
 			}
-		} catch (InterruptedException e) {
+		}
+		catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}
 	}
 
 	private List<String> getThreadNames(ThreadMXBean threadMXBean) {
 		ThreadInfo[] threadInfos = threadMXBean.dumpAllThreads(false, false);
-		return Arrays.stream(threadInfos)
-				.map(ThreadInfo::getThreadName)
-				.collect(Collectors.toList());
+		return Arrays.stream(threadInfos).map(ThreadInfo::getThreadName).collect(Collectors.toList());
 	}
 
 	private int countReactorThreads(List<String> threadNames) {
@@ -333,10 +321,9 @@ public class HttpSseServerThreadLeakStandaloneTest {
 	}
 
 	private int countHttpSseThreads(List<String> threadNames) {
-		return (int) threadNames.stream()
-				.filter(name -> name.contains("http-sse-server"))
-				.count();
+		return (int) threadNames.stream().filter(name -> name.contains("http-sse-server")).count();
 	}
+
 }
 
 // Made with Bob

@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
@@ -57,7 +58,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	private final String sseEndpoint;
 
 	private final CloseableHttpClient httpClient;
-	
+
 	private final PoolingHttpClientConnectionManager connectionManager;
 
 	private final McpJsonMapper jsonMapper;
@@ -65,6 +66,11 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	private final McpAsyncHttpClientRequestCustomizer httpRequestCustomizer;
 
 	private volatile boolean isClosing = false;
+
+	// Count of in-flight POST requests triggered by incoming REQUEST messages
+	private final AtomicInteger inflightPosts = new AtomicInteger(0);
+
+	private static final long WRITE_ERROR_GRACE_MS = 5000L;
 
 	// Dedicated scheduler for this transport instance to avoid global scheduler thread
 	// leaks
@@ -76,15 +82,16 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	// NB: lasciamo la reference globale per compatibilità, ma NON la usiamo nel
 	// loop SSE
 	private final AtomicReference<String> messageEndpoint = new AtomicReference<>();
-	
+
 	// Resources to close: SSE reader thread, response, and reader
 	private volatile Thread sseReaderThread;
+
 	private volatile CloseableHttpResponse sseResponse;
+
 	private volatile BufferedReader sseReader;
 
 	protected HttpClientSseClientTransport(CloseableHttpClient httpClient,
-			PoolingHttpClientConnectionManager connectionManager,
-			String baseUri, String sseEndpoint,
+			PoolingHttpClientConnectionManager connectionManager, String baseUri, String sseEndpoint,
 			McpJsonMapper jsonMapper, McpAsyncHttpClientRequestCustomizer httpRequestCustomizer) {
 		Assert.notNull(jsonMapper, "jsonMapper must not be null");
 		Assert.hasText(baseUri, "baseUri must not be empty");
@@ -97,7 +104,8 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 		this.httpClient = httpClient;
 		this.connectionManager = connectionManager;
 		this.httpRequestCustomizer = httpRequestCustomizer;
-		// Create a dedicated bounded elastic scheduler for this transport instance with daemon threads
+		// Create a dedicated bounded elastic scheduler for this transport instance with
+		// daemon threads
 		this.dedicatedScheduler = Schedulers.newBoundedElastic(4, Integer.MAX_VALUE, "http-sse-client", 60, true);
 	}
 
@@ -144,23 +152,18 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			PoolingHttpClientConnectionManager connManager = new PoolingHttpClientConnectionManager();
 			connManager.setMaxTotal(20);
 			connManager.setDefaultMaxPerRoute(10);
-			
-			CloseableHttpClient httpClient = clientFactory != null ? clientFactory.get() : createPooledHttpClient(connManager);
+
+			CloseableHttpClient httpClient = clientFactory != null ? clientFactory.get()
+					: createPooledHttpClient(connManager);
 			return new HttpClientSseClientTransport(httpClient, connManager, baseUri, sseEndpoint,
 					jsonMapper == null ? McpJsonMapper.getDefault() : jsonMapper, httpRequestCustomizer);
 		}
-		
+
 		private static CloseableHttpClient createPooledHttpClient(PoolingHttpClientConnectionManager connManager) {
-			RequestConfig requestConfig = RequestConfig.custom()
-					.setConnectTimeout(3000)
-					.setConnectionRequestTimeout(3000)
-					.setSocketTimeout(15000)
-					.setExpectContinueEnabled(false)
-					.build();
-			
-			return HttpClientBuilder.create()
-					.setConnectionManager(connManager)
-					.setDefaultRequestConfig(requestConfig)
+			RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(3000)
+					.setConnectionRequestTimeout(3000).setSocketTimeout(15000).setExpectContinueEnabled(false).build();
+
+			return HttpClientBuilder.create().setConnectionManager(connManager).setDefaultRequestConfig(requestConfig)
 					.build();
 		}
 
@@ -184,39 +187,40 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			this.clientFactory = (factory == null ? () -> createPooledHttpClient() : factory);
 			return this;
 		}
-		
+
 		/**
-		 * Creates a pooled HTTP client optimized for SSE long-lived connections and concurrent POST requests.
+		 * Creates a pooled HTTP client optimized for SSE long-lived connections and
+		 * concurrent POST requests.
 		 *
-		 * Configuration:
-		 * - maxTotal = 20: Total connections across all routes
-		 * - defaultMaxPerRoute = 10: Max connections per route (allows SSE + multiple POSTs)
-		 * - connectTimeout = 3000ms: Socket connection timeout
-		 * - connectionRequestTimeout = 3000ms: Timeout waiting for connection from pool
-		 * - socketTimeout = 15000ms: Socket read timeout
-		 * - Expect-Continue disabled: Reduces round-trips for POST requests
+		 * Configuration: - maxTotal = 20: Total connections across all routes -
+		 * defaultMaxPerRoute = 10: Max connections per route (allows SSE + multiple
+		 * POSTs) - connectTimeout = 3000ms: Socket connection timeout -
+		 * connectionRequestTimeout = 3000ms: Timeout waiting for connection from pool -
+		 * socketTimeout = 15000ms: Socket read timeout - Expect-Continue disabled:
+		 * Reduces round-trips for POST requests
 		 *
-		 * This prevents connection pool contention when SSE long-lived connection
-		 * shares the client with POST requests for ping responses.
+		 * This prevents connection pool contention when SSE long-lived connection shares
+		 * the client with POST requests for ping responses.
 		 */
 		private static CloseableHttpClient createPooledHttpClient() {
 			// Configure connection pool
 			PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
 			connectionManager.setMaxTotal(20);
 			connectionManager.setDefaultMaxPerRoute(10);
-			
+
 			// Configure request timeouts
-			RequestConfig requestConfig = RequestConfig.custom()
-					.setConnectTimeout(3000)           // Connection establishment timeout
-					.setConnectionRequestTimeout(3000) // Timeout waiting for connection from pool
-					.setSocketTimeout(15000)           // Socket read timeout
-					.setExpectContinueEnabled(false)   // Disable Expect: 100-continue for faster POSTs
+			RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(3000) // Connection
+																							// establishment
+																							// timeout
+					.setConnectionRequestTimeout(3000) // Timeout waiting for connection
+														// from pool
+					.setSocketTimeout(15000) // Socket read timeout
+					.setExpectContinueEnabled(false) // Disable Expect: 100-continue for
+														// faster POSTs
 					.build();
-			
-			return HttpClientBuilder.create()
-					.setConnectionManager(connectionManager)
-					.setDefaultRequestConfig(requestConfig)
-					.build();
+
+			return HttpClientBuilder.create().setConnectionManager(connectionManager)
+					.setDefaultRequestConfig(requestConfig).build();
 		}
 
 	}
@@ -227,19 +231,16 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 		return Mono.fromRunnable(() -> {
 			// Store current thread for interruption during close
 			sseReaderThread = Thread.currentThread();
-			
+
 			// Configure request with socket timeout for interruptible reads
-			RequestConfig sseConfig = RequestConfig.custom()
-					.setConnectTimeout(5000)
-					.setConnectionRequestTimeout(5000)
-					.setSocketTimeout(1000)  // Critical: 1s read timeout allows periodic wake-up
+			RequestConfig sseConfig = RequestConfig.custom().setConnectTimeout(5000).setConnectionRequestTimeout(5000)
+					.setSocketTimeout(1000) // Critical: 1s read timeout allows periodic
+											// wake-up
 					.build();
-			
+
 			org.apache.http.client.methods.RequestBuilder rb = org.apache.http.client.methods.RequestBuilder.get()
-					.setUri(uri)
-					.setConfig(sseConfig)  // Apply socket timeout config
-					.addHeader("Accept", "text/event-stream")
-					.addHeader("Cache-Control", "no-cache")
+					.setUri(uri).setConfig(sseConfig) // Apply socket timeout config
+					.addHeader("Accept", "text/event-stream").addHeader("Cache-Control", "no-cache")
 					.addHeader(MCP_PROTOCOL_VERSION_HEADER_NAME, MCP_PROTOCOL_VERSION);
 
 			McpTransportContext transportContext = McpTransportContext.EMPTY;
@@ -248,11 +249,11 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 					.block();
 
 			org.apache.http.client.methods.HttpUriRequest request = rb.build();
-			boolean sseClosedUnexpectedly=false;
+			boolean sseClosedUnexpectedly = false;
 			try {
 				sseResponse = httpClient.execute(request);
 				sseReader = new BufferedReader(new InputStreamReader(sseResponse.getEntity().getContent()));
-				
+
 				logger.info("SSE connection established, waiting for endpoint discovery...");
 
 				// Endpoint locale per questo stream SSE
@@ -309,12 +310,14 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 
 						if (ENDPOINT_EVENT_TYPE.equals(eventType)) {
 							endpointForThisStream = data; // <-- per-STREAM
-							messageEndpoint.set(data); // (compatibilità; non usato per REQUEST SSE)
-							
+							messageEndpoint.set(data); // (compatibilità; non usato per
+														// REQUEST SSE)
+
 							// Complete the readiness signal
 							if (!endpointReady.isDone()) {
 								endpointReady.complete(data);
-								logger.info("SSE ENDPOINT DISCOVERED and readiness signal completed: {}", endpointForThisStream);
+								logger.info("SSE ENDPOINT DISCOVERED and readiness signal completed: {}",
+										endpointForThisStream);
 							}
 						}
 						else if (MESSAGE_EVENT_TYPE.equals(eventType)) {
@@ -379,28 +382,108 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			catch (IOException e) {
 				if (isClosing) {
 					logger.debug("SSE connection closed during shutdown (expected)");
-				} else {
+				}
+				else {
 					logger.error("Error during SSE connection", e);
 					sseClosedUnexpectedly = true;
 				}
 			}
-			
-			// If SSE closed unexpectedly, propagate error to fail pending requests
+
+			// If SSE closed unexpectedly, allow a short grace period for any
+			// in-flight POSTs to complete before failing pending requests. This
+			// reduces races where the server closes the SSE while a response is
+			// actively being POSTed back.
 			if (sseClosedUnexpectedly && !isClosing) {
-				throw new McpTransportException("SSE stream closed unexpectedly by server");
+				int inFlight = inflightPosts.get();
+				if (inFlight > 0) {
+					logger.warn("CLIENT detected SSE closed but {} POSTs in-flight; waiting {}ms before failing",
+							inFlight, WRITE_ERROR_GRACE_MS);
+					long waitUntil = System.currentTimeMillis() + WRITE_ERROR_GRACE_MS;
+					while (inflightPosts.get() > 0 && System.currentTimeMillis() < waitUntil) {
+						try {
+							Thread.sleep(50);
+						}
+						catch (InterruptedException ie) {
+							Thread.currentThread().interrupt();
+							break;
+						}
+					}
+					if (inflightPosts.get() == 0) {
+						logger.info("CLIENT in-flight POSTs completed during grace; not failing pending requests");
+					}
+					else {
+						logger.warn("CLIENT detected SSE closed and no in-flight POSTs; waiting {}ms before failing",
+								WRITE_ERROR_GRACE_MS);
+						long waitUntilNoInFlight = System.currentTimeMillis() + WRITE_ERROR_GRACE_MS;
+						while (System.currentTimeMillis() < waitUntilNoInFlight && !isClosing) {
+							try {
+								Thread.sleep(50);
+							}
+							catch (InterruptedException ie) {
+								Thread.currentThread().interrupt();
+								break;
+							}
+						}
+						throw new McpTransportException("SSE stream closed unexpectedly by server");
+					}
+				}
+				else {
+					// No POSTs in-flight at the moment of closure. Wait a short
+					// grace window for the handler to start a POST (race window
+					// where SSE closed just before client started posting).
+					logger.warn(
+							"CLIENT detected SSE closed and no in-flight POSTs; waiting up to {}ms for POSTS to start",
+							WRITE_ERROR_GRACE_MS);
+					long waitUntilStart = System.currentTimeMillis() + WRITE_ERROR_GRACE_MS;
+					while (inflightPosts.get() == 0 && System.currentTimeMillis() < waitUntilStart) {
+						try {
+							Thread.sleep(50);
+						}
+						catch (InterruptedException ie) {
+							Thread.currentThread().interrupt();
+							break;
+						}
+					}
+					if (inflightPosts.get() > 0) {
+						logger.warn("CLIENT detected POSTs started during grace; waiting for completion up to {}ms",
+								WRITE_ERROR_GRACE_MS);
+						long waitUntilNoInFlight = System.currentTimeMillis() + WRITE_ERROR_GRACE_MS;
+						while (System.currentTimeMillis() < waitUntilNoInFlight && inflightPosts.get() > 0
+								&& !isClosing) {
+							try {
+								Thread.sleep(50);
+							}
+							catch (InterruptedException ie) {
+								Thread.currentThread().interrupt();
+								break;
+							}
+						}
+						if (inflightPosts.get() == 0) {
+							logger.info("CLIENT in-flight POSTs completed during grace; not failing pending requests");
+						}
+						else {
+							throw new McpTransportException("SSE stream closed unexpectedly by server");
+						}
+					}
+					else {
+						throw new McpTransportException("SSE stream closed unexpectedly by server");
+					}
+				}
 			}
-		}).subscribeOn(dedicatedScheduler).then();
+		}).subscribeOn(dedicatedScheduler).then()
+				.doOnError(e -> logger.error("SSE connect failed: {}", e.getMessage(), e));
 	}
 
 	// Helper: POST verso un endpoint esplicito (quello del corrente stream)
 
 	private Mono<Void> postToEndpoint(JSONRPCMessage message, String endpoint) {
 		return Mono.defer(() -> {
-			if (endpoint == null || isClosing) {
-				logger.error("CLIENT postToEndpoint: endpoint={}, isClosing={} - Cannot POST", endpoint, isClosing);
-				return Mono.error(new McpTransportException("Message endpoint not available or transport closing"));
+			if (endpoint == null) {
+				logger.error("CLIENT postToEndpoint: endpoint={} - Cannot POST", endpoint);
+				return Mono.error(new McpTransportException("Message endpoint not available"));
 			}
 			return Mono.fromCallable(() -> {
+				inflightPosts.incrementAndGet();
 				String jsonBody = jsonMapper.writeValueAsString(message);
 				URI postUri = Utils.resolveUri(this.baseUri, endpoint);
 
@@ -437,6 +520,9 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 					logger.info("CLIENT POST SUCCESS: status={}, elapsedMs={}, messageId={}, thread={}", statusCode,
 							elapsedMs, msgId, Thread.currentThread().getName());
 				}
+				finally {
+					inflightPosts.decrementAndGet();
+				}
 				return null;
 			}).subscribeOn(dedicatedScheduler).then();
 		});
@@ -449,17 +535,17 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			if (isClosing) {
 				return Mono.error(new McpTransportException("Transport is closing"));
 			}
-			
+
 			// Wait for endpoint to be ready with timeout
 			try {
 				String endpoint = endpointReady.get(30, TimeUnit.SECONDS);
 				logger.debug("Endpoint ready for sendMessage: {}", endpoint);
-				
+
 				// Double-check closing state after waiting
 				if (isClosing) {
 					return Mono.error(new McpTransportException("Transport is closing"));
 				}
-				
+
 				return sendToEndpoint(message, endpoint);
 			}
 			catch (TimeoutException e) {
@@ -475,7 +561,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			}
 		});
 	}
-	
+
 	private Mono<Void> sendToEndpoint(JSONRPCMessage message, String endpoint) {
 		return Mono.defer(() -> {
 			return Mono.fromCallable(() -> {
@@ -507,33 +593,49 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	public Mono<Void> closeGracefully() {
 		return Mono.fromRunnable(() -> {
 			logger.info("Starting graceful close of SSE transport...");
-			
-			// 1. Signal shutdown FIRST - this allows the read loop to exit on next timeout
+
+			// 1. Signal shutdown FIRST - this allows the read loop to exit on next
+			// timeout
 			isClosing = true;
-			
-			// 2. Dispose the dedicated scheduler BEFORE waiting for thread termination
-			// This releases scheduler worker threads from DelayedWorkQueue.take()
-			if (dedicatedScheduler != null && !dedicatedScheduler.isDisposed()) {
-				logger.info("Disposing dedicated scheduler...");
-				dedicatedScheduler.dispose();
-				logger.info("Dedicated scheduler disposed successfully");
+
+			// 3. Allow a short grace period for any pending POSTs to start (non-blocking)
+			try {
+				Thread.sleep(200);
 			}
-			
-			// 3. Close the entity and response to release the socket
-			if (sseResponse != null) {
+			catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+			// Connection and client cleanup will be performed after waiting for SSE
+			// reader thread
+
+			// 6. Wait for SSE thread to terminate (should exit quickly due to socket
+			// timeout + isClosing flag)
+			if (sseReaderThread != null && sseReaderThread.isAlive()) {
 				try {
-					logger.info("Consuming and closing SSE response entity...");
-					// Consume any remaining entity data
-					org.apache.http.util.EntityUtils.consumeQuietly(sseResponse.getEntity());
-					sseResponse.close();
-					logger.debug("SSE response closed");
+					logger.info("Waiting for SSE reader thread to terminate...");
+					// With SO_TIMEOUT=1s and scheduler disposed, thread should exit
+					// within 1-2 seconds
+					sseReaderThread.join(5000);
+					if (sseReaderThread.isAlive()) {
+						logger.warn("SSE reader thread did not terminate within 5 seconds, dumping stack trace...");
+						dumpThreadStack(sseReaderThread);
+						logger.warn("SSE reader thread will be left running (daemon threads will not block JVM exit)");
+					}
+					else {
+						logger.info("SSE reader thread terminated successfully");
+					}
 				}
-				catch (IOException e) {
-					logger.debug("Error closing SSE response (expected during shutdown)", e);
+				catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					logger.warn("Interrupted while waiting for SSE thread termination");
 				}
 			}
-			
-			// 4. Shutdown connection manager to forcibly close all connections
+
+			// 7. Close remaining resources safely (close SSE response/entity now)
+			closeResourcesSafely();
+
+			// 8. Shutdown connection manager to forcibly close all connections now that
+			// POSTs had a chance to start
 			if (connectionManager != null) {
 				try {
 					logger.info("Shutting down connection manager...");
@@ -545,8 +647,8 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 					logger.warn("Error shutting down connection manager", e);
 				}
 			}
-			
-			// 5. Close HTTP client
+
+			// 9. Close HTTP client
 			if (httpClient != null) {
 				try {
 					logger.info("Closing HTTP client...");
@@ -557,34 +659,18 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 					logger.warn("Error closing HTTP client", e);
 				}
 			}
-			
-			// 6. Wait for SSE thread to terminate (should exit quickly due to socket timeout + isClosing flag)
-			if (sseReaderThread != null && sseReaderThread.isAlive()) {
-				try {
-					logger.info("Waiting for SSE reader thread to terminate...");
-					// With SO_TIMEOUT=1s and scheduler disposed, thread should exit within 1-2 seconds
-					sseReaderThread.join(5000);
-					if (sseReaderThread.isAlive()) {
-						logger.warn("SSE reader thread did not terminate within 5 seconds, dumping stack trace...");
-						dumpThreadStack(sseReaderThread);
-						logger.warn("SSE reader thread will be left running (daemon threads will not block JVM exit)");
-					} else {
-						logger.info("SSE reader thread terminated successfully");
-					}
-				}
-				catch (InterruptedException e) {
-					Thread.currentThread().interrupt();
-					logger.warn("Interrupted while waiting for SSE thread termination");
-				}
+
+			// 10. Dispose dedicated scheduler last to allow pending POSTs to complete
+			if (dedicatedScheduler != null && !dedicatedScheduler.isDisposed()) {
+				logger.info("Disposing dedicated scheduler...");
+				dedicatedScheduler.dispose();
+				logger.info("Dedicated scheduler disposed successfully");
 			}
-			
-			// 7. Close remaining resources safely
-			closeResourcesSafely();
-			
+
 			logger.info("Graceful close completed");
 		});
 	}
-	
+
 	private void dumpThreadStack(Thread thread) {
 		StackTraceElement[] stackTrace = thread.getStackTrace();
 		logger.warn("Stack trace for thread '{}' (State: {}):", thread.getName(), thread.getState());
@@ -592,7 +678,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			logger.warn("  at {}", element);
 		}
 	}
-	
+
 	private void closeResources() {
 		// Close reader
 		if (sseReader != null) {
@@ -604,7 +690,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				logger.debug("Error closing SSE reader", e);
 			}
 		}
-		
+
 		// Close response
 		if (sseResponse != null) {
 			try {
@@ -616,7 +702,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			}
 		}
 	}
-	
+
 	private void closeResourcesSafely() {
 		// Close reader safely (socket should already be closed)
 		if (sseReader != null) {
@@ -632,7 +718,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 				sseReader = null;
 			}
 		}
-		
+
 		// Response should already be closed, but ensure cleanup
 		if (sseResponse != null) {
 			try {
@@ -648,10 +734,10 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			}
 		}
 	}
-	
+
 	/**
-	 * Reset endpoint readiness for reconnection scenarios.
-	 * This should be called when SSE connection is lost and needs to be re-established.
+	 * Reset endpoint readiness for reconnection scenarios. This should be called when SSE
+	 * connection is lost and needs to be re-established.
 	 */
 	private void resetEndpointReadiness() {
 		if (!isClosing) {

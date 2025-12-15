@@ -112,7 +112,7 @@ public class McpClientSession implements McpSession {
 		this.transport = transport;
 		this.requestHandlers.putAll(requestHandlers);
 		this.notificationHandlers.putAll(notificationHandlers);
-		this.name=generateRequestId();
+		this.name = generateRequestId();
 		// 👉 Il handler ORA mappa davvero REQUEST → RESPONSE.
 		Function<Mono<McpSchema.JSONRPCMessage>, Mono<McpSchema.JSONRPCMessage>> handler = mono -> Mono
 				.from(connectHook.apply(mono.flatMap(msg -> {
@@ -129,12 +129,10 @@ public class McpClientSession implements McpSession {
 					}
 				})));
 
-		this.transport.connect(handler)
-				.doOnError(error -> {
-					logger.error("[{}] Transport connection error: {}", this.name, error.getMessage());
-					dismissPendingResponses();
-				})
-				.subscribe();
+		this.transport.connect(handler).doOnError(error -> {
+			logger.error("[{}] Transport connection error: {}", this.name, error.getMessage());
+			dismissPendingResponses();
+		}).subscribe();
 	}
 
 	private void dismissPendingResponses() {
@@ -142,14 +140,12 @@ public class McpClientSession implements McpSession {
 		if (pendingCount > 0) {
 			logger.warn("CLIENT SSE CLOSED: failing {} pending exchanges", pendingCount);
 		}
-		
+
 		McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError = new McpSchema.JSONRPCResponse.JSONRPCError(
-				McpSchema.ErrorCodes.INTERNAL_ERROR,
-				"SSE stream closed before response delivery",
-				java.util.Collections.singletonMap("pendingCount", pendingCount)
-		);
+				McpSchema.ErrorCodes.INTERNAL_ERROR, "SSE stream closed before response delivery",
+				java.util.Collections.singletonMap("pendingCount", pendingCount));
 		McpError error = new McpError(jsonRpcError);
-		
+
 		for (Map.Entry<Object, MonoSink<McpSchema.JSONRPCResponse>> e : this.pendingResponses.entrySet()) {
 			Object id = e.getKey();
 			MonoSink<McpSchema.JSONRPCResponse> sink = e.getValue();
@@ -166,12 +162,12 @@ public class McpClientSession implements McpSession {
 			if (response.id() != null) {
 				MonoSink<McpSchema.JSONRPCResponse> sink = pendingResponses.remove(response.id());
 				if (sink == null) {
-					logger.warn("[{}] Unexpected response for unknown id={}, pendingCount={}",
-							this.name, response.id(), pendingResponses.size());
+					logger.warn("[{}] Unexpected response for unknown id={}, pendingCount={}", this.name, response.id(),
+							pendingResponses.size());
 				}
 				else {
-					logger.debug("[{}] Delivering response to pending request: id={}, pendingCount={}",
-							this.name, response.id(), pendingResponses.size());
+					logger.debug("[{}] Delivering response to pending request: id={}, pendingCount={}", this.name,
+							response.id(), pendingResponses.size());
 					sink.success(response);
 				}
 			}
@@ -186,8 +182,8 @@ public class McpClientSession implements McpSession {
 			logger.debug("[{}] Received request: method={}, id={}", this.name, request.method(), request.id());
 			// Nessun invio della response qui:
 			handleIncomingRequest(request).onErrorResume(error -> {
-				logger.error("[{}] Error handling request: method={}, id={}, error={}",
-						this.name, request.method(), request.id(), error.getMessage());
+				logger.error("[{}] Error handling request: method={}, id={}, error={}", this.name, request.method(),
+						request.id(), error.getMessage());
 				McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError = (error instanceof McpError
 						&& ((McpError) error).getJsonRpcError() != null) ? ((McpError) error).getJsonRpcError()
 								: new McpSchema.JSONRPCResponse.JSONRPCError(McpSchema.ErrorCodes.INTERNAL_ERROR,
@@ -298,7 +294,8 @@ public class McpClientSession implements McpSession {
 					@Override
 					public void accept(MonoSink<McpSchema.JSONRPCResponse> pendingResponseSink) {
 						logger.debug("Sending message for method {}", method);
-						logger.info("CLIENT sendRequest: method={}, id={}, name={}", method, requestId,Thread.currentThread().getName());
+						logger.info("CLIENT sendRequest: method={}, id={}, name={}", method, requestId,
+								Thread.currentThread().getName());
 						pendingResponses.put(requestId, pendingResponseSink);
 						McpSchema.JSONRPCRequest jsonrpcRequest = new McpSchema.JSONRPCRequest(
 								McpSchema.JSONRPC_VERSION, method, requestId, requestParams);
@@ -315,36 +312,32 @@ public class McpClientSession implements McpSession {
 									}
 								});
 					}
-				})).timeout(this.requestTimeout)
-				.doOnError(throwable -> {
+				})).timeout(this.requestTimeout).doOnError(throwable -> {
 					// Clean up pending response on any error including timeout
 					MonoSink<McpSchema.JSONRPCResponse> removed = pendingResponses.remove(requestId);
 					if (removed != null) {
-						logger.warn("CLIENT request failed/timeout: method={}, id={}, error={}",
-								method, requestId, throwable.getClass().getSimpleName());
+						logger.warn("CLIENT request failed/timeout: method={}, id={}, error={}", method, requestId,
+								throwable.getClass().getSimpleName());
 					}
-				})
-				.onErrorResume(throwable -> {
+				}).onErrorResume(throwable -> {
 					// Convert timeout exceptions to McpError
-					// Check for TimeoutException directly or as a cause in the exception chain
+					// Check for TimeoutException directly or as a cause in the exception
+					// chain
 					boolean isTimeout = throwable instanceof java.util.concurrent.TimeoutException;
 					if (!isTimeout && throwable.getCause() != null) {
 						isTimeout = throwable.getCause() instanceof java.util.concurrent.TimeoutException;
 					}
-					
+
 					if (isTimeout) {
-						logger.error("CLIENT REQUEST TIMEOUT: method={}, id={}, timeout={}ms, pendingCount={}",
-								method, requestId, requestTimeout.toMillis(), pendingResponses.size());
-						McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError =
-								new McpSchema.JSONRPCResponse.JSONRPCError(
-										McpSchema.ErrorCodes.INTERNAL_ERROR,
-										"Request did not complete within " + requestTimeout.toMillis() + "ms",
-										null);
+						logger.error("CLIENT REQUEST TIMEOUT: method={}, id={}, timeout={}ms, pendingCount={}", method,
+								requestId, requestTimeout.toMillis(), pendingResponses.size());
+						McpSchema.JSONRPCResponse.JSONRPCError jsonRpcError = new McpSchema.JSONRPCResponse.JSONRPCError(
+								McpSchema.ErrorCodes.INTERNAL_ERROR,
+								"Request did not complete within " + requestTimeout.toMillis() + "ms", null);
 						return Mono.error(new McpError(jsonRpcError));
 					}
 					return Mono.error(throwable);
-				})
-				.handle((jsonRpcResponse, deliveredResponseSink) -> {
+				}).handle((jsonRpcResponse, deliveredResponseSink) -> {
 					logger.info("CLIENT receivedResponse: id={} (completing)", requestId);
 					if (jsonRpcResponse.error() != null) {
 						logger.error("Error handling request: {}", jsonRpcResponse.error());
@@ -367,12 +360,13 @@ public class McpClientSession implements McpSession {
 		logger.info("CLIENT [{}] SENDING NOTIFICATION: method={}, params={}", this.name, method, params);
 		McpSchema.JSONRPCNotification jsonrpcNotification = new McpSchema.JSONRPCNotification(McpSchema.JSONRPC_VERSION,
 				method, params);
-		logger.info("CLIENT [{}] NOTIFICATION CONSTRUCTED: jsonrpc={}, method={}, params={}",
-				this.name, jsonrpcNotification.jsonrpc(), jsonrpcNotification.method(), jsonrpcNotification.params());
+		logger.info("CLIENT [{}] NOTIFICATION CONSTRUCTED: jsonrpc={}, method={}, params={}", this.name,
+				jsonrpcNotification.jsonrpc(), jsonrpcNotification.method(), jsonrpcNotification.params());
 		return this.transport.sendMessage(jsonrpcNotification)
-				.doOnSuccess(v -> logger.info("CLIENT [{}] NOTIFICATION SENT SUCCESSFULLY: method={}", this.name, method))
-				.doOnError(e -> logger.error("CLIENT [{}] NOTIFICATION SEND FAILED: method={}, error={}",
-						this.name, method, e.getMessage(), e));
+				.doOnSuccess(
+						v -> logger.info("CLIENT [{}] NOTIFICATION SENT SUCCESSFULLY: method={}", this.name, method))
+				.doOnError(e -> logger.error("CLIENT [{}] NOTIFICATION SEND FAILED: method={}, error={}", this.name,
+						method, e.getMessage(), e));
 	}
 
 	/** Closes the session gracefully, allowing pending operations to complete. */

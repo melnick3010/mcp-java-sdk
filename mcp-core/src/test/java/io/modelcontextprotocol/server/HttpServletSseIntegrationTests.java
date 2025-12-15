@@ -51,16 +51,14 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 	private McpSyncClient client;
 
 	private int port;
-	
 
-	 @BeforeAll
-	  static void enableWireLogging() {
-	    System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.SimpleLog");
-	    System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http", "DEBUG");
-	    System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wire", "DEBUG");
-	    System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.impl.conn", "DEBUG");
-	  }
-
+	@BeforeAll
+	static void enableWireLogging() {
+		System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.SimpleLog");
+		System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http", "DEBUG");
+		System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wire", "DEBUG");
+		System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.impl.conn", "DEBUG");
+	}
 
 	@BeforeEach
 	public void before() {
@@ -76,11 +74,10 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 			tomcat.start();
 			assertThat(tomcat.getServer().getState()).isEqualTo(LifecycleState.STARTED);
 			System.out.println("Tomcat avviato su porta " + port);
-			
+
 			// Wait for Tomcat to be fully ready before proceeding
 			// This prevents race conditions when tests run in sequence
-			assertTrue(waitForTomcatReady(Duration.ofSeconds(10)),
-					"Tomcat non completamente pronto dopo l'avvio");
+			assertTrue(waitForTomcatReady(Duration.ofSeconds(10)), "Tomcat non completamente pronto dopo l'avvio");
 		}
 		catch (Exception e) {
 			throw new RuntimeException("Failed to start embedded Tomcat", e);
@@ -244,8 +241,8 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 	}
 
 	/**
-	 * Wait for Tomcat to be fully ready after start.
-	 * Checks that the server can accept connections.
+	 * Wait for Tomcat to be fully ready after start. Checks that the server can accept
+	 * connections.
 	 */
 	private boolean waitForTomcatReady(Duration timeout) {
 		long end = System.nanoTime() + timeout.toNanos();
@@ -270,10 +267,10 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 		}
 		return false;
 	}
-	
+
 	/**
-	 * Wait for Tomcat to fully stop after shutdown.
-	 * Ensures the port is released before next test.
+	 * Wait for Tomcat to fully stop after shutdown. Ensures the port is released before
+	 * next test.
 	 */
 	private void waitForTomcatStopped(Duration timeout) {
 		long end = System.nanoTime() + timeout.toNanos();
