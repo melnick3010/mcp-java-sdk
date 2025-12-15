@@ -907,7 +907,13 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		// Structured server event: HTTP request received
 		java.util.Map<String, Object> jr = new java.util.HashMap<String, Object>();
 		jr.put("id", messageInfo.id);
-		jr.put("method", messageInfo.kind);
+		// jsonrpc.method should be the actual RPC method name when available
+		if (message instanceof McpSchema.JSONRPCRequest) {
+			jr.put("method", ((McpSchema.JSONRPCRequest) message).method());
+		}
+		else {
+			jr.put("method", null);
+		}
 		jr.put("kind", messageInfo.kind);
 		java.util.Map<String, Object> outm = new java.util.HashMap<String, Object>();
 		outm.put("status", "PENDING");
@@ -918,6 +924,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		if ("RESPONSE".equals(messageInfo.kind)) {
 			java.util.Map<String, Object> jr2 = new java.util.HashMap<String, Object>();
 			jr2.put("id", messageInfo.id);
+			// Responses don't carry method name; leave null
+			jr2.put("method", null);
 			jr2.put("kind", messageInfo.kind);
 			java.util.Map<String, Object> outm2 = new java.util.HashMap<String, Object>();
 			outm2.put("status", "PENDING");
@@ -1104,6 +1112,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 						java.util.Map<String, Object> statusm = new java.util.HashMap<String, Object>();
 						statusm.put("status", "ERROR");
 						statusm.put("reason", "timeout");
+						statusm.put("cause", "timeout");
 						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
 								sessionId, null, pendingm, statusm, null);
 						closeSessionWithDrain(sessionId, asyncContext);
@@ -1138,6 +1147,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 						java.util.Map<String, Object> statusmErr = new java.util.HashMap<String, Object>();
 						statusmErr.put("status", "ERROR");
 						statusmErr.put("reason", "error");
+						statusmErr.put("cause",
+								event.getThrowable() == null ? "<null>" : event.getThrowable().getMessage());
 						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
 								sessionId, null, pendingmErr, statusmErr, null);
 						closeSessionWithDrain(sessionId, asyncContext);
@@ -1247,8 +1258,13 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 					java.util.Map<String, Object> prepmap = new java.util.HashMap<String, Object>();
 					prepmap.put("id", id);
 					prepmap.put("kind", kind);
+					java.util.Map<String, Object> corrPrep = new java.util.HashMap<String, Object>();
+					corrPrep.put("initiatorId", id);
+					corrPrep.put("parentId", null);
+					corrPrep.put("seq", 0);
 					io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_PREP_SSE_RESP",
-							sessionId, prepmap, null, java.util.Collections.singletonMap("status", "PENDING"), null);
+							sessionId, prepmap, null, java.util.Collections.singletonMap("status", "PENDING"),
+							corrPrep);
 
 					String jsonText = jsonMapper.writeValueAsString(message);
 					sendEvent(writer, MESSAGE_EVENT_TYPE, jsonText);
@@ -1258,8 +1274,12 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 					java.util.Map<String, Object> sendm = new java.util.HashMap<String, Object>();
 					sendm.put("id", id);
 					sendm.put("kind", kind);
+					java.util.Map<String, Object> corrSend = new java.util.HashMap<String, Object>();
+					corrSend.put("initiatorId", id);
+					corrSend.put("parentId", null);
+					corrSend.put("seq", 0);
 					io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_SEND",
-							sessionId, sendm, null, java.util.Collections.singletonMap("status", "SUCCESS"), null);
+							sessionId, sendm, null, java.util.Collections.singletonMap("status", "SUCCESS"), corrSend);
 				}
 				catch (Exception e) {
 					// Extract message type for error handling
@@ -1278,6 +1298,14 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 						logger.warn("SERVER SSE CONNECTION CLOSING due to RESPONSE send error: sessionId={}, thread={}",
 								sessionId, Thread.currentThread().getName());
 						connectionClosed = true;
+						// Emit a structured S_SSE_CLOSED with cause for send failures
+						java.util.Map<String, Object> statusSendErr = new java.util.HashMap<String, Object>();
+						statusSendErr.put("status", "ERROR");
+						statusSendErr.put("reason", "send-error");
+						statusSendErr.put("cause", e.getMessage());
+						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
+								sessionId, null, java.util.Collections.singletonMap("pending", Integer.valueOf(1)),
+								statusSendErr, null);
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
 					}

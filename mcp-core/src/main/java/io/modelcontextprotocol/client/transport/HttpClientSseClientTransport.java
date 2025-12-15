@@ -380,9 +380,13 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 										java.util.Map<String, Object> postm = new java.util.HashMap<String, Object>();
 										postm.put("id", idOut);
 										postm.put("endpoint", targetEndpoint);
+										java.util.Map<String, Object> corrPostStart = new java.util.HashMap<String, Object>();
+										corrPostStart.put("initiatorId", idOut);
+										corrPostStart.put("parentId", null);
+										corrPostStart.put("seq", 0);
 										io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "HTTP",
 												"C_POST_START", null, postm, null,
-												java.util.Collections.singletonMap("status", "PENDING"), null);
+												java.util.Collections.singletonMap("status", "PENDING"), corrPostStart);
 										return postToEndpoint(msg, targetEndpoint);
 									}).doOnError(ex -> logger.error("Failed to handle/send response, thread={}: {}",
 											Thread.currentThread().getName(), ex.getMessage(), ex))
@@ -543,6 +547,10 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 					long elapsedMs = (System.nanoTime() - t0) / 1_000_000;
 					logger.info("CLIENT POST SUCCESS: status={}, elapsedMs={}, messageId={}, thread={}", statusCode,
 							elapsedMs, msgId, Thread.currentThread().getName());
+					java.util.Map<String, Object> corrPostOk = new java.util.HashMap<String, Object>();
+					corrPostOk.put("initiatorId", msgId);
+					corrPostOk.put("parentId", null);
+					corrPostOk.put("seq", 0);
 					io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "HTTP", "C_POST_OK", null,
 							java.util.Collections.singletonMap("id", msgId), null,
 							new java.util.HashMap<String, Object>() {
@@ -551,7 +559,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 									put("statusCode", statusCode);
 									put("elapsedMs", elapsedMs);
 								}
-							}, null);
+							}, corrPostOk);
 				}
 				finally {
 					inflightPosts.decrementAndGet();
