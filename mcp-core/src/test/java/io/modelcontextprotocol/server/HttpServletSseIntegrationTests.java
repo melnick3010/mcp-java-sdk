@@ -100,13 +100,8 @@ class HttpServletSseIntegrationTests extends AbstractMcpClientServerIntegrationT
 
 	@Test
 	void testInitializeHandshake() {
-		io.modelcontextprotocol.logging.McpLogging.logEvent(TEST_LOGGER, "CLIENT", "TEST", "C_TEST_STEP", null, null,
-				null, java.util.Collections.singletonMap("phase", "handshake"), null);
 		transport = HttpClientSseClientTransport.builder("http://localhost:" + port).sseEndpoint(CUSTOM_SSE_ENDPOINT)
 				.build();
-
-		io.modelcontextprotocol.logging.McpLogging.logEvent(TEST_LOGGER, "CLIENT", "TEST", "C_TEST_STEP", null, null,
-				null, java.util.Collections.singletonMap("phase", "handshake"), null);
 		// ↑↑ Aumentato da 30s a 45s per coerenza
 		client = McpClient.sync(transport).clientInfo(new McpSchema.Implementation("Sample client", "0.0.0"))
 				.requestTimeout(Duration.ofSeconds(45)).build();

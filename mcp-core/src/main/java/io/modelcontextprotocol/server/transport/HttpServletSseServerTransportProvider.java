@@ -317,7 +317,10 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		sendEvent(writer, ENDPOINT_EVENT_TYPE, endpointUrl);
 		flushSseEvent(writer, response);
 
-		logger.info("SSE endpoint event sent: {}", endpointUrl);
+		// Structured endpoint event
+		io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_ENDPOINT", sessionId, null,
+				null, null, java.util.Collections.singletonMap("meta",
+						java.util.Collections.singletonMap("endpoint", endpointUrl)));
 	}
 
 	/**
@@ -594,6 +597,38 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		logger.info("SERVER doPost ASYNC COMPLETED (empty): kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs,
 				Thread.currentThread().getName());
 
+		// If this was a REQUEST that is completed with an empty result (SSE response
+		// path),
+		// also emit S_REQ_COMPLETED for end-to-end observability
+		if ("REQUEST".equals(kind)) {
+			java.util.Map<String, Object> jrComplete = new java.util.HashMap<String, Object>();
+			jrComplete.put("id", id);
+			jrComplete.put("kind", "REQUEST");
+			java.util.Map<String, Object> outcome = java.util.Collections.singletonMap("status", "SUCCESS");
+			String sid = null;
+			try {
+				Object attr = asyncContext.getRequest().getAttribute(SESSION_ID);
+				if (attr instanceof String) {
+					sid = (String) attr;
+				}
+			}
+			catch (Exception ex) {
+				// ignore
+			}
+			if (sid == null) {
+				sid = asyncContextToSession.get(asyncContext);
+			}
+			int pending = 0;
+			if (sid != null) {
+				McpServerSession s = sessions.get(sid);
+				pending = s == null ? 0 : s.pendingResponsesCount();
+			}
+			java.util.Map<String, Object> corr = java.util.Collections.singletonMap("pending",
+					Integer.valueOf(pending));
+			io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "HTTP", "S_REQ_COMPLETED", sid,
+					jrComplete, corr, outcome, null);
+		}
+
 		safeCompleteAsyncContext(asyncContext);
 	}
 
@@ -620,8 +655,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 				// ignore
 			}
 			io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "ASYNC", "S_ASYNC_COMPLETE",
-					sidForEvent, null, null, null,
-					java.util.Collections.singletonMap("caller", callerClass + "." + callerMethod));
+					sidForEvent, null, null, null, java.util.Collections.singletonMap("meta",
+							java.util.Collections.singletonMap("caller", callerClass + "." + callerMethod)));
 
 			// If this async context maps to a session with pending responses,
 			// defer the completion briefly to give the client time to POST
@@ -1139,16 +1174,18 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 						statusm.put("status", "ERROR");
 						statusm.put("reason", "timeout");
 						statusm.put("cause", "timeout");
+						// Put correlation info in 'corr' and status in 'outcome'
 						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
-								sessionId, null, null, statusm, pendingm);
+								sessionId, null, pendingm, statusm, null);
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
 					}
 					else {
 						connectionClosed = true;
+						// Closed with no pending: put pending in corr, status in outcome
 						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
-								sessionId, null, null, java.util.Collections.singletonMap("status", "CLOSED"),
-								java.util.Collections.singletonMap("pending", pending));
+								sessionId, null, java.util.Collections.singletonMap("pending", pending),
+								java.util.Collections.singletonMap("status", "CLOSED"), null);
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
 					}
@@ -1175,16 +1212,22 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 						statusmErr.put("reason", "error");
 						statusmErr.put("cause",
 								event.getThrowable() == null ? "<null>" : event.getThrowable().getMessage());
+						// Put correlation info in 'corr' and status/cause in 'outcome'
 						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
-								sessionId, null, null, statusmErr, pendingmErr);
+								sessionId, null, pendingmErr, statusmErr, null);
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
 					}
 					else {
 						connectionClosed = true;
+						// Closed with no pending: include cause in outcome when available
+						java.util.Map<String, Object> statusm = new java.util.HashMap<String, Object>();
+						statusm.put("status", "CLOSED");
+						statusm.put("cause",
+								event.getThrowable() == null ? "<null>" : event.getThrowable().getMessage());
 						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
-								sessionId, null, null, java.util.Collections.singletonMap("status", "CLOSED"),
-								java.util.Collections.singletonMap("pending", pendingErr));
+								sessionId, null, java.util.Collections.singletonMap("pending", pendingErr), statusm,
+								null);
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
 					}

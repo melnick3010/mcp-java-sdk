@@ -453,11 +453,10 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 
 								}
 								else {
-									// Structured dispatch event: handled locally
-									java.util.Map<String, Object> parsedm2 = new java.util.HashMap<String, Object>();
-									parsedm2.put("kind", kind);
+									// Structured dispatch event: handled locally (include
+									// parsed jsonrpc info)
 									io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "SSE",
-											"C_DISPATCH", null, parsedm2, null,
+											"C_DISPATCH", null, parsedm, null,
 											java.util.Collections.singletonMap("route", "LOCAL"), null);
 									out.doOnError(ex -> logger.error("Failed to handle incoming message", ex))
 											.onErrorResume(ex -> Mono.empty()).subscribe();
@@ -704,9 +703,8 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	@Override
 	public Mono<Void> closeGracefully() {
 		if (isClosing) {
-			// Idempotent: already closing
-			io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "SSE", "C_SSE_CLOSE_ALREADY", null,
-					null, null, java.util.Collections.singletonMap("status", "ALREADY_CLOSING"), null);
+			// Idempotent: already closing - do not emit duplicate structured event
+			logger.debug("closeGracefully() called but transport already closing; ignoring duplicate request");
 			return Mono.empty();
 		}
 
@@ -736,12 +734,19 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 					// within 1-2 seconds
 					sseReaderThread.join(5000);
 					if (sseReaderThread.isAlive()) {
-						// Emit single structured timeout event and dump stack once
+						// Emit single structured timeout event including a compact stack
+						// snapshot
+						StackTraceElement[] stackTrace = sseReaderThread.getStackTrace();
+						java.util.List<String> stackLines = new java.util.ArrayList<>();
+						int limit = Math.min(stackTrace.length, 10);
+						for (int i = 0; i < limit; i++) {
+							stackLines.add(stackTrace[i].toString());
+						}
+						java.util.Map<String, Object> outcome = new java.util.HashMap<>();
+						outcome.put("message", "reader did not terminate within 5s");
+						outcome.put("stack", stackLines);
 						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "SSE",
-								"C_SSE_READER_TIMEOUT", null, null, null,
-								java.util.Collections.singletonMap("message", "reader did not terminate within 5s"),
-								null);
-						dumpThreadStack(sseReaderThread);
+								"C_SSE_READER_TIMEOUT", null, null, null, outcome, null);
 						logger.warn("SSE reader thread will be left running (daemon threads will not block JVM exit)");
 						// stop further duplicate close sequences by ensuring isClosing
 						// remains true
@@ -799,9 +804,10 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 
 	private void dumpThreadStack(Thread thread) {
 		StackTraceElement[] stackTrace = thread.getStackTrace();
-		logger.warn("Stack trace for thread '{}' (State: {}):", thread.getName(), thread.getState());
-		for (StackTraceElement element : stackTrace) {
-			logger.warn("  at {}", element);
+		logger.debug("Stack trace (debug-only) for thread '{}' (State: {}):", thread.getName(), thread.getState());
+		int limit = Math.min(stackTrace.length, 10);
+		for (int i = 0; i < limit; i++) {
+			logger.debug("  at {}", stackTrace[i]);
 		}
 
 	}

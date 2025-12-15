@@ -161,7 +161,9 @@ public class McpClientSession implements McpSession {
 			java.util.Map<String, Object> outcomeErr = new java.util.HashMap<String, Object>();
 			outcomeErr.put("status", "ERROR");
 			outcomeErr.put("error", error.getMessage());
-			io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "HTTP", "C_RECV_RESP_COMPLETE", null,
+			String channel = (transport instanceof io.modelcontextprotocol.client.transport.HttpClientSseClientTransport)
+					? "SSE" : "HTTP";
+			io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", channel, "C_RECV_RESP_COMPLETE", null,
 					jr, null, outcomeErr, null);
 			sink.error(error);
 		}
@@ -188,7 +190,9 @@ public class McpClientSession implements McpSession {
 					jr.put("kind", "RESPONSE");
 					jr.put("method", method);
 					java.util.Map<String, Object> outcome = java.util.Collections.singletonMap("status", "SUCCESS");
-					io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", "HTTP",
+					String channel = (transport instanceof io.modelcontextprotocol.client.transport.HttpClientSseClientTransport)
+							? "SSE" : "HTTP";
+					io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "CLIENT", channel,
 							"C_RECV_RESP_COMPLETE", null, jr, null, outcome, null);
 					// Inform transport to clear any outgoing request method mapping
 					try {
@@ -373,7 +377,7 @@ public class McpClientSession implements McpSession {
 					}
 					return Mono.error(throwable);
 				}).handle((jsonRpcResponse, deliveredResponseSink) -> {
-					logger.info("CLIENT receivedResponse: id={} (completing)", requestId);
+					logger.debug("CLIENT receivedResponse: id={} (completing)", requestId);
 					if (jsonRpcResponse.error() != null) {
 						logger.error("Error handling request: {}", jsonRpcResponse.error());
 						deliveredResponseSink.error(new McpError(jsonRpcResponse.error()));
