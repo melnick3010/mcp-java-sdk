@@ -575,7 +575,21 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		if (asyncResponse != null) {
 			asyncResponse.setStatus(HttpServletResponse.SC_OK);
 		}
-		safeCompleteAsyncContext(asyncContext);
+		// Determine session id for the async context to include in S_ASYNC_COMPLETE
+		String sid = null;
+		try {
+			Object attr = asyncContext.getRequest().getAttribute(SESSION_ID);
+			if (attr instanceof String) {
+				sid = (String) attr;
+			}
+		}
+		catch (Exception ex) {
+			// ignore
+		}
+		if (sid == null) {
+			sid = asyncContextToSession.get(asyncContext);
+		}
+		safeCompleteAsyncContext(asyncContext, sid);
 	}
 
 	/**
@@ -629,7 +643,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 					jrComplete, corr, outcome, null);
 		}
 
-		safeCompleteAsyncContext(asyncContext);
+		safeCompleteAsyncContext(asyncContext, null);
 	}
 
 	/**
@@ -637,22 +651,38 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	 * @param asyncContext The async context to complete
 	 */
 	private void safeCompleteAsyncContext(AsyncContext asyncContext) {
+		safeCompleteAsyncContext(asyncContext, null);
+	}
+
+	private void safeCompleteAsyncContext(AsyncContext asyncContext, String sidOverride) {
 		try {
 			// Diagnostic: log caller stack to help track premature completions
 			StackTraceElement[] stack = new Exception().getStackTrace();
 			String callerClass = stack[1].getClassName();
 			String callerMethod = stack[1].getMethodName();
 			// Emit structured async-complete event (includes caller info and optional
-			// session id)
-			String sidForEvent = null;
-			try {
-				Object attr = asyncContext.getRequest().getAttribute(SESSION_ID);
-				if (attr instanceof String) {
-					sidForEvent = (String) attr;
+			// session id). Prefer override when provided.
+			String sidForEvent = sidOverride;
+			if (sidForEvent == null) {
+				try {
+					Object attr = asyncContext.getRequest().getAttribute(SESSION_ID);
+					if (attr instanceof String) {
+						sidForEvent = (String) attr;
+					}
+				}
+				catch (Exception ex) {
+					// ignore
 				}
 			}
-			catch (Exception ex) {
-				// ignore
+			// Fall back to asyncContext->session mapping when the request attribute
+			// is not available (some servlet containers don't expose it).
+			if (sidForEvent == null) {
+				try {
+					sidForEvent = asyncContextToSession.get(asyncContext);
+				}
+				catch (Exception ex) {
+					// ignore
+				}
 			}
 			io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "ASYNC", "S_ASYNC_COMPLETE",
 					sidForEvent, null, null, null, java.util.Collections.singletonMap("meta",
