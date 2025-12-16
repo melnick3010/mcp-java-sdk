@@ -9,10 +9,12 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.TimeUnit;
 
@@ -28,6 +30,7 @@ import javax.servlet.http.HttpServletResponse;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.TypeRef;
+import io.modelcontextprotocol.logging.McpLogging;
 import io.modelcontextprotocol.server.McpTransportContextExtractor;
 import io.modelcontextprotocol.spec.McpError;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -81,6 +84,17 @@ import reactor.core.scheduler.Schedulers;
 
 @WebServlet(asyncSupported = true)
 public class HttpServletSseServerTransportProvider extends HttpServlet implements McpServerTransportProvider {
+
+	// Registry per sessioni SSE
+	private final Map<String, SseSessionState> states = new ConcurrentHashMap<String, SseSessionState>();
+
+	private final Map<String, AsyncContext> asyncs = new ConcurrentHashMap<String, AsyncContext>();
+
+	private final Map<String, ScheduledFuture<?>> heartbeats = new ConcurrentHashMap<String, ScheduledFuture<?>>();
+
+	// Flag per sessione: garantisce che S_ASYNC_COMPLETE venga loggato una sola
+	// volta
+	private final java.util.Map<String, java.util.concurrent.atomic.AtomicBoolean> asyncLogged = new java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicBoolean>();
 
 	/**
 	 * Logger for this class
@@ -196,6 +210,34 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	 */
 	private final Scheduler dedicatedScheduler;
 
+	private final AsyncCompleteLogger asyncLogger = new AsyncCompleteLogger() {
+		@Override
+		public void completeAndLogOnce(String sessionId, AsyncContext async, String caller) {
+			// complete() protetto
+			try {
+				async.complete();
+			}
+			catch (Throwable ignore) {
+			}
+
+			// log S_ASYNC_COMPLETE una sola volta
+			java.util.concurrent.atomic.AtomicBoolean flag = asyncLogged.get(sessionId);
+			if (flag == null) {
+				flag = new java.util.concurrent.atomic.AtomicBoolean(false);
+				asyncLogged.put(sessionId, flag);
+			}
+			if (flag.compareAndSet(false, true)) {
+				java.util.Map<String, Object> meta = new java.util.HashMap<String, Object>();
+				meta.put("caller", caller);
+				java.util.Map<String, Object> extra = new java.util.HashMap<String, Object>();
+				extra.put("meta", meta);
+
+				io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "ASYNC", "S_ASYNC_COMPLETE",
+						sessionId, null, null, null, extra);
+			}
+		}
+	};
+
 	/**
 	 * Creates a new HttpServletSseServerTransportProvider instance with a custom SSE
 	 * endpoint.
@@ -310,17 +352,34 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 		String sessionId = createAndRegisterSession(asyncContext, writer);
 
-		// Event 'endpoint' (message URL with query ?sessionId=...)
-		String endpointUrl = buildEndpointUrl(request, sessionId);
+		// Stato + listener
+		SseSessionState state = new SseSessionState();
+		states.put(sessionId, state);
+		asyncs.put(sessionId, asyncContext);
 
-		// Flush the event as well
+		asyncContext.addListener(new SseAsyncListener(logger, sessionId, state,asyncLogger));
+
+		// (opzionale) timeout iniziale, poi lo disattiviamo al graceful close
+		asyncContext.setTimeout(30000L); // es. 30s
+
+		// Annuncio endpoint (wired + strutturato)
+		String endpointUrl = buildEndpointUrl(request, sessionId);
 		sendEvent(writer, ENDPOINT_EVENT_TYPE, endpointUrl);
 		flushSseEvent(writer, response);
 
-		// Structured endpoint event
-		io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_ENDPOINT", sessionId, null,
-				null, null, java.util.Collections.singletonMap("meta",
-						java.util.Collections.singletonMap("endpoint", endpointUrl)));
+		Map<String, Object> meta = new HashMap<String, Object>();
+		meta.put("endpoint", endpointUrl);
+		Map<String, Object> extra = new HashMap<String, Object>();
+		extra.put("meta", meta);
+
+		McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_ENDPOINT", sessionId, null, null, null, extra);
+
+		// Avvio heartbeat (se previsto) e memorizzo il future
+		ScheduledFuture<?> hb = startHeartbeat(sessionId, writer, response, state);
+		if (hb != null) {
+			heartbeats.put(sessionId, hb);
+		}
+
 	}
 
 	/**
@@ -333,7 +392,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	private boolean validateSseRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		String requestURI = request.getRequestURI();
 		// (diagnostic log)
-		logger.info("SSE doGet() requestURI={}", requestURI);
+		logger.debug("SSE doGet() requestURI={}", requestURI);
 
 		if (!requestURI.endsWith(sseEndpoint)) {
 			response.sendError(HttpServletResponse.SC_NOT_FOUND);
@@ -388,7 +447,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		// NOTE: sessionFactory must already be set by McpServer.async(...)
 		McpServerSession session = sessionFactory.create(sessionTransport);
 		this.sessions.put(sessionId, session);
-		// Store sessionId on the async request so other handlers can map AsyncContext ->
+		// Store sessionId on the async request so other handlers can map AsyncContext
+		// ->
 		// session
 		try {
 			((HttpServletRequest) asyncContext.getRequest()).setAttribute(SESSION_ID, sessionId);
@@ -587,49 +647,77 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	 * @param id The message ID for logging
 	 * @param startTime The start time in nanoseconds for elapsed time calculation
 	 */
-	private void completeAsyncContextEmpty(AsyncContext asyncContext, AtomicBoolean completed, String kind, Object id,
-			long startTime) {
+
+	private void completeAsyncContextEmpty(final AsyncContext asyncContext,
+			final java.util.concurrent.atomic.AtomicBoolean completed, final String kind, final Object id,
+			final long startTime) {
+		// idempotenza locale del metodo
 		if (!completed.compareAndSet(false, true)) {
 			return;
 		}
 
-		long dtMs = (System.nanoTime() - startTime) / 1_000_000;
-		logger.info("SERVER doPost ASYNC COMPLETED (empty): kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs,
+		final long dtMs = (System.nanoTime() - startTime) / 1_000_000L;
+		// Evita log testuali ridondanti: se ti serve, usa DEBUG
+		logger.debug("SERVER doPost ASYNC COMPLETED (empty): kind={}, id={}, elapsedMs={}, thread={}", kind, id, dtMs,
 				Thread.currentThread().getName());
 
-		// If this was a REQUEST that is completed with an empty result (SSE response
-		// path),
-		// also emit S_REQ_COMPLETED for end-to-end observability
+		// --- Ricava sessionId dall'AsyncContext ---
+		String sid = null;
+		try {
+			Object attr = asyncContext.getRequest().getAttribute(SESSION_ID);
+			if (attr instanceof String) {
+				sid = (String) attr;
+			}
+		}
+		catch (Exception ignored) {
+		}
+		if (sid == null) {
+			// Se mantieni una mappa di associazione asyncContext -> sessionId
+			sid = this.asyncContextToSession.get(asyncContext);
+		}
+
+		// --- Emissione S_REQ_COMPLETED strutturato (solo per kind=REQUEST) ---
 		if ("REQUEST".equals(kind)) {
-			java.util.Map<String, Object> jrComplete = new java.util.HashMap<String, Object>();
+			// jsonrpc: id + kind; aggiungi method se disponibile come attributo
+			final java.util.Map<String, Object> jrComplete = new java.util.HashMap<String, Object>();
 			jrComplete.put("id", id);
 			jrComplete.put("kind", "REQUEST");
-			java.util.Map<String, Object> outcome = java.util.Collections.singletonMap("status", "SUCCESS");
-			String sid = null;
+
 			try {
-				Object attr = asyncContext.getRequest().getAttribute(SESSION_ID);
-				if (attr instanceof String) {
-					sid = (String) attr;
+				Object mAttr = asyncContext.getRequest().getAttribute("JSONRPC_METHOD");
+				if (mAttr instanceof String) {
+					jrComplete.put("method", (String) mAttr);
 				}
 			}
-			catch (Exception ex) {
-				// ignore
+			catch (Exception ignored) {
 			}
-			if (sid == null) {
-				sid = asyncContextToSession.get(asyncContext);
-			}
+
+			// outcome: SUCCESS
+			final java.util.Map<String, Object> outcome = new java.util.HashMap<String, Object>();
+			outcome.put("status", "SUCCESS");
+
+			// corr: pending count (se hai la sessione server registrata)
 			int pending = 0;
 			if (sid != null) {
-				McpServerSession s = sessions.get(sid);
-				pending = s == null ? 0 : s.pendingResponsesCount();
+				final McpServerSession s = this.sessions.get(sid);
+				pending = (s == null ? 0 : s.pendingResponsesCount());
 			}
-			java.util.Map<String, Object> corr = java.util.Collections.singletonMap("pending",
-					Integer.valueOf(pending));
+			final java.util.Map<String, Object> corr = new java.util.HashMap<String, Object>();
+			corr.put("pending", Integer.valueOf(pending));
+
 			io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "HTTP", "S_REQ_COMPLETED", sid,
 					jrComplete, corr, outcome, null);
 		}
 
-		safeCompleteAsyncContext(asyncContext);
+		// --- CHIUSURA + LOG UNICO (IDEMPOTENTE) ---
+		// Usa l'helper centralizzato: completa l'AsyncContext e logga *una sola volta*
+		// S_ASYNC_COMPLETE
+		// Il caller include info utili per diagnosi (kind/id/delta).
+		final String caller = "HttpServletSseServerTransportProvider.completeAsyncContextEmpty(kind=" + kind + ", id="
+				+ String.valueOf(id) + ", elapsedMs=" + dtMs + ")";		
+		asyncLogger.completeAndLogOnce(sid, asyncContext, caller);
+		
+		
 	}
 
 	/**
@@ -654,9 +742,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			catch (Exception ex) {
 				// ignore
 			}
-			io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "ASYNC", "S_ASYNC_COMPLETE",
-					sidForEvent, null, null, null, java.util.Collections.singletonMap("meta",
-							java.util.Collections.singletonMap("caller", callerClass + "." + callerMethod)));
 
 			// If this async context maps to a session with pending responses,
 			// defer the completion briefly to give the client time to POST
@@ -832,9 +917,45 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	 * pending responses. This helps avoid races where a transport is closed while
 	 * requests are still in flight.
 	 */
-	private void closeSessionWithDrain(String sessionId, AsyncContext asyncContext) {
+	private void closeSessionWithDrain(final String sessionId, final AsyncContext asyncContext) {
+		// 1) Stato di sessione (idempotenza)
+		// Assumi che esista una mappa 'states' <String, SseSessionState>, popolata in
+		// doGet()
+		final SseSessionState state = this.states.get(sessionId);
+		if (state == null || asyncContext == null) {
+			return;
+		}
+
+		// Se non è OPEN, stiamo già chiudendo/chiuso: evita doppi log/complete
+		if (!state.beginGracefulClose()) {
+			logger.debug("closeSessionWithDrain ignored (already closing/closed): sessionId={}", sessionId);
+			return;
+		}
+
+		// 2) Disabilita subito il timeout dell'AsyncContext: previene onTimeout
+		// post-graceful
+		try {
+			asyncContext.setTimeout(0L); // su molti container 0L = no-timeout; altrimenti
+											// usa un valore molto grande
+		}
+		catch (Throwable ignore) {
+		}
+
+		// 3) Cancella heartbeat/scheduler (se gestiti) per evitare attività post-close
+		// Assumi che esista una mappa 'heartbeats' <String, ScheduledFuture<?>>
+		ScheduledFuture<?> hb = this.heartbeats != null ? this.heartbeats.remove(sessionId) : null;
+		if (hb != null) {
+			try {
+				hb.cancel(true);
+			}
+			catch (Throwable ignore) {
+			}
+		}
+
+		// 4) Verifica pending e applica drain/defer come già facevi
 		McpServerSession sess = this.sessions.get(sessionId);
-		int pending = sess == null ? 0 : sess.pendingResponsesCount();
+		int pending = (sess == null ? 0 : sess.pendingResponsesCount());
+
 		if (pending > 0) {
 			long delay = WRITE_ERROR_GRACE_MS;
 			try {
@@ -844,33 +965,57 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			catch (Exception ex) {
 				// ignore
 			}
+
 			logger.warn("Deferring session close for sessionId={} for {}ms (pendingResponses={})", sessionId, delay,
 					pending);
+
 			final String sidFinal = sessionId;
-			dedicatedScheduler.schedule(() -> {
-				McpServerSession s2 = removeSession(sidFinal);
-				if (s2 != null) {
-					int p2 = s2.pendingResponsesCount();
-					if (p2 > 0) {
-						logger.warn("Deferred session close executing (pending still {}): sessionId={}", p2, sidFinal);
-						try {
-							s2.close();
+
+			this.dedicatedScheduler.schedule(new Runnable() {
+				@Override
+				public void run() {
+					McpServerSession s2 = removeSession(sidFinal);
+					if (s2 != null) {
+						int p2 = s2.pendingResponsesCount();
+						if (p2 > 0) {
+							logger.warn("Deferred session close executing (pending still {}): sessionId={}", p2,
+									sidFinal);
+							try {
+								s2.close();
+							}
+							catch (Exception ex) {
+								logger.debug("Error during deferred session close for {}: {}", sidFinal,
+										ex.getMessage());
+							}
 						}
-						catch (Exception ex) {
-							logger.debug("Error during deferred session close for {}: {}", sidFinal, ex.getMessage());
+						else {
+							logger.info("Deferred session close aborted (pending drained): sessionId={}", sidFinal);
 						}
 					}
-					else {
-						logger.info("Deferred session close aborted (pending drained): sessionId={}", sidFinal);
-					}
+					asyncLogger.completeAndLogOnce(sidFinal, asyncContext, "HttpServletSseServerTransportProvider.closeSessionWithDrain(deferred)");
+					
+						
+
+					// Cleanup registri
+					states.remove(sidFinal);
+					// Se mantieni una mappa 'asyncs', rimuovi anche quella; qui abbiamo
+					// asyncContext passato come argomento
+					// asyncs.remove(sidFinal);
 				}
-				// Ensure async context completion occurs in any case
-				safeCompleteAsyncContext(asyncContext);
 			}, delay, java.util.concurrent.TimeUnit.MILLISECONDS);
+
 		}
 		else {
+			// Nessun pending: chiudi subito
 			removeSession(sessionId);
-			safeCompleteAsyncContext(asyncContext);
+
+			// Complete + LOG UNA SOLA VOLTA
+			asyncLogger.completeAndLogOnce(sessionId, asyncContext, "HttpServletSseServerTransportProvider.closeSessionWithDrain(immediate)");
+			
+
+			// Cleanup registri
+			states.remove(sessionId);
+			// asyncs.remove(sessionId);
 		}
 	}
 
@@ -985,7 +1130,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 					jr2, null, outm2, null);
 		}
 
-		// Use async processing for all message types for consistency and better resource
+		// Use async processing for all message types for consistency and better
+		// resource
 		// utilization
 		// This prevents blocking the servlet thread and improves performance under high
 		// load
@@ -1018,10 +1164,12 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		// - Reactive timeout (line ~447) handles long-running operations
 		// - No additional AsyncListener-based cleanup is needed or desired
 		//
-		// Alternative mechanisms ensure proper resource cleanup without race conditions:
+		// Alternative mechanisms ensure proper resource cleanup without race
+		// conditions:
 		// - Reactive timeout (55 seconds) shorter than async timeout (60 seconds)
 		// - AtomicBoolean 'completed' flag prevents duplicate completion attempts
-		// - Try-catch blocks handle IllegalStateException from already-completed contexts
+		// - Try-catch blocks handle IllegalStateException from already-completed
+		// contexts
 
 		final long t0 = System.nanoTime();
 		final AtomicBoolean completed = new AtomicBoolean(false);
@@ -1407,11 +1555,11 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		@Override
 		public Mono<Void> closeGracefully() {
 			return Mono.fromRunnable(() -> {
-				logger.info("SERVER SSE CONNECTION CLOSING (graceful): sessionId={}, thread={}", sessionId,
+				logger.debug("SERVER SSE CONNECTION CLOSING (graceful): sessionId={}, thread={}", sessionId,
 						Thread.currentThread().getName());
 				connectionClosed = true;
 				closeSessionWithDrain(sessionId, asyncContext);
-				logger.info("SERVER SSE ASYNC CONTEXT COMPLETED: sessionId={}, thread={}", sessionId,
+				logger.debug("SERVER SSE ASYNC CONTEXT COMPLETED: sessionId={}, thread={}", sessionId,
 						Thread.currentThread().getName());
 			});
 		}
@@ -1567,6 +1715,11 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 					keepAliveInterval, contextExtractor);
 		}
 
+	}
+
+	protected ScheduledFuture<?> startHeartbeat(String sessionId, PrintWriter w, HttpServletResponse resp,
+			SseSessionState state) {
+		return null;
 	}
 
 }

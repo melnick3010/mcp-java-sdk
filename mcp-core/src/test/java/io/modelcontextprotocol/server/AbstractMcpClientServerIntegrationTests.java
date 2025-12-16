@@ -336,6 +336,12 @@ public abstract class AbstractMcpClientServerIntegrationTests {
 		}
 	}
 
+	@ParameterizedTest(name = "{0} : {displayName} ")
+	@MethodSource("clientsForTesting")
+	void dummytest() {
+
+	}
+
 	// ---------------------------------------
 	// Elicitation Tests
 	// ---------------------------------------
