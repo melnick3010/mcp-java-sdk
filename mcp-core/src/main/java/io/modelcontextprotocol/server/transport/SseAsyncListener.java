@@ -2,107 +2,83 @@
 package io.modelcontextprotocol.server.transport;
 
 import io.modelcontextprotocol.logging.McpLogging;
-
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-
 import javax.servlet.AsyncContext;
 import javax.servlet.AsyncEvent;
 import javax.servlet.AsyncListener;
-
 import org.slf4j.Logger;
 
+/**
+ * Listener "passivo" sul lifecycle dell'AsyncContext SSE.
+ * Non chiude né completa; lascia la chiusura al transport interno.
+ */
 public final class SseAsyncListener implements AsyncListener {
+    private final Logger logger;
+    private final String sessionId;
+    private final SseSessionState state;
+    private final AsyncCompleteLogger asyncLogger; // callback iniettato per S_ASYNC_COMPLETE (non usato qui)
 
-	private final Logger logger;
+    public SseAsyncListener(Logger logger, String sessionId, SseSessionState state, AsyncCompleteLogger asyncLogger) {
+        this.logger = logger;
+        this.sessionId = sessionId;
+        this.state = state;
+        this.asyncLogger = asyncLogger;
+    }
 
-	private final String sessionId;
+    @Override
+    public void onComplete(AsyncEvent event) throws IOException {
+        // No-op: il provider/transport interno emette S_ASYNC_COMPLETE quando chiude davvero.
+        // Non duplicare log. (Diagnostica già presente nel transport interno)
+    }
 
-	private final SseSessionState state;
+    @Override
+    public void onTimeout(AsyncEvent event) throws IOException {
+        // Se è già in chiusura/chiusa, ignora
+        if (state.isClosed() || state.isClosing()) {
+            return;
+        }
+        // Segna stato "timeout in corso" ma NON chiudere/completare qui.
+        if (state.beginTimeoutClose()) {
+            Map<String, Object> diagCorr = new HashMap<String, Object>();
+            diagCorr.put("pending", Integer.valueOf(0));
+            Map<String, Object> diagOutcome = new HashMap<String, Object>();
+            diagOutcome.put("status", "ERROR");
+            diagOutcome.put("reason", "onTimeout-signal");
+            diagOutcome.put("cause", "Timeout");
+            // Evento DIAGNOSTICO (non di chiusura): utile a tracciare il segnale del container.
+            McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_SIGNAL",
+                    sessionId, null, diagCorr, diagOutcome, null);
+            // NIENTE async.complete() e NIENTE S_SSE_CLOSED: la chiusura vera la fa il transport interno.
+            state.completeTimeoutClose(); // idempotente; mantiene traccia
+        }
+    }
 
-	private final AsyncCompleteLogger asyncLogger; // ✅ callback iniettato
+    @Override
+    public void onError(AsyncEvent event) throws IOException {
+        // Se è già in chiusura/chiusa, ignora
+        if (state.isClosed() || state.isClosing()) {
+            return;
+        }
+        if (state.beginErrorClose()) {
+            Throwable t = event.getThrowable();
+            Map<String, Object> diagCorr = new HashMap<String, Object>();
+            diagCorr.put("pending", Integer.valueOf(0));
+            Map<String, Object> diagOutcome = new HashMap<String, Object>();
+            diagOutcome.put("status", "ERROR");
+            diagOutcome.put("reason", "onError-signal");
+            diagOutcome.put("cause", (t != null ? t.getClass().getSimpleName() : "Unknown"));
+            // Evento DIAGNOSTICO (non di chiusura): traccia l'errore container/connector.
+            McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_SIGNAL",
+                    sessionId, null, diagCorr, diagOutcome, null);
+            // NIENTE async.complete() e NIENTE S_SSE_CLOSED: la chiusura vera la fa il transport interno.
+            state.completeErrorClose(); // idempotente; mantiene traccia
+        }
+    }
 
-	public SseAsyncListener(Logger logger, String sessionId, SseSessionState state, AsyncCompleteLogger asyncLogger) {
-		this.logger = logger;
-		this.sessionId = sessionId;
-		this.state = state;
-		this.asyncLogger = asyncLogger;
-	}
-
-	@Override
-	public void onComplete(AsyncEvent event) throws IOException {
-		// No-op: il provider emette già S_ASYNC_COMPLETE
-		// (caller=closeSessionWithDrain).
-		// Qui non duplicare log.
-	}
-
-	@Override
-	public void onTimeout(AsyncEvent event) throws IOException {
-		// Se è già in chiusura o chi // Se è già in chiusura o chiusa
-		// (graceful/errore),
-		// ignora il timeout
-		if (state.isClosed() || state.isClosing()) {
-			return;
-		}
-		// Avvia chiusura per timeout SOLO se era OPEN
-		if (state.beginTimeoutClose()) {
-			// corr: pending=0
-			Map<String, Object> corr = new HashMap<String, Object>();
-			corr.put("pending", Integer.valueOf(0));
-
-			// outcome: CLOSED + cause=Timeout
-			Map<String, Object> outcome = new HashMap<String, Object>();
-			outcome.put("status", "CLOSED");
-			outcome.put("cause", "Timeout");
-
-			// Log S_SSE_CLOSED (cause Timeout)
-			McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED", sessionId, null, // jsonrpc
-					corr, // corr
-					outcome, // outcome
-					null // extra
-			);
-
-			// ✅ completa + log unico S_ASYNC_COMPLETE
-			AsyncContext async = event.getAsyncContext();
-			asyncLogger.completeAndLogOnce(sessionId, async, "HttpServletSseServerTransportProvider.onTimeout");
-
-			state.completeTimeoutClose();
-
-		}
-	}
-
-	@Override
-	public void onError(AsyncEvent event) throws IOException {
-		// Se è già in chiusura o chiusa (graceful/timeout), ignora
-		if (state.isClosed() || state.isClosing()) {
-			return;
-		}
-		if (state.beginErrorClose()) {
-			Throwable t = event.getThrowable();
-
-			Map<String, Object> corr = new HashMap<String, Object>();
-			corr.put("pending", Integer.valueOf(0));
-
-			Map<String, Object> outcome = new HashMap<String, Object>();
-			outcome.put("status", "CLOSED");
-			outcome.put("cause", (t != null ? t.getClass().getSimpleName() : "Unknown"));
-
-			McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED", sessionId, null, corr, outcome, null);
-
-			// ✅ completa + log unico S_ASYNC_COMPLETE
-			AsyncContext async = event.getAsyncContext();
-			asyncLogger.completeAndLogOnce(sessionId, async, "HttpServletSseServerTransportProvider.onError");
-
-			state.completeErrorClose();
-
-		}
-	}
-
-	@Override
-	public void onStartAsync(AsyncEvent event) throws IOException {
-		// No-op
-	}
-
+       @Override
+    public void onStartAsync(AsyncEvent event) throws IOException {
+        // No-op
+    }
 }

@@ -1414,32 +1414,16 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 						disposeHeartbeat();
 
 					} else {
-						// Nessun pending: NON chiudere immediatamente.
-						// Programma una chiusura differita con grace window per ridurre la race
-						// "stream closed before response delivery" lato client.
-						connectionClosed = true;
 
-						// Log strutturato dell'errore SSE, ma senza chiusura immediata
-						java.util.Map<String, Object> statusm = new java.util.HashMap<String, Object>();
-						statusm.put("status", "ERROR");
-						statusm.put("reason", "onError");
-						statusm.put("cause",
-								event.getThrowable() == null ? "<null>" : event.getThrowable().getMessage());
+						   // Nessun pending: NON chiudere/completare immediatamente.
+						    connectionClosed = true;
 
-						io.modelcontextprotocol.logging.McpLogging.logEvent(
-								logger, "SERVER", "SSE", "S_SSE_CLOSED", sessionId, null, java.util.Collections
-										.<String, Object>singletonMap("pending", Integer.valueOf(pendingErr)),
-								statusm, null);
+						    // Pianifica la chiusura differita (grace window = max(WRITE_ERROR_GRACE_MS, requestTimeout))
+						    scheduleDeferredClose("onError");
 
-						// Pianifica la chiusura differita (grace window = max(WRITE_ERROR_GRACE_MS,
-						// requestTimeout))
-						// Motivazione: dare tempo al client di gestire/consumare l'ultimo frame SSE o
-						// iniziare eventuali POST in-flight prima della chiusura del trasporto.
-						scheduleDeferredClose("onError");
+						    // Ferma l'heartbeat subito per evitare ulteriori scritture sul writer
+						    disposeHeartbeat();
 
-						// Ferma l'heartbeat subito // Ferma l'heartbeat subito per evitare ulteriori
-						// scritture sul writer
-						disposeHeartbeat();
 
 					}
 				}
