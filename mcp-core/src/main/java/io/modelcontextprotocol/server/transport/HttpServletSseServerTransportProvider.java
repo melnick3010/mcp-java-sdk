@@ -220,6 +220,19 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			catch (Throwable ignore) {
 			}
 
+
+			// 1) Protezione: sessionId può essere null in alcuni rami
+			    if (sessionId == null) {
+			      Map<String,Object> meta = new java.util.HashMap<>();
+			      meta.put("caller", caller);
+			      Map<String,Object> extra = new java.util.HashMap<>();
+			      extra.put("meta", meta);
+			      // log strutturato senza sessionId
+			      io.modelcontextprotocol.logging.McpLogging.logEvent(
+			        logger, "SERVER", "ASYNC", "S_ASYNC_COMPLETE", null, null, null, null, extra);
+			      return;
+			    }
+
 			// log S_ASYNC_COMPLETE una sola volta
 			java.util.concurrent.atomic.AtomicBoolean flag = asyncLogged.get(sessionId);
 			if (flag == null) {
@@ -357,7 +370,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		states.put(sessionId, state);
 		asyncs.put(sessionId, asyncContext);
 
-		asyncContext.addListener(new SseAsyncListener(logger, sessionId, state,asyncLogger));
+		asyncContext.addListener(new SseAsyncListener(logger, sessionId, state, asyncLogger));
 
 		// (opzionale) timeout iniziale, poi lo disattiviamo al graceful close
 		asyncContext.setTimeout(30000L); // es. 30s
@@ -723,16 +736,14 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 					jrComplete, corr, outcome, null);
 		}
 
-
 		// --- CHIUSURA + LOG UNICO (IDEMPOTENTE) ---
 		// Usa l'helper centralizzato: completa l'AsyncContext e logga *una sola volta*
 		// S_ASYNC_COMPLETE
 		// Il caller include info utili per diagnosi (kind/id/delta).
 		final String caller = "HttpServletSseServerTransportProvider.completeAsyncContextEmpty(kind=" + kind + ", id="
-				+ String.valueOf(id) + ", elapsedMs=" + dtMs + ")";		
+				+ String.valueOf(id) + ", elapsedMs=" + dtMs + ")";
 		asyncLogger.completeAndLogOnce(sid, asyncContext, caller);
-		
-		
+
 	}
 
 	/**
@@ -1023,9 +1034,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 							logger.info("Deferred session close aborted (pending drained): sessionId={}", sidFinal);
 						}
 					}
-					asyncLogger.completeAndLogOnce(sidFinal, asyncContext, "HttpServletSseServerTransportProvider.closeSessionWithDrain(deferred)");
-					
-						
+					asyncLogger.completeAndLogOnce(sidFinal, asyncContext,
+							"HttpServletSseServerTransportProvider.closeSessionWithDrain(deferred)");
 
 					// Cleanup registri
 					states.remove(sidFinal);
@@ -1041,8 +1051,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			removeSession(sessionId);
 
 			// Complete + LOG UNA SOLA VOLTA
-			asyncLogger.completeAndLogOnce(sessionId, asyncContext, "HttpServletSseServerTransportProvider.closeSessionWithDrain(immediate)");
-			
+			asyncLogger.completeAndLogOnce(sessionId, asyncContext,
+					"HttpServletSseServerTransportProvider.closeSessionWithDrain(immediate)");
 
 			// Cleanup registri
 			states.remove(sessionId);
