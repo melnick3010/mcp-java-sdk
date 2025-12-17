@@ -1412,18 +1412,35 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 								sessionId, null, pendingmErr, statusmErr, null);
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
+
 					} else {
+						// Nessun pending: NON chiudere immediatamente.
+						// Programma una chiusura differita con grace window per ridurre la race
+						// "stream closed before response delivery" lato client.
 						connectionClosed = true;
-						// Closed with no pending: include cause in outcome when available
+
+						// Log strutturato dell'errore SSE, ma senza chiusura immediata
 						java.util.Map<String, Object> statusm = new java.util.HashMap<String, Object>();
-						statusm.put("status", "CLOSED");
+						statusm.put("status", "ERROR");
+						statusm.put("reason", "onError");
 						statusm.put("cause",
 								event.getThrowable() == null ? "<null>" : event.getThrowable().getMessage());
-						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
-								sessionId, null, java.util.Collections.singletonMap("pending", pendingErr), statusm,
-								null);
-						closeSessionWithDrain(sessionId, asyncContext);
+
+						io.modelcontextprotocol.logging.McpLogging.logEvent(
+								logger, "SERVER", "SSE", "S_SSE_CLOSED", sessionId, null, java.util.Collections
+										.<String, Object>singletonMap("pending", Integer.valueOf(pendingErr)),
+								statusm, null);
+
+						// Pianifica la chiusura differita (grace window = max(WRITE_ERROR_GRACE_MS,
+						// requestTimeout))
+						// Motivazione: dare tempo al client di gestire/consumare l'ultimo frame SSE o
+						// iniziare eventuali POST in-flight prima della chiusura del trasporto.
+						scheduleDeferredClose("onError");
+
+						// Ferma l'heartbeat subito // Ferma l'heartbeat subito per evitare ulteriori
+						// scritture sul writer
 						disposeHeartbeat();
+
 					}
 				}
 
@@ -1478,23 +1495,24 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		 * @param message The JSON-RPC message to send
 		 * @return A Mono that completes when the message has been sent
 		 */
+
 		@Override
 		public Mono<Void> sendMessage(McpSchema.JSONRPCMessage message) {
-			return Mono.fromRunnable(() -> {
-				// Check connection state before attempting to send
-				if (connectionClosed) {
-					String kind = message instanceof McpSchema.JSONRPCResponse ? "RESPONSE"
-							: (message instanceof McpSchema.JSONRPCRequest ? "REQUEST" : "NOTIFICATION");
-					logger.warn("SERVER: Attempt to send {} on closed connection: sessionId={}", kind, sessionId);
-					throw new McpTransportException("SSE connection already closed for session: " + sessionId);
-				}
+			return Mono.fromRunnable(new Runnable() {
+				@Override
+				public void run() {
+					// Check connection state before attempting to send
+					if (connectionClosed) {
+						String kind = (message instanceof McpSchema.JSONRPCResponse) ? "RESPONSE"
+								: (message instanceof McpSchema.JSONRPCRequest) ? "REQUEST" : "NOTIFICATION";
+						logger.warn("SERVER: Attempt to send {} on closed connection: sessionId={}", kind, sessionId);
+						throw new McpTransportException("SSE connection already closed for session: " + sessionId);
+					}
 
-				try {
 					// Extract message info for diagnostic logging
 					String kind;
 					Object id;
 					boolean isResponse = false;
-
 					if (message instanceof McpSchema.JSONRPCRequest) {
 						kind = "REQUEST";
 						id = ((McpSchema.JSONRPCRequest) message).id();
@@ -1512,6 +1530,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 					logger.info("SERVER prepareResponse: sessionId={}, kind={}, id={}, thread={}", sessionId, kind, id,
 							Thread.currentThread().getName());
+
 					// Structured log: server preparing SSE response
 					java.util.Map<String, Object> prepmap = new java.util.HashMap<String, Object>();
 					prepmap.put("id", id);
@@ -1519,60 +1538,122 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 					java.util.Map<String, Object> corrPrep = new java.util.HashMap<String, Object>();
 					corrPrep.put("initiatorId", id);
 					corrPrep.put("parentId", null);
-					corrPrep.put("seq", 0);
+					corrPrep.put("seq", Integer.valueOf(0));
 					io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_PREP_SSE_RESP",
 							sessionId, prepmap, corrPrep, java.util.Collections.singletonMap("status", "PENDING"),
 							null);
 
-					String jsonText = jsonMapper.writeValueAsString(message);
-					sendEvent(writer, MESSAGE_EVENT_TYPE, jsonText);
+					try {
+						// Serialize and send SSE event
+						String jsonText = jsonMapper.writeValueAsString(message);
+						sendEvent(writer, MESSAGE_EVENT_TYPE, jsonText);
 
-					// Structured event emitted below (S_SSE_SEND). Remove duplicate
-					// textual log.
-					java.util.Map<String, Object> sendm = new java.util.HashMap<String, Object>();
-					sendm.put("id", id);
-					sendm.put("kind", kind);
-					java.util.Map<String, Object> corrSend = new java.util.HashMap<String, Object>();
-					corrSend.put("initiatorId", id);
-					corrSend.put("parentId", null);
-					corrSend.put("seq", 0);
-					io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_SEND",
-							sessionId, sendm, corrSend, java.util.Collections.singletonMap("status", "SUCCESS"), null);
-				} catch (Exception e) {
-					// Extract message type for error handling
-					boolean isResponse = message instanceof McpSchema.JSONRPCResponse;
-					String kind = isResponse ? "RESPONSE"
-							: (message instanceof McpSchema.JSONRPCRequest ? "REQUEST" : "NOTIFICATION");
+						// Force flush to commit bytes immediately
+						try {
+							writer.flush();
+							javax.servlet.http.HttpServletResponse resp = (javax.servlet.http.HttpServletResponse) asyncContext
+									.getResponse();
+							if (resp != null) {
+								resp.flushBuffer();
+							}
+						} catch (Exception flushEx) {
+							// Non fatal: sarà gestito dal ramo catch principale se il writer segnala errore
+							logger.debug("SERVER flush after sendEvent failed: {}", flushEx.getMessage());
+						}
 
-					logger.error("Failed to send {} to session {}: {}", kind, sessionId, e.getMessage());
+						// Structured send success
+						java.util.Map<String, Object> sendm = new java.util.HashMap<String, Object>();
+						sendm.put("id", id);
+						sendm.put("kind", kind);
+						java.util.Map<String, Object> corrSend = new java.util.HashMap<String, Object>();
+						corrSend.put("initiatorId", id);
+						corrSend.put("parentId", null);
+						corrSend.put("seq", Integer.valueOf(0));
+						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_SEND",
+								sessionId, sendm, corrSend, java.util.Collections.singletonMap("status", "SUCCESS"),
+								null);
+					} catch (Exception e) {
+						// Writer error / client disconnected
+						final boolean isResp = isResponse;
+						final String kindLocal = kind;
 
-					// Only close the SSE connection for RESPONSE send failures
-					// For REQUEST (internal, like sampling/createMessage) or NOTIFICATION
-					// failures,
-					// keep the connection open - the client can still respond via HTTP
-					// POST
-					if (isResponse) {
-						logger.warn("SERVER SSE CONNECTION CLOSING due to RESPONSE send error: sessionId={}, thread={}",
-								sessionId, Thread.currentThread().getName());
-						connectionClosed = true;
-						// Emit a structured S_SSE_CLOSED with cause for send failures
-						java.util.Map<String, Object> statusSendErr = new java.util.HashMap<String, Object>();
-						statusSendErr.put("status", "ERROR");
-						statusSendErr.put("reason", "send-error");
-						statusSendErr.put("cause", e.getMessage());
-						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
-								sessionId, null, java.util.Collections.singletonMap("pending", Integer.valueOf(1)),
-								statusSendErr, null);
-						closeSessionWithDrain(sessionId, asyncContext);
-						disposeHeartbeat();
-					} else {
-						logger.warn("SERVER SSE send error for {} (keeping connection open): sessionId={}, thread={}",
-								kind, sessionId, Thread.currentThread().getName());
-						// Connection stays open - client can still send responses via
-						// HTTP POST
+						logger.error("Failed to send {} to session {}: {}", kindLocal, sessionId, e.getMessage());
+
+						if (isResp) {
+							// NON chiudere subito: programma una chiusura differita per dare tempo
+							// al client di gestire l'errore in consegna o eventuali POST in-flight.
+							logger.warn(
+									"SERVER SSE send error on RESPONSE: scheduling deferred close (grace) for sessionId={}, thread={}",
+									sessionId, Thread.currentThread().getName());
+
+							scheduleDeferredClose("send-error");
+						} else {
+							// Per REQUEST/NOTIFICATION mantieni la connessione: il client può ancora usare
+							// HTTP POST
+							logger.warn(
+									"SERVER SSE send error for {} (keeping connection open): sessionId={}, thread={}",
+									kindLocal, sessionId, Thread.currentThread().getName());
+						}
 					}
 				}
 			});
+		}
+
+		/**
+		 * Schedules a deferred SSE close with a grace window, taking into account the
+		 * session request timeout when available. Emits a single structured
+		 * S_SSE_CLOSED event upon execution.
+		 *
+		 * @param reason The close reason to include in structured logging.
+		 */
+		private void scheduleDeferredClose(final String reason) {
+			long delayMs = WRITE_ERROR_GRACE_MS;
+			try {
+				// Prefer a conservative grace >= requestTimeout to avoid racing with client
+				// handling
+				io.modelcontextprotocol.spec.McpServerSession s = sessions.get(sessionId);
+				if (s != null) {
+					long rt = s.getRequestTimeoutMillis();
+					if (rt > delayMs) {
+						delayMs = rt;
+					}
+				}
+			} catch (Exception ignore) {
+				// fall back to default grace
+			}
+
+			final String sid = this.sessionId;
+			dedicatedScheduler.schedule(new Runnable() {
+				@Override
+				public void run() {
+					try {
+						// Mark closed and emit structured close event exactly once
+						connectionClosed = true;
+
+						java.util.Map<String, Object> outcome = new java.util.HashMap<String, Object>();
+						outcome.put("status", "ERROR");
+						outcome.put("reason", reason);
+						outcome.put("cause", "deferred");
+
+						// Corr: include pending count if session still present
+						int pending = 0;
+						try {
+							io.modelcontextprotocol.spec.McpServerSession s2 = sessions.get(sid);
+							pending = (s2 == null ? 0 : s2.pendingResponsesCount());
+						} catch (Exception ignored) {
+							/* no-op */ }
+
+						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
+								sid, null, java.util.Collections.singletonMap("pending", Integer.valueOf(pending)),
+								outcome, null);
+
+						// Close with drain (will complete async context & cleanup heartbeat)
+						closeSessionWithDrain(sid, asyncContext);
+					} finally {
+						disposeHeartbeat();
+					}
+				}
+			}, delayMs, java.util.concurrent.TimeUnit.MILLISECONDS);
 		}
 
 		/**
