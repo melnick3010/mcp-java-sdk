@@ -51,26 +51,24 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 /**
- * A Servlet-based implementation of the MCP HTTP with Server-Sent Events (SSE)
- * transport specification. This implementation provides similar functionality
- * to WebFluxSseServerTransportProvider but uses the traditional Servlet API
- * instead of WebFlux.
+ * A Servlet-based implementation of the MCP HTTP with Server-Sent Events (SSE) transport
+ * specification. This implementation provides similar functionality to
+ * WebFluxSseServerTransportProvider but uses the traditional Servlet API instead of
+ * WebFlux.
  *
  * <p>
  * The transport handles two types of endpoints:
  * <ul>
- * <li>SSE endpoint (/sse) - Establishes a long-lived connection for
- * server-to-client events</li>
- * <li>Message endpoint (configurable) - Handles client-to-server message
- * requests</li>
+ * <li>SSE endpoint (/sse) - Establishes a long-lived connection for server-to-client
+ * events</li>
+ * <li>Message endpoint (configurable) - Handles client-to-server message requests</li>
  * </ul>
  *
  * <p>
  *
- * // Keep an explicit mapping from AsyncContext -> sessionId to reliably //
- * detect which session an async context belongs to even when the // servlet
- * container triggers a completion path without exposing // request attributes.
- * Features:
+ * // Keep an explicit mapping from AsyncContext -> sessionId to reliably // detect which
+ * session an async context belongs to even when the // servlet container triggers a
+ * completion path without exposing // request attributes. Features:
  * <ul>
  * <li>Asynchronous message handling using Servlet 6.0 async support</li>
  * <li>Session management for multiple client connections</li>
@@ -200,15 +198,15 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	private McpServerSession.Factory sessionFactory;
 
 	/**
-	 * Keep-alive scheduler for managing session pings. Activated if
-	 * keepAliveInterval is set. Disabled by default.
+	 * Keep-alive scheduler for managing session pings. Activated if keepAliveInterval is
+	 * set. Disabled by default.
 	 */
 	private KeepAliveScheduler keepAliveScheduler;
 
 	/**
-	 * Dedicated scheduler for this transport instance to avoid global scheduler
-	 * thread leaks. This scheduler is used for keep-alive operations and is
-	 * properly disposed during shutdown.
+	 * Dedicated scheduler for this transport instance to avoid global scheduler thread
+	 * leaks. This scheduler is used for keep-alive operations and is properly disposed
+	 * during shutdown.
 	 */
 	private final Scheduler dedicatedScheduler;
 
@@ -218,7 +216,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			// complete() protetto
 			try {
 				async.complete();
-			} catch (Throwable ignore) {
+			}
+			catch (Throwable ignore) {
 			}
 
 			// 1) Protezione: sessionId può essere null in alcuni rami
@@ -252,22 +251,18 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	};
 
 	/**
-	 * Creates a new HttpServletSseServerTransportProvider instance with a custom
-	 * SSE endpoint.
-	 * 
-	 * @param jsonMapper        The JSON object mapper to use for message
-	 *                          serialization/deserialization
-	 * @param baseUrl           The base URL for the server transport
-	 * @param messageEndpoint   The endpoint path where clients will send their
-	 *                          messages
-	 * @param sseEndpoint       The endpoint path where clients will establish SSE
-	 *                          connections
-	 * @param keepAliveInterval The interval for keep-alive pings, or null to
-	 *                          disable keep-alive functionality
-	 * @param contextExtractor  The extractor for transport context from the
-	 *                          request.
-	 * @deprecated Use the builder {@link #builder()} instead for better
-	 *             configuration options.
+	 * Creates a new HttpServletSseServerTransportProvider instance with a custom SSE
+	 * endpoint.
+	 * @param jsonMapper The JSON object mapper to use for message
+	 * serialization/deserialization
+	 * @param baseUrl The base URL for the server transport
+	 * @param messageEndpoint The endpoint path where clients will send their messages
+	 * @param sseEndpoint The endpoint path where clients will establish SSE connections
+	 * @param keepAliveInterval The interval for keep-alive pings, or null to disable
+	 * keep-alive functionality
+	 * @param contextExtractor The extractor for transport context from the request.
+	 * @deprecated Use the builder {@link #builder()} instead for better configuration
+	 * options.
 	 */
 	private HttpServletSseServerTransportProvider(McpJsonMapper jsonMapper, String baseUrl, String messageEndpoint,
 			String sseEndpoint, Duration keepAliveInterval,
@@ -307,7 +302,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 	/**
 	 * Sets the session factory for creating new sessions.
-	 * 
 	 * @param sessionFactory The session factory to use
 	 */
 	@Override
@@ -317,7 +311,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 	/**
 	 * Broadcasts a notification to all connected clients.
-	 * 
 	 * @param method The method name for the notification
 	 * @param params The parameters for the notification
 	 * @return A Mono that completes when the broadcast attempt is finished
@@ -342,13 +335,12 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	 * Handles GET requests to establish SSE connections.
 	 * <p>
 	 * This method sets up a new SSE connection when a client connects to the SSE
-	 * endpoint. It configures the response headers for SSE, creates a new session,
-	 * and sends the initial endpoint information to the client.
-	 * 
-	 * @param request  The HTTP servlet request
+	 * endpoint. It configures the response headers for SSE, creates a new session, and
+	 * sends the initial endpoint information to the client.
+	 * @param request The HTTP servlet request
 	 * @param response The HTTP servlet response
 	 * @throws ServletException If a servlet-specific error occurs
-	 * @throws IOException      If an I/O error occurs
+	 * @throws IOException If an I/O error occurs
 	 */
 
 	@Override
@@ -403,10 +395,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	}
 
 	/**
-	 * Validates the SSE request by checking endpoint matching and server shutdown
-	 * status.
-	 * 
-	 * @param request  The HTTP servlet request
+	 * Validates the SSE request by checking endpoint matching and server shutdown status.
+	 * @param request The HTTP servlet request
 	 * @param response The HTTP servlet response
 	 * @return true if validation succeeds, false otherwise
 	 * @throws IOException If an I/O error occurs while sending error responses
@@ -429,7 +419,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 	/**
 	 * Initializes and configures the async context for SSE connections.
-	 * 
 	 * @param request The HTTP servlet request
 	 * @return The configured AsyncContext with timeout set to 0 (no timeout)
 	 */
@@ -440,9 +429,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	}
 
 	/**
-	 * Constructs the full message endpoint URL by combining the base URL, message
-	 * path, and the required session_id query parameter.
-	 * 
+	 * Constructs the full message endpoint URL by combining the base URL, message path,
+	 * and the required session_id query parameter.
 	 * @param sessionId the unique session identifier
 	 * @return the fully qualified endpoint URL as a string
 	 */
@@ -457,9 +445,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 	/**
 	 * Creates and registers a new MCP server session.
-	 * 
 	 * @param asyncContext The async context for the SSE connection
-	 * @param writer       The PrintWriter for sending SSE events
+	 * @param writer The PrintWriter for sending SSE events
 	 * @return The session ID of the created session
 	 */
 	private String createAndRegisterSession(AsyncContext asyncContext, PrintWriter writer) {
@@ -481,7 +468,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			// containers complete the async context without preserving request
 			// attributes. This allows us to find the session for safe completion.
 			this.asyncContextToSession.put(asyncContext, sessionId);
-		} catch (Exception e) {
+		}
+		catch (Exception e) {
 			logger.debug("Unable to set sessionId attribute on async request: {}", e.getMessage());
 		}
 
@@ -526,7 +514,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 	/**
 	 * Configures SSE-specific response headers.
-	 * 
 	 * @param response The HTTP servlet response to configure
 	 */
 	private void configureSseHeaders(HttpServletResponse response) {
@@ -540,10 +527,9 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	}
 
 	/**
-	 * Initializes and flushes the SSE response by writing an empty line and
-	 * flushing buffers. This ensures the response body is committed immediately.
-	 * 
-	 * @param writer   The PrintWriter for the response
+	 * Initializes and flushes the SSE response by writing an empty line and flushing
+	 * buffers. This ensures the response body is committed immediately.
+	 * @param writer The PrintWriter for the response
 	 * @param response The HTTP servlet response
 	 * @throws IOException If an I/O error occurs during flushing
 	 */
@@ -555,8 +541,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 	/**
 	 * Flushes an SSE event to ensure it is sent to the client immediately.
-	 * 
-	 * @param writer   The PrintWriter for the response
+	 * @param writer The PrintWriter for the response
 	 * @param response The HTTP servlet response
 	 * @throws IOException If an I/O error occurs during flushing
 	 */
@@ -567,8 +552,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 	/**
 	 * Validates the incoming POST request and extracts the session.
-	 * 
-	 * @param request  The HTTP servlet request
+	 * @param request The HTTP servlet request
 	 * @param response The HTTP servlet response
 	 * @return The session if validation succeeds, null otherwise
 	 * @throws IOException If an I/O error occurs during validation
@@ -614,7 +598,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 	/**
 	 * Extracts message type information from a JSON-RPC message.
-	 * 
 	 * @param message The JSON-RPC message
 	 * @return MessageInfo containing the message kind and ID
 	 */
@@ -625,13 +608,16 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		if (message instanceof McpSchema.JSONRPCRequest) {
 			kind = "REQUEST";
 			id = ((McpSchema.JSONRPCRequest) message).id();
-		} else if (message instanceof McpSchema.JSONRPCResponse) {
+		}
+		else if (message instanceof McpSchema.JSONRPCResponse) {
 			kind = "RESPONSE";
 			id = ((McpSchema.JSONRPCResponse) message).id();
-		} else if (message instanceof McpSchema.JSONRPCNotification) {
+		}
+		else if (message instanceof McpSchema.JSONRPCNotification) {
 			kind = "NOTIFICATION";
 			id = null;
-		} else {
+		}
+		else {
 			kind = "UNKNOWN";
 			id = null;
 		}
@@ -640,15 +626,12 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	}
 
 	/**
-	 * Completes the async context with HTTP 200 OK status for responses with
-	 * content.
-	 * 
+	 * Completes the async context with HTTP 200 OK status for responses with content.
 	 * @param asyncContext The async context to complete
-	 * @param completed    Flag to prevent duplicate completion
-	 * @param kind         The message kind for logging
-	 * @param id           The message ID for logging
-	 * @param startTime    The start time in nanoseconds for elapsed time
-	 *                     calculation
+	 * @param completed Flag to prevent duplicate completion
+	 * @param kind The message kind for logging
+	 * @param id The message ID for logging
+	 * @param startTime The start time in nanoseconds for elapsed time calculation
 	 */
 	private void completeAsyncContextWithStatus(AsyncContext asyncContext, AtomicBoolean completed, String kind,
 			Object id, long startTime) {
@@ -671,7 +654,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			if (attr instanceof String) {
 				sid = (String) attr;
 			}
-		} catch (Exception ex) {
+		}
+		catch (Exception ex) {
 			// ignore
 		}
 		if (sid == null) {
@@ -683,13 +667,11 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	/**
 	 * Completes the async context without setting status for empty responses (SSE,
 	 * notifications).
-	 * 
 	 * @param asyncContext The async context to complete
-	 * @param completed    Flag to prevent duplicate completion
-	 * @param kind         The message kind for logging
-	 * @param id           The message ID for logging
-	 * @param startTime    The start time in nanoseconds for elapsed time
-	 *                     calculation
+	 * @param completed Flag to prevent duplicate completion
+	 * @param kind The message kind for logging
+	 * @param id The message ID for logging
+	 * @param startTime The start time in nanoseconds for elapsed time calculation
 	 */
 
 	private void completeAsyncContextEmpty(final AsyncContext asyncContext,
@@ -712,7 +694,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			if (attr instanceof String) {
 				sid = (String) attr;
 			}
-		} catch (Exception ignored) {
+		}
+		catch (Exception ignored) {
 		}
 		if (sid == null) {
 			// Se mantieni una mappa di associazione asyncContext -> sessionId
@@ -731,7 +714,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 				if (mAttr instanceof String) {
 					jrComplete.put("method", (String) mAttr);
 				}
-			} catch (Exception ignored) {
+			}
+			catch (Exception ignored) {
 			}
 
 			// outcome: SUCCESS
@@ -763,7 +747,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 	/**
 	 * Safely completes an async context with consistent error handling and logging.
-	 * 
 	 * @param asyncContext The async context to complete
 	 */
 	private void safeCompleteAsyncContext(AsyncContext asyncContext) {
@@ -785,7 +768,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 					if (attr instanceof String) {
 						sidForEvent = (String) attr;
 					}
-				} catch (Exception ex) {
+				}
+				catch (Exception ex) {
 					// ignore
 				}
 			}
@@ -794,7 +778,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			if (sidForEvent == null) {
 				try {
 					sidForEvent = asyncContextToSession.get(asyncContext);
-				} catch (Exception ex) {
+				}
+				catch (Exception ex) {
 					// ignore
 				}
 			}
@@ -813,7 +798,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 						if (attr instanceof String) {
 							sid = (String) attr;
 						}
-					} catch (Exception ex) {
+					}
+					catch (Exception ex) {
 						// ignore - no request attribute available
 					}
 					if (sid == null) {
@@ -835,7 +821,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 							try {
 								long rt = s.getRequestTimeoutMillis();
 								delay = Math.max(delay, rt);
-							} catch (Exception ex) {
+							}
+							catch (Exception ex) {
 								// ignore - use default
 							}
 							final String sidFinal = sid;
@@ -851,11 +838,13 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 											// Ensure transport is closed and async
 											// completed
 											s2.close();
-										} catch (Exception ex) {
+										}
+										catch (Exception ex) {
 											logger.debug("Error during deferred session close for {}: {}", sidFinal,
 													ex.getMessage());
 										}
-									} else {
+									}
+									else {
 										logger.info(
 												"safeCompleteAsyncContext deferred close aborted (pending drained): sessionId={}",
 												sidFinal);
@@ -882,11 +871,13 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 											p2, sidShort);
 									try {
 										s2.close();
-									} catch (Exception ex) {
+									}
+									catch (Exception ex) {
 										logger.debug("Error during short-deferred session close for {}: {}", sidShort,
 												ex.getMessage());
 									}
-								} else {
+								}
+								else {
 									logger.info(
 											"safeCompleteAsyncContext short-deferred close aborted (no posts started): sessionId={}",
 											sidShort);
@@ -895,22 +886,24 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 						}, delayShort, java.util.concurrent.TimeUnit.MILLISECONDS);
 						return;
 					}
-				} catch (Exception e) {
+				}
+				catch (Exception e) {
 					logger.debug("Error checking pending responses while deferring completion: {}", e.getMessage());
 				}
 			}
 
 			asyncContext.complete();
-		} catch (IllegalStateException e) {
+		}
+		catch (IllegalStateException e) {
 			logger.debug("Async context already completed or timed out: {}", e.getMessage());
-		} catch (Exception e) {
+		}
+		catch (Exception e) {
 			logger.error("Error completing async context: {}", e.getMessage());
 		}
 	}
 
 	/**
 	 * Remove session by id and cleanup associated asyncContext mapping.
-	 * 
 	 * @param sessionId session id to remove
 	 * @return the removed session or null if none
 	 */
@@ -926,7 +919,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			try {
 				long rt = s.getRequestTimeoutMillis();
 				delay = Math.max(delay, rt);
-			} catch (Exception ex) {
+			}
+			catch (Exception ex) {
 				// ignore
 			}
 			final String sidFinal = sessionId;
@@ -937,7 +931,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			dedicatedScheduler.schedule(() -> {
 				try {
 					this.asyncContextToSession.values().removeIf(v -> sidFinal.equals(v));
-				} catch (Exception e) {
+				}
+				catch (Exception e) {
 					logger.debug("Error cleaning asyncContext mapping for {}: {}", sidFinal, e.getMessage());
 				}
 				this.drainingSessions.remove(sidFinal);
@@ -983,7 +978,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		try {
 			asyncContext.setTimeout(0L); // su molti container 0L = no-timeout; altrimenti
 											// usa un valore molto grande
-		} catch (Throwable ignore) {
+		}
+		catch (Throwable ignore) {
 		}
 
 		// 3) Cancella heartbeat/scheduler (se gestiti) per evitare attività post-close
@@ -992,7 +988,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		if (hb != null) {
 			try {
 				hb.cancel(true);
-			} catch (Throwable ignore) {
+			}
+			catch (Throwable ignore) {
 			}
 		}
 
@@ -1005,7 +1002,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			try {
 				long rt = sess.getRequestTimeoutMillis();
 				delay = Math.max(delay, rt);
-			} catch (Exception ex) {
+			}
+			catch (Exception ex) {
 				// ignore
 			}
 
@@ -1025,11 +1023,13 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 									sidFinal);
 							try {
 								s2.close();
-							} catch (Exception ex) {
+							}
+							catch (Exception ex) {
 								logger.debug("Error during deferred session close for {}: {}", sidFinal,
 										ex.getMessage());
 							}
-						} else {
+						}
+						else {
 							logger.info("Deferred session close aborted (pending drained): sessionId={}", sidFinal);
 						}
 					}
@@ -1044,7 +1044,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 				}
 			}, delay, java.util.concurrent.TimeUnit.MILLISECONDS);
 
-		} else {
+		}
+		else {
 			// Nessun pending: chiudi subito
 			removeSession(sessionId);
 
@@ -1060,10 +1061,9 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 	/**
 	 * Handles errors during async message processing.
-	 * 
 	 * @param asyncContext The async context
-	 * @param completed    Flag to prevent duplicate completion
-	 * @param error        The error that occurred
+	 * @param completed Flag to prevent duplicate completion
+	 * @param error The error that occurred
 	 */
 	private void handleAsyncError(AsyncContext asyncContext, AtomicBoolean completed, Throwable error) {
 		if (!completed.compareAndSet(false, true)) {
@@ -1079,7 +1079,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 				// The async context will be completed via safeCompleteAsyncContext,
 				// but the client will not receive specific error information.
 				logger.error("Async response is null - unable to send error details to client");
-			} else {
+			}
+			else {
 				McpError mcpError = new McpError(error.getMessage());
 				asyncResponse.setContentType(APPLICATION_JSON);
 				asyncResponse.setCharacterEncoding(UTF_8);
@@ -1089,9 +1090,11 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 				writer.write(jsonError);
 				writer.flush();
 			}
-		} catch (IOException ex) {
+		}
+		catch (IOException ex) {
 			logger.error(FAILED_TO_SEND_ERROR_RESPONSE, ex);
-		} finally {
+		}
+		finally {
 			safeCompleteAsyncContext(asyncContext);
 		}
 	}
@@ -1100,13 +1103,12 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	 * Handles POST requests for client messages.
 	 * <p>
 	 * This method processes incoming messages from clients, routes them through the
-	 * session handler, and sends back the appropriate response. It handles error
-	 * cases and formats error responses according to the MCP specification.
-	 * 
-	 * @param request  The HTTP servlet request
+	 * session handler, and sends back the appropriate response. It handles error cases
+	 * and formats error responses according to the MCP specification.
+	 * @param request The HTTP servlet request
 	 * @param response The HTTP servlet response
 	 * @throws ServletException If a servlet-specific error occurs
-	 * @throws IOException      If an I/O error occurs
+	 * @throws IOException If an I/O error occurs
 	 */
 
 	@Override
@@ -1142,9 +1144,11 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		// jsonrpc.method should be the actual RPC method name when available
 		if (message instanceof McpSchema.JSONRPCRequest) {
 			jr.put("method", ((McpSchema.JSONRPCRequest) message).method());
-		} else if (message instanceof McpSchema.JSONRPCNotification) {
+		}
+		else if (message instanceof McpSchema.JSONRPCNotification) {
 			jr.put("method", ((McpSchema.JSONRPCNotification) message).method());
-		} else {
+		}
+		else {
 			jr.put("method", null);
 		}
 		jr.put("kind", messageInfo.kind);
@@ -1166,12 +1170,15 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 					jr2, null, outm2, null);
 		}
 
-// Dopo aver deserializzato 'message' e prima di 'final AsyncContext asyncContext = request.startAsync();'
+		// Dopo aver deserializzato 'message' e prima di 'final AsyncContext asyncContext
+		// = request.startAsync();'
 		if (message instanceof McpSchema.JSONRPCRequest) {
 			request.setAttribute("JSONRPC_METHOD", ((McpSchema.JSONRPCRequest) message).method());
-		} else if (message instanceof McpSchema.JSONRPCNotification) {
+		}
+		else if (message instanceof McpSchema.JSONRPCNotification) {
 			request.setAttribute("JSONRPC_METHOD", ((McpSchema.JSONRPCNotification) message).method());
-		} else {
+		}
+		else {
 			request.setAttribute("JSONRPC_METHOD", null);
 		}
 
@@ -1251,9 +1258,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	/**
 	 * Initiates a graceful shutdown of the transport.
 	 * <p>
-	 * This method marks the transport as closing and closes all active client
-	 * sessions. New connection attempts will be rejected during shutdown.
-	 * 
+	 * This method marks the transport as closing and closes all active client sessions.
+	 * New connection attempts will be rejected during shutdown.
 	 * @return A Mono that completes when all sessions have been closed
 	 */
 	@Override
@@ -1280,10 +1286,9 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 	/**
 	 * Sends an SSE event to a client.
-	 * 
-	 * @param writer    The writer to send the event through
+	 * @param writer The writer to send the event through
 	 * @param eventType The type of event (message or endpoint)
-	 * @param data      The event data
+	 * @param data The event data
 	 * @throws IOException If an error occurs while writing the event
 	 */
 	private void sendEvent(PrintWriter writer, String eventType, String data) throws IOException {
@@ -1299,8 +1304,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	/**
 	 * Cleans up resources when the servlet is being destroyed.
 	 * <p>
-	 * This method ensures a graceful shutdown by closing all client connections
-	 * before calling the parent's destroy method.
+	 * This method ensures a graceful shutdown by closing all client connections before
+	 * calling the parent's destroy method.
 	 */
 	@Override
 	public void destroy() {
@@ -1330,10 +1335,9 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 		/**
 		 * Creates a new session transport with the specified ID and SSE writer.
-		 * 
-		 * @param sessionId    The unique identifier for this session
+		 * @param sessionId The unique identifier for this session
 		 * @param asyncContext The async context for the session
-		 * @param writer       The writer for sending server events to the client
+		 * @param writer The writer for sending server events to the client
 		 */
 		HttpServletMcpSessionTransport(String sessionId, AsyncContext asyncContext, PrintWriter writer) {
 			this.sessionId = sessionId;
@@ -1375,7 +1379,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 								sessionId, null, pendingm, statusm, null);
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
-					} else {
+					}
+					else {
 						connectionClosed = true;
 						// Closed with no pending: put pending in corr, status in outcome
 						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
@@ -1413,17 +1418,19 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 						closeSessionWithDrain(sessionId, asyncContext);
 						disposeHeartbeat();
 
-					} else {
+					}
+					else {
 
-						   // Nessun pending: NON chiudere/completare immediatamente.
-						    connectionClosed = true;
+						// Nessun pending: NON chiudere/completare immediatamente.
+						connectionClosed = true;
 
-						    // Pianifica la chiusura differita (grace window = max(WRITE_ERROR_GRACE_MS, requestTimeout))
-						    scheduleDeferredClose("onError");
+						// Pianifica la chiusura differita (grace window =
+						// max(WRITE_ERROR_GRACE_MS, requestTimeout))
+						scheduleDeferredClose("onError");
 
-						    // Ferma l'heartbeat subito per evitare ulteriori scritture sul writer
-						    disposeHeartbeat();
-
+						// Ferma l'heartbeat subito per evitare ulteriori scritture sul
+						// writer
+						disposeHeartbeat();
 
 					}
 				}
@@ -1447,7 +1454,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 							logger.warn(
 									"SERVER SSE heartbeat detected writer error (first time): sessionId={}, thread={}, will wait {}ms before closing",
 									sessionId, Thread.currentThread().getName(), WRITE_ERROR_GRACE_MS);
-						} else if (now - lastWriteErrorAt > WRITE_ERROR_GRACE_MS) {
+						}
+						else if (now - lastWriteErrorAt > WRITE_ERROR_GRACE_MS) {
 							logger.warn(
 									"SERVER SSE heartbeat detected persistent writer error: sessionId={}, thread={} - closing after grace",
 									sessionId, Thread.currentThread().getName());
@@ -1456,7 +1464,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 							disposeHeartbeat();
 						}
 					}
-				} catch (Exception e) {
+				}
+				catch (Exception e) {
 					logger.debug("SERVER SSE heartbeat failed for session {}: {}", sessionId, e.getMessage());
 				}
 			}, 2L, 2L, TimeUnit.SECONDS);
@@ -1468,14 +1477,14 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 				if (this.heartbeat != null && !this.heartbeat.isDisposed()) {
 					this.heartbeat.dispose();
 				}
-			} catch (Exception e) {
+			}
+			catch (Exception e) {
 				logger.debug("Failed to dispose heartbeat for session {}: {}", this.sessionId, e.getMessage());
 			}
 		}
 
 		/**
 		 * Sends a JSON-RPC message to the client through the SSE connection.
-		 * 
 		 * @param message The JSON-RPC message to send
 		 * @return A Mono that completes when the message has been sent
 		 */
@@ -1500,14 +1509,17 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 					if (message instanceof McpSchema.JSONRPCRequest) {
 						kind = "REQUEST";
 						id = ((McpSchema.JSONRPCRequest) message).id();
-					} else if (message instanceof McpSchema.JSONRPCResponse) {
+					}
+					else if (message instanceof McpSchema.JSONRPCResponse) {
 						kind = "RESPONSE";
 						id = ((McpSchema.JSONRPCResponse) message).id();
 						isResponse = true;
-					} else if (message instanceof McpSchema.JSONRPCNotification) {
+					}
+					else if (message instanceof McpSchema.JSONRPCNotification) {
 						kind = "NOTIFICATION";
 						id = null;
-					} else {
+					}
+					else {
 						kind = "UNKNOWN";
 						id = null;
 					}
@@ -1540,8 +1552,10 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 							if (resp != null) {
 								resp.flushBuffer();
 							}
-						} catch (Exception flushEx) {
-							// Non fatal: sarà gestito dal ramo catch principale se il writer segnala errore
+						}
+						catch (Exception flushEx) {
+							// Non fatal: sarà gestito dal ramo catch principale se il
+							// writer segnala errore
 							logger.debug("SERVER flush after sendEvent failed: {}", flushEx.getMessage());
 						}
 
@@ -1556,7 +1570,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_SEND",
 								sessionId, sendm, corrSend, java.util.Collections.singletonMap("status", "SUCCESS"),
 								null);
-					} catch (Exception e) {
+					}
+					catch (Exception e) {
 						// Writer error / client disconnected
 						final boolean isResp = isResponse;
 						final String kindLocal = kind;
@@ -1564,15 +1579,19 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 						logger.error("Failed to send {} to session {}: {}", kindLocal, sessionId, e.getMessage());
 
 						if (isResp) {
-							// NON chiudere subito: programma una chiusura differita per dare tempo
-							// al client di gestire l'errore in consegna o eventuali POST in-flight.
+							// NON chiudere subito: programma una chiusura differita per
+							// dare tempo
+							// al client di gestire l'errore in consegna o eventuali POST
+							// in-flight.
 							logger.warn(
 									"SERVER SSE send error on RESPONSE: scheduling deferred close (grace) for sessionId={}, thread={}",
 									sessionId, Thread.currentThread().getName());
 
 							scheduleDeferredClose("send-error");
-						} else {
-							// Per REQUEST/NOTIFICATION mantieni la connessione: il client può ancora usare
+						}
+						else {
+							// Per REQUEST/NOTIFICATION mantieni la connessione: il client
+							// può ancora usare
 							// HTTP POST
 							logger.warn(
 									"SERVER SSE send error for {} (keeping connection open): sessionId={}, thread={}",
@@ -1585,15 +1604,15 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 		/**
 		 * Schedules a deferred SSE close with a grace window, taking into account the
-		 * session request timeout when available. Emits a single structured
-		 * S_SSE_CLOSED event upon execution.
-		 *
+		 * session request timeout when available. Emits a single structured S_SSE_CLOSED
+		 * event upon execution.
 		 * @param reason The close reason to include in structured logging.
 		 */
 		private void scheduleDeferredClose(final String reason) {
 			long delayMs = WRITE_ERROR_GRACE_MS;
 			try {
-				// Prefer a conservative grace >= requestTimeout to avoid racing with client
+				// Prefer a conservative grace >= requestTimeout to avoid racing with
+				// client
 				// handling
 				io.modelcontextprotocol.spec.McpServerSession s = sessions.get(sessionId);
 				if (s != null) {
@@ -1602,7 +1621,8 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 						delayMs = rt;
 					}
 				}
-			} catch (Exception ignore) {
+			}
+			catch (Exception ignore) {
 				// fall back to default grace
 			}
 
@@ -1624,16 +1644,19 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 						try {
 							io.modelcontextprotocol.spec.McpServerSession s2 = sessions.get(sid);
 							pending = (s2 == null ? 0 : s2.pendingResponsesCount());
-						} catch (Exception ignored) {
+						}
+						catch (Exception ignored) {
 							/* no-op */ }
 
 						io.modelcontextprotocol.logging.McpLogging.logEvent(logger, "SERVER", "SSE", "S_SSE_CLOSED",
 								sid, null, java.util.Collections.singletonMap("pending", Integer.valueOf(pending)),
 								outcome, null);
 
-						// Close with drain (will complete async context & cleanup heartbeat)
+						// Close with drain (will complete async context & cleanup
+						// heartbeat)
 						closeSessionWithDrain(sid, asyncContext);
-					} finally {
+					}
+					finally {
 						disposeHeartbeat();
 					}
 				}
@@ -1642,10 +1665,9 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 		/**
 		 * Converts data from one type to another using the configured JsonMapper.
-		 * 
-		 * @param data    The source data object to convert
+		 * @param data The source data object to convert
 		 * @param typeRef The target type reference
-		 * @param <T>     The target type
+		 * @param <T> The target type
 		 * @return The converted object of type T
 		 */
 		@Override
@@ -1655,7 +1677,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 		/**
 		 * Initiates a graceful shutdown of the transport.
-		 * 
 		 * @return A Mono that completes when the shutdown is complete
 		 */
 		@Override
@@ -1705,7 +1726,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	/**
 	 * Creates a new Builder instance for configuring and creating instances of
 	 * HttpServletSseServerTransportProvider.
-	 * 
 	 * @return A new Builder instance
 	 */
 	public static Builder builder() {
@@ -1734,10 +1754,9 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		private Duration keepAliveInterval;
 
 		/**
-		 * Sets the JsonMapper implementation to use for serialization/deserialization.
-		 * If not specified, a JacksonJsonMapper will be created from the configured
+		 * Sets the JsonMapper implementation to use for serialization/deserialization. If
+		 * not specified, a JacksonJsonMapper will be created from the configured
 		 * ObjectMapper.
-		 * 
 		 * @param jsonMapper The JsonMapper to use
 		 * @return This builder instance for method chaining
 		 */
@@ -1749,7 +1768,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 		/**
 		 * Sets the base URL for the server transport.
-		 * 
 		 * @param baseUrl The base URL to use
 		 * @return This builder instance for method chaining
 		 */
@@ -1761,7 +1779,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 		/**
 		 * Sets the endpoint path where clients will send their messages.
-		 * 
 		 * @param messageEndpoint The message endpoint path
 		 * @return This builder instance for method chaining
 		 */
@@ -1776,7 +1793,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		 * <p>
 		 * If not specified, the default value of {@link #DEFAULT_SSE_ENDPOINT} will be
 		 * used.
-		 * 
 		 * @param sseEndpoint The SSE endpoint path
 		 * @return This builder instance for method chaining
 		 */
@@ -1788,7 +1804,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 
 		/**
 		 * Sets the context extractor for extracting transport context from the request.
-		 * 
 		 * @param contextExtractor The context extractor to use. Must not be null.
 		 * @return this builder instance
 		 * @throws IllegalArgumentException if contextExtractor is null
@@ -1804,7 +1819,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		 * Sets the interval for keep-alive pings.
 		 * <p>
 		 * If not specified, keep-alive pings will be disabled.
-		 * 
 		 * @param keepAliveInterval The interval duration for keep-alive pings
 		 * @return This builder instance for method chaining
 		 */
@@ -1816,7 +1830,6 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		/**
 		 * Builds a new instance of HttpServletSseServerTransportProvider with the
 		 * configured settings.
-		 * 
 		 * @return A new HttpServletSseServerTransportProvider instance
 		 * @throws IllegalStateException if jsonMapper or messageEndpoint is not set
 		 */
